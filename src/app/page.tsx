@@ -6,10 +6,9 @@ import type { RiskAssessment, RiskAssessmentStatus } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData'; 
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon } from 'lucide-react'; // Added ShipIcon
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +16,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from '@/components/ui/badge';
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified';
 type SortDirection = 'asc' | 'desc';
@@ -26,7 +27,7 @@ const sortOptions: { value: SortKey; label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date' },
   { value: 'lastModified', label: 'Last Modified' },
   { value: 'status', label: 'Status' },
-  { value: 'vesselName', label: 'Vessel Name' }, // Technically vesselName sort will be implicit due to grouping, but kept for consistency
+  { value: 'vesselName', label: 'Vessel Name' },
 ];
 
 const ALL_STATUSES: RiskAssessmentStatus[] = [
@@ -43,13 +44,21 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
 export default function DashboardPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RiskAssessmentStatus | 'all'>('all');
+  const [selectedStatuses, setSelectedStatuses] = useState<RiskAssessmentStatus[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     setAssessments(mockRiskAssessments);
   }, []);
+
+  const handleStatusChange = (status: RiskAssessmentStatus) => {
+    setSelectedStatuses(prev =>
+      prev.includes(status)
+        ? prev.filter(s => s !== status)
+        : [...prev, status]
+    );
+  };
 
   const groupedAndSortedAssessments = useMemo(() => {
     let filtered = assessments;
@@ -63,8 +72,8 @@ export default function DashboardPage() {
       );
     }
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(assessment => assessment.status === statusFilter);
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(assessment => selectedStatuses.includes(assessment.status));
     }
 
     const sortedAssessments = [...filtered].sort((a, b) => {
@@ -82,7 +91,7 @@ export default function DashboardPage() {
           valA = a.status;
           valB = b.status;
           break;
-        case 'vesselName': // This sort key will primarily affect order within groups if not already sorted by vessel name
+        case 'vesselName':
           valA = a.vesselName.toLowerCase();
           valB = b.vesselName.toLowerCase();
           break;
@@ -92,8 +101,7 @@ export default function DashboardPage() {
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      // Secondary sort by submission date if primary keys are equal (e.g. two items with same status)
-      if (a.submissionTimestamp < b.submissionTimestamp) return 1; // Newest first for secondary
+      if (a.submissionTimestamp < b.submissionTimestamp) return 1;
       if (a.submissionTimestamp > b.submissionTimestamp) return -1;
       return 0;
     });
@@ -107,26 +115,28 @@ export default function DashboardPage() {
       return acc;
     }, {} as Record<string, RiskAssessment[]>);
 
-    // Sort vessel groups by vessel name alphabetically
     const sortedVesselGroups = Object.entries(groupedByVessel).sort(([vesselA], [vesselB]) => 
       vesselA.localeCompare(vesselB)
     );
     
     return sortedVesselGroups;
 
-  }, [assessments, searchTerm, statusFilter, sortKey, sortDirection]);
+  }, [assessments, searchTerm, selectedStatuses, sortKey, sortDirection]);
 
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('asc'); // Default to asc when changing sort key
+      setSortDirection('asc');
     }
   }, [sortKey]);
 
   
   const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.label || 'Sort';
+  const statusFilterLabel = selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length
+    ? 'All Statuses'
+    : `${selectedStatuses.length} Selected`;
 
   return (
     <div className="space-y-6">
@@ -157,24 +167,36 @@ export default function DashboardPage() {
               </Button>
             )}
           </div>
-
-          <Select value={statusFilter} onValueChange={(value: RiskAssessmentStatus | 'all') => setStatusFilter(value)}>
-            <SelectTrigger className="w-full text-sm" aria-label="Filter by status">
-              <div className="flex items-center gap-2">
-                <ListFilter className="h-4 w-4 text-muted-foreground" />
-                <SelectValue placeholder="Filter by status" />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectLabel>Filter by Status</SelectLabel>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {ALL_STATUSES.map(status => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label="Filter by status">
+                 <div className="flex items-center gap-2">
+                  <ListFilter className="h-4 w-4 text-muted-foreground" />
+                  <span>Filter by Status</span>
+                </div>
+                {selectedStatuses.length > 0 && <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">{statusFilterLabel}</Badge>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ALL_STATUSES.map(status => (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={selectedStatuses.includes(status)}
+                  onCheckedChange={() => handleStatusChange(status)}
+                  onSelect={(e) => e.preventDefault()} // Prevent closing on select
+                >
+                  {status}
+                </DropdownMenuCheckboxItem>
+              ))}
+               <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setSelectedStatuses([])} disabled={selectedStatuses.length === 0}>
+                  Clear Filters
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -201,7 +223,7 @@ export default function DashboardPage() {
       </Card>
 
       {groupedAndSortedAssessments.length > 0 ? (
-        <div className="space-y-8"> {/* Container for all vessel groups */}
+        <div className="space-y-8">
           {groupedAndSortedAssessments.map(([vesselName, vesselAssessments]) => (
             <section key={vesselName} aria-labelledby={`vessel-group-${vesselName.replace(/\s+/g, '-').toLowerCase()}`}>
               <div className="flex items-center gap-3 mb-4 pb-2 border-b">
