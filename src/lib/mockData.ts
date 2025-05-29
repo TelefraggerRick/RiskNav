@@ -1,0 +1,100 @@
+import type { RiskAssessment } from './types';
+
+const now = new Date();
+const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+export const mockRiskAssessments: RiskAssessment[] = [
+  {
+    id: 'ra-001',
+    referenceNumber: 'CCG-RA-2024-001',
+    vesselName: 'CCGS Amundsen',
+    vesselIMO: '9275052',
+    voyageDetails: 'Arctic Survey Mission, Resolute Bay to Kugluktuk, Departs 2024-07-15',
+    reasonForRequest: 'Sailing with one less certified navigation officer.',
+    personnelShortages: 'Missing 1x Navigational Watch Rating (NWR). Current NWR has exceeded work hours.',
+    proposedOperationalDeviations: 'Master to take additional watch duty. Increased rest periods for remaining NWR.',
+    submittedBy: 'Capt. Eva Rostova',
+    submissionDate: twoDaysAgo.toISOString(),
+    submissionTimestamp: twoDaysAgo.getTime(),
+    status: 'Pending',
+    attachments: [
+      { id: 'att-001', name: 'Crew_Manifest_Amundsen.pdf', url: '#', type: 'application/pdf', size: 102400, uploadedAt: twoDaysAgo.toISOString() },
+      { id: 'att-002', name: 'Deviation_Request_Form_001.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 51200, uploadedAt: twoDaysAgo.toISOString() },
+    ],
+    lastModified: twoDaysAgo.toISOString(),
+    lastModifiedTimestamp: twoDaysAgo.getTime(),
+  },
+  {
+    id: 'ra-002',
+    referenceNumber: 'CCG-RA-2024-002',
+    vesselName: 'CCGS Terry Fox',
+    vesselIMO: '8127719',
+    voyageDetails: 'Icebreaking Escort, St. John\'s to Strait of Belle Isle, Departs 2024-07-10',
+    reasonForRequest: 'Chief Engineer certificate expired, renewal pending.',
+    personnelShortages: 'Chief Engineer\'s CoC (Certificate of Competency) expired 2 days ago. Renewal paperwork submitted, awaiting issuance.',
+    proposedOperationalDeviations: 'Second Engineer (holding valid CoC for the role) to assume Chief Engineer duties under remote supervision from shore-based Senior Chief Engineer. Daily operational checks to be reported.',
+    submittedBy: 'Chief Officer L. Moreau',
+    submissionDate: oneDayAgo.toISOString(),
+    submissionTimestamp: oneDayAgo.getTime(),
+    status: 'Under Review',
+    attachments: [
+      { id: 'att-003', name: 'TerryFox_CE_CoC_Expired.pdf', url: '#', type: 'application/pdf', size: 76800, uploadedAt: oneDayAgo.toISOString() },
+      { id: 'att-004', name: 'Renewal_Application_Confirmation.png', dataAiHint:"document scan", url: 'https://placehold.co/150x100.png', type: 'image/png', size: 120000, uploadedAt: oneDayAgo.toISOString() },
+    ],
+    aiRiskScore: 65,
+    aiSuggestedMitigations: 'Ensure constant communication link with shore-based Senior Chief Engineer. Implement a buddy system for critical engine room tasks. Limit vessel operations to daylight hours if possible until CoC is renewed.',
+    aiRegulatoryConsiderations: 'Refer to Marine Personnel Regulations SOR/2007-115, Part 2, Division 7 regarding manning and certification. Exemption may be required under specific circumstances.',
+    lastModified: oneDayAgo.toISOString(),
+    lastModifiedTimestamp: oneDayAgo.getTime(),
+  },
+  {
+    id: 'ra-003',
+    referenceNumber: 'CCG-RA-2024-003',
+    vesselName: 'CCGS Ann Harvey',
+    vesselIMO: '8320442',
+    voyageDetails: 'SAR Patrol, Halifax Sector, Continuous Operations',
+    reasonForRequest: 'Proposed reduction in minimum watchkeeping personnel during non-critical phases.',
+    personnelShortages: 'No current shortage, but proposing a deviation to standard watchkeeping levels to manage crew fatigue on extended patrols.',
+    proposedOperationalDeviations: 'During daylight hours and in clear weather (Visibility > 5NM, Wind < Force 4), reduce bridge watch to one certified officer and one lookout, from standard two officers and one lookout. Engine room to remain UMS (Unmanned Machinery Spaces) capable.',
+    submittedBy: 'Master J. Kendrick',
+    submissionDate: threeDaysAgo.toISOString(),
+    submissionTimestamp: threeDaysAgo.getTime(),
+    status: 'Approved',
+    attachments: [
+       { id: 'att-005', name: 'FatigueManagementPlan_AnnHarvey.pdf', url: '#', type: 'application/pdf', size: 204800, uploadedAt: threeDaysAgo.toISOString() },
+    ],
+    aiRiskScore: 30,
+    aiGeneratedSummary: "Request for reduced watchkeeping on CCGS Ann Harvey during favorable conditions to manage crew fatigue. Proposes one officer and one lookout on bridge.",
+    aiSuggestedMitigations: 'Implement strict criteria for "non-critical phases". Ensure immediate recall capability for full watch team. Regular fatigue assessments for watchkeepers.',
+    aiRegulatoryConsiderations: 'Compliance with STCW Code Chapter VIII and Marine Personnel Regulations regarding watchkeeping arrangements and prevention of fatigue.',
+    approvalDetails: {
+      approvedBy: 'Supt. A. Singh',
+      approvalDate: oneDayAgo.toISOString(),
+      notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.',
+      decision: 'Approved',
+    },
+    lastModified: oneDayAgo.toISOString(),
+    lastModifiedTimestamp: oneDayAgo.getTime(),
+  },
+  {
+    id: 'ra-004',
+    referenceNumber: 'CCG-RA-2024-004',
+    vesselName: 'CCGS Gordon Reid',
+    vesselIMO: '8320454',
+    voyageDetails: 'Fisheries Patrol, West Coast Vancouver Island, Departs 2024-07-12',
+    reasonForRequest: 'Medical evacuation of one Able Seaman, replacement not immediately available.',
+    personnelShortages: 'One Able Seaman (AS) medevaced. Vessel will be short one AS for approximately 48-72 hours.',
+    proposedOperationalDeviations: 'Remaining deck crew to absorb duties. Non-essential maintenance postponed. Mooring operations to be conducted with extra caution and supervision.',
+    submittedBy: 'First Mate P. Davies',
+    submissionDate: now.toISOString(),
+    submissionTimestamp: now.getTime(),
+    status: 'Pending',
+    attachments: [
+      { id: 'att-006', name: 'Medevac_Report_GR001.pdf', url: '#', type: 'application/pdf', size: 95000, uploadedAt: now.toISOString() },
+    ],
+    lastModified: now.toISOString(),
+    lastModifiedTimestamp: now.getTime(),
+  }
+];
