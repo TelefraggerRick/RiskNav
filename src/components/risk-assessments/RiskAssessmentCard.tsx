@@ -11,19 +11,19 @@ interface RiskAssessmentCardProps {
   assessment: RiskAssessment;
 }
 
-const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, colorClass: string, textColorClass: string, badgeVariant?: "default" | "secondary" | "destructive" | "outline" }> = {
-  'Draft': { icon: Edit, colorClass: 'bg-gray-500 hover:bg-gray-600', textColorClass: 'text-gray-700', badgeVariant: 'secondary' },
-  'Pending Crewing Standards and Oversight': { icon: Building, colorClass: 'bg-yellow-500 hover:bg-yellow-600', textColorClass: 'text-yellow-700', badgeVariant: 'secondary' },
-  'Pending Senior Director': { icon: UserCheck, colorClass: 'bg-cyan-500 hover:bg-cyan-600', textColorClass: 'text-cyan-700', badgeVariant: 'secondary' },
-  'Pending Director General': { icon: UserIcon, colorClass: 'bg-purple-500 hover:bg-purple-600', textColorClass: 'text-purple-700', badgeVariant: 'secondary' },
-  'Needs Information': { icon: FileWarning, colorClass: 'bg-orange-500 hover:bg-orange-600', textColorClass: 'text-orange-700', badgeVariant: 'secondary' },
-  'Approved': { icon: CheckCircle2, colorClass: 'bg-green-500 hover:bg-green-600', textColorClass: 'text-green-700', badgeVariant: 'default' },
-  'Rejected': { icon: XCircle, colorClass: 'bg-red-500 hover:bg-red-600', textColorClass: 'text-red-700', badgeVariant: 'destructive' },
+const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string }> = {
+  'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300' },
+  'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400' },
+  'Pending Senior Director': { icon: UserCheck, badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-400' },
+  'Pending Director General': { icon: UserIcon, badgeClass: 'bg-purple-100 text-purple-800 border border-purple-400' },
+  'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-800 border border-orange-400' },
+  'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-800 border border-green-400' },
+  'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-800 border border-red-400' },
 };
 
 
 export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardProps) {
-  const config = statusConfig[assessment.status] || { icon: Info, colorClass: 'bg-gray-500 hover:bg-gray-600', textColorClass: 'text-gray-700', badgeVariant: 'outline' };
+  const config = statusConfig[assessment.status] || { icon: Info, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300' };
   const StatusIcon = config.icon;
 
   return (
@@ -34,9 +34,8 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
             <Ship className="h-5 w-5 shrink-0" />
             <span className="truncate" title={assessment.vesselName}>{assessment.vesselName}</span>
           </CardTitle>
-          <Badge 
-            variant={config.badgeVariant || 'default'}
-            className={`text-xs px-2 py-1 whitespace-nowrap ${config.badgeVariant ? '' : config.colorClass + ' text-primary-foreground border-transparent'}`}
+          <Badge
+            className={`text-xs px-2 py-1 whitespace-nowrap rounded-md font-medium ${config.badgeClass}`}
           >
             <StatusIcon className="h-3 w-3 mr-1" />
             {assessment.status}
@@ -74,3 +73,4 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
     </Card>
   );
 }
+

@@ -19,7 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from '@/hooks/use-toast';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
-import { cn } from "@/lib/utils"; // Added import for cn
+import { cn } from "@/lib/utils";
 // import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog'; // To be created
 
 const handleDownloadAttachment = (attachment: Attachment) => {
@@ -170,13 +170,13 @@ export default function AssessmentDetailPage() {
   }
 
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
-    'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
-    'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-700 border-yellow-300', progressClass: '[&>div]:bg-yellow-500' },
-    'Pending Senior Director': { icon: UserCheckIcon, badgeClass: 'bg-cyan-100 text-cyan-700 border-cyan-300', progressClass: '[&>div]:bg-cyan-500' },
-    'Pending Director General': { icon: UserCircle, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300', progressClass: '[&>div]:bg-purple-500' },
-    'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-700 border-orange-300', progressClass: '[&>div]:bg-orange-500' },
-    'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-700 border-green-300', progressClass: '[&>div]:bg-green-500' },
-    'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-700 border-red-300', progressClass: '[&>div]:bg-red-500' },
+    'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300', progressClass: '[&>div]:bg-gray-500' },
+    'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400', progressClass: '[&>div]:bg-yellow-500' },
+    'Pending Senior Director': { icon: UserCheckIcon, badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-400', progressClass: '[&>div]:bg-cyan-500' },
+    'Pending Director General': { icon: UserCircle, badgeClass: 'bg-purple-100 text-purple-800 border border-purple-400', progressClass: '[&>div]:bg-purple-500' },
+    'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-800 border border-orange-400', progressClass: '[&>div]:bg-orange-500' },
+    'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-800 border border-green-400', progressClass: '[&>div]:bg-green-500' },
+    'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-800 border border-red-400', progressClass: '[&>div]:bg-red-500' },
   };
   const currentStatusConfig = statusConfig[assessment.status] || { icon: HelpCircle, badgeClass: 'bg-gray-200 text-gray-800' };
   const StatusIcon = currentStatusConfig.icon;
@@ -207,7 +207,7 @@ export default function AssessmentDetailPage() {
   
   const YesNoIcon = ({ value }: { value?: YesNoOptional }) => {
     if (value === 'Yes') return <CheckSquare className="h-4 w-4 text-green-600 inline-block mr-1" />;
-    if (value === 'No') return <Square className="h-4 w-4 text-red-600 inline-block mr-1" />; // Using Square for 'No' to differentiate
+    if (value === 'No') return <Square className="h-4 w-4 text-red-600 inline-block mr-1" />;
     return <HelpCircle className="h-4 w-4 text-muted-foreground inline-block mr-1" />;
   };
 
@@ -394,12 +394,22 @@ export default function AssessmentDetailPage() {
                             {step.level}
                           </span>
                           {step.decision ? (
-                            <Badge variant={step.decision === 'Approved' ? 'default' : step.decision === 'Rejected' ? 'destructive' : 'secondary'} className="text-xs">
+                            <Badge
+                              variant={
+                                step.decision === 'Rejected' ? 'destructive' :
+                                'outline' // Base for Approved and Needs Info
+                              }
+                              className={`text-xs px-2 py-0.5 rounded-sm ${ // Adjusted padding
+                                step.decision === 'Approved' ? 'bg-green-100 text-green-800 border-green-400' :
+                                step.decision === 'Needs Information' ? 'bg-orange-100 text-orange-800 border-orange-400' :
+                                '' // Destructive variant handles styling for Rejected
+                              }`}
+                            >
                               {step.decision}
                             </Badge>
                           ) : ( step.level === currentLevelToAct ? 
-                            <Badge variant="outline" className="border-yellow-400 text-yellow-600">Pending Action</Badge> 
-                            : <Badge variant="outline">Queued</Badge>
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">Pending Action</Badge> 
+                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm">Queued</Badge>
                           )}
                         </CardTitle>
                       </CardHeader>
