@@ -4,7 +4,7 @@ import type { RiskAssessment, RiskAssessmentStatus } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Edit, Building, UserCheck, UserCircle as UserIcon, FileWarning } from 'lucide-react'; // Added UserIcon alias
+import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Edit, Building, UserCheck, UserCircle as UserIcon, FileWarning, Globe } from 'lucide-react'; // Added Globe
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface RiskAssessmentCardProps {
@@ -41,7 +41,16 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
             {assessment.status}
           </Badge>
         </div>
-        <CardDescription className="text-xs text-muted-foreground pt-1">{assessment.referenceNumber}</CardDescription>
+        <CardDescription className="text-xs text-muted-foreground pt-1 flex items-center gap-1">
+          {assessment.referenceNumber}
+          {assessment.region && (
+            <>
+              <span className="mx-1">·</span>
+              <Globe className="h-3 w-3 inline-block mr-0.5" />
+              {assessment.region}
+            </>
+          )}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow space-y-2 text-sm py-3">
         <div className="space-y-1">
@@ -73,4 +82,3 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
     </Card>
   );
 }
-
