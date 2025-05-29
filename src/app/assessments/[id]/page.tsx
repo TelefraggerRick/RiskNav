@@ -39,7 +39,7 @@ const handleDownloadAttachment = (attachment: Attachment) => {
   }
 };
 
-const approvalLevelsOrder: ApprovalLevel[] = ['Vessel Certificates', 'Senior Director', 'Director General'];
+const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 export default function AssessmentDetailPage() {
   const params = useParams();
@@ -158,7 +158,7 @@ export default function AssessmentDetailPage() {
 
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
     'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
-    'Pending Vessel Certificates': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-700 border-yellow-300', progressClass: '[&>div]:bg-yellow-500' },
+    'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-700 border-yellow-300', progressClass: '[&>div]:bg-yellow-500' },
     'Pending Senior Director': { icon: UserCheck, badgeClass: 'bg-cyan-100 text-cyan-700 border-cyan-300', progressClass: '[&>div]:bg-cyan-500' },
     'Pending Director General': { icon: UserCircle, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300', progressClass: '[&>div]:bg-purple-500' },
     'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-700 border-orange-300', progressClass: '[&>div]:bg-orange-500' },

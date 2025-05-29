@@ -31,7 +31,7 @@ const sortOptions: { value: SortKey; label: string }[] = [
 
 const ALL_STATUSES: RiskAssessmentStatus[] = [
   'Draft', 
-  'Pending Vessel Certificates', 
+  'Pending Crewing Standards and Oversight', 
   'Pending Senior Director', 
   'Pending Director General', 
   'Needs Information', 

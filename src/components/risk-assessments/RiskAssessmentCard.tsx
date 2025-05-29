@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import type { RiskAssessment, RiskAssessmentStatus } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -12,7 +13,7 @@ interface RiskAssessmentCardProps {
 
 const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, colorClass: string, textColorClass: string, badgeVariant?: "default" | "secondary" | "destructive" | "outline" }> = {
   'Draft': { icon: Edit, colorClass: 'bg-gray-500 hover:bg-gray-600', textColorClass: 'text-gray-700', badgeVariant: 'secondary' },
-  'Pending Vessel Certificates': { icon: Building, colorClass: 'bg-yellow-500 hover:bg-yellow-600', textColorClass: 'text-yellow-700', badgeVariant: 'secondary' },
+  'Pending Crewing Standards and Oversight': { icon: Building, colorClass: 'bg-yellow-500 hover:bg-yellow-600', textColorClass: 'text-yellow-700', badgeVariant: 'secondary' },
   'Pending Senior Director': { icon: UserCheck, colorClass: 'bg-cyan-500 hover:bg-cyan-600', textColorClass: 'text-cyan-700', badgeVariant: 'secondary' },
   'Pending Director General': { icon: UserIcon, colorClass: 'bg-purple-500 hover:bg-purple-600', textColorClass: 'text-purple-700', badgeVariant: 'secondary' },
   'Needs Information': { icon: FileWarning, colorClass: 'bg-orange-500 hover:bg-orange-600', textColorClass: 'text-orange-700', badgeVariant: 'secondary' },

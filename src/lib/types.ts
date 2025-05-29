@@ -1,3 +1,4 @@
+
 export interface Attachment {
   id: string;
   name: string;
@@ -9,7 +10,7 @@ export interface Attachment {
 }
 
 export type ApprovalDecision = 'Approved' | 'Rejected' | 'Needs Information';
-export type ApprovalLevel = 'Vessel Certificates' | 'Senior Director' | 'Director General';
+export type ApprovalLevel = 'Crewing Standards and Oversight' | 'Senior Director' | 'Director General';
 
 export interface ApprovalStep {
   level: ApprovalLevel;
@@ -22,7 +23,7 @@ export interface ApprovalStep {
 
 export type RiskAssessmentStatus =
   | 'Draft'
-  | 'Pending Vessel Certificates'
+  | 'Pending Crewing Standards and Oversight'
   | 'Pending Senior Director'
   | 'Pending Director General'
   | 'Needs Information'

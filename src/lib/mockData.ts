@@ -1,3 +1,4 @@
+
 import type { RiskAssessment, ApprovalStep } from './types';
 
 const now = new Date();
@@ -7,7 +8,7 @@ const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 const fourDaysAgo = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
 
 const initialApprovalSteps: ApprovalStep[] = [
-  { level: 'Vessel Certificates' },
+  { level: 'Crewing Standards and Oversight' },
   { level: 'Senior Director' },
   { level: 'Director General' },
 ];
@@ -25,13 +26,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     submittedBy: 'Capt. Eva Rostova',
     submissionDate: twoDaysAgo.toISOString(),
     submissionTimestamp: twoDaysAgo.getTime(),
-    status: 'Pending Vessel Certificates',
+    status: 'Pending Crewing Standards and Oversight',
     attachments: [
       { id: 'att-001', name: 'Crew_Manifest_Amundsen.pdf', url: '#', type: 'application/pdf', size: 102400, uploadedAt: twoDaysAgo.toISOString() },
       { id: 'att-002', name: 'Deviation_Request_Form_001.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 51200, uploadedAt: twoDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Vessel Certificates' }, // Pending this step
+      { level: 'Crewing Standards and Oversight' }, // Pending this step
       { level: 'Senior Director' },
       { level: 'Director General' },
     ],
@@ -50,13 +51,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     submittedBy: 'Chief Officer L. Moreau',
     submissionDate: oneDayAgo.toISOString(),
     submissionTimestamp: oneDayAgo.getTime(),
-    status: 'Pending Senior Director', // Vessel Certs approved, now pending SD
+    status: 'Pending Senior Director', 
     attachments: [
       { id: 'att-003', name: 'TerryFox_CE_CoC_Expired.pdf', url: '#', type: 'application/pdf', size: 76800, uploadedAt: oneDayAgo.toISOString() },
       { id: 'att-004', name: 'Renewal_Application_Confirmation.png', dataAiHint:"document scan", url: 'https://placehold.co/150x100.png', type: 'image/png', size: 120000, uploadedAt: oneDayAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Vessel Certificates', decision: 'Approved', userName: 'VC Approver', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable.' },
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Approver', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable.' },
       { level: 'Senior Director' }, // Pending this step
       { level: 'Director General' },
     ],
@@ -78,13 +79,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     submittedBy: 'Master J. Kendrick',
     submissionDate: threeDaysAgo.toISOString(),
     submissionTimestamp: threeDaysAgo.getTime(),
-    status: 'Approved', // Fully approved
+    status: 'Approved', 
     attachments: [
        { id: 'att-005', name: 'FatigueManagementPlan_AnnHarvey.pdf', url: '#', type: 'application/pdf', size: 204800, uploadedAt: threeDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Vessel Certificates', decision: 'Approved', userName: 'VC Team Lead', date: twoDaysAgo.toISOString(), notes: 'Acceptable under proposed conditions.'},
-      { level: 'Senior Director', decision: 'Approved', userName: 'SD maritime Ops', date: oneDayAgo.toISOString(), notes: 'Concur with VC assessment. Emphasize strict adherence.'},
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Team Lead', date: twoDaysAgo.toISOString(), notes: 'Acceptable under proposed conditions.'},
+      { level: 'Senior Director', decision: 'Approved', userName: 'SD maritime Ops', date: oneDayAgo.toISOString(), notes: 'Concur with CSO assessment. Emphasize strict adherence.'},
       { level: 'Director General', decision: 'Approved', userName: 'DG Ops', date: oneDayAgo.toISOString(), notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.'},
     ],
     aiRiskScore: 30,
@@ -106,12 +107,12 @@ export const mockRiskAssessments: RiskAssessment[] = [
     submittedBy: 'First Mate P. Davies',
     submissionDate: now.toISOString(),
     submissionTimestamp: now.getTime(),
-    status: 'Pending Vessel Certificates',
+    status: 'Pending Crewing Standards and Oversight',
     attachments: [
       { id: 'att-006', name: 'Medevac_Report_GR001.pdf', url: '#', type: 'application/pdf', size: 95000, uploadedAt: now.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Vessel Certificates' }, // Pending this step
+      { level: 'Crewing Standards and Oversight' }, // Pending this step
       { level: 'Senior Director' },
       { level: 'Director General' },
     ],
@@ -130,13 +131,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     submittedBy: 'Capt. Sarah Chen',
     submissionDate: fourDaysAgo.toISOString(),
     submissionTimestamp: fourDaysAgo.getTime(),
-    status: 'Rejected', // Rejected by Senior Director
+    status: 'Rejected', 
     attachments: [
       { id: 'att-007', name: 'Gyro_Maintenance_Report.pdf', url: '#', type: 'application/pdf', size: 150000, uploadedAt: fourDaysAgo.toISOString() },
       { id: 'att-008', name: 'Proposed_Nav_Procedures.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 65000, uploadedAt: fourDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Vessel Certificates', decision: 'Approved', userName: 'VC Tech Services', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.'},
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Tech Services', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.'},
       { level: 'Senior Director', decision: 'Rejected', userName: 'SD Navigational Safety', date: twoDaysAgo.toISOString(), notes: 'Operating on magnetic compass alone in the Great Lakes poses too high a risk. Gyro must be repaired or vessel operations significantly curtailed to daylight, clear weather, and open waters only.'},
       { level: 'Director General' }, // Not reached
     ],
