@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from '@/hooks/use-toast';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
+import { cn } from "@/lib/utils"; // Added import for cn
 // import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog'; // To be created
 
 const handleDownloadAttachment = (attachment: Attachment) => {
@@ -47,12 +48,12 @@ const SectionTitle: React.FC<{ icon: React.ElementType; title: string; className
   </h3>
 );
 
-const DetailItem: React.FC<{ label: string; value?: string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean }> = ({ label, value, isPreformatted = false, fullWidth = false }) => {
+const DetailItem: React.FC<{ label: string; value?: React.ReactNode | string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean }> = ({ label, value, isPreformatted = false, fullWidth = false }) => {
   if (value === undefined || value === null || value === '') return null;
   return (
     <div className={fullWidth ? "md:col-span-2" : ""}>
       <strong className="font-medium text-muted-foreground block mb-0.5">{label}:</strong>
-      {isPreformatted ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{value}</p> : <p className="text-sm leading-relaxed">{value}</p>}
+      {isPreformatted && typeof value === 'string' ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{value}</p> : <div className="text-sm leading-relaxed">{value}</div>}
     </div>
   );
 };
@@ -470,3 +471,6 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+
+
+    
