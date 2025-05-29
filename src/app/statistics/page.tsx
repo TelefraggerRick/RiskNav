@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { mockRiskAssessments } from '@/lib/mockData';
 import type { RiskAssessment, VesselRegion, VesselDepartment, RiskAssessmentStatus } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'; // Added Cell
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ export default function StatisticsPage() {
   const [totalAssessments, setTotalAssessments] = useState(0);
   const [assessmentsByRegion, setAssessmentsByRegion] = useState<ChartDataItem[]>([]);
   const [assessmentsByDepartment, setAssessmentsByDepartment] = useState<ChartDataItem[]>([]);
-  const [assessmentsByStatus, setAssessmentsByStatus] = useState<ChartDataItem[]>([]);
+  const [assessmentsByStatusData, setAssessmentsByStatusData] = useState<ChartDataItem[]>([]); // Renamed for clarity
 
   useEffect(() => {
     const data: RiskAssessment[] = mockRiskAssessments;
@@ -59,7 +59,7 @@ export default function StatisticsPage() {
     data.forEach(assessment => {
       statusCounts[assessment.status] = (statusCounts[assessment.status] || 0) + 1;
     });
-    setAssessmentsByStatus(Object.entries(statusCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total));
+    setAssessmentsByStatusData(Object.entries(statusCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total));
 
   }, []);
 
@@ -70,16 +70,18 @@ export default function StatisticsPage() {
     },
   } satisfies ChartConfig;
   
-  const statusChartConfig = useMemo(() => {
+  // This config is used by ChartContainer for the status chart.
+  // It maps status names (e.g., "Approved") to their display properties.
+  const statusDisplayConfig = useMemo(() => {
     const config: ChartConfig = {};
-    assessmentsByStatus.forEach((item, index) => {
-        config[item.name] = {
+    assessmentsByStatusData.forEach((item, index) => {
+        config[item.name] = { // item.name is the status like "Approved", "Rejected"
             label: item.name,
             color: chartColorHSL(`chart-${(index % 5) + 1}` as "chart-1" | "chart-2" | "chart-3" | "chart-4" | "chart-5")
-        }
+        };
     });
     return config;
-  }, [assessmentsByStatus]);
+  }, [assessmentsByStatusData]);
 
 
   const renderBarChart = (
@@ -87,8 +89,8 @@ export default function StatisticsPage() {
     title: string, 
     description: string,
     Icon: React.ElementType,
-    chartConfig: ChartConfig = commonChartConfig,
-    dataKey: string = "total"
+    chartConfig: ChartConfig = commonChartConfig, // Default to commonChartConfig
+    dataKey: string = "total" // Default dataKey for simple charts
   ) => (
     <Card className="shadow-lg rounded-lg">
       <CardHeader>
@@ -101,7 +103,7 @@ export default function StatisticsPage() {
       <CardContent className="h-[300px] sm:h-[350px] w-full">
         <ChartContainer config={chartConfig} className="w-full h-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ right: 20, left: 30 }}>
+            <BarChart data={data} layout="vertical" margin={{ right: 20, left: title === "Assessments by Status" ? 150 : 100 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" allowDecimals={false} />
               <YAxis 
@@ -109,14 +111,26 @@ export default function StatisticsPage() {
                 type="category" 
                 tickLine={false} 
                 axisLine={false} 
-                width={100}
+                width={title === "Assessments by Status" ? 150 : 100}
                 tick={{ fontSize: 12 }}
               />
               <Tooltip
                 cursor={{ fill: "hsl(var(--muted))" }}
-                content={<ChartTooltipContent hideLabel />}
+                content={<ChartTooltipContent />} // Let default content handle it
               />
-              <Bar dataKey={dataKey} fill={chartConfig[dataKey]?.color || chartColorHSL("chart-1")} radius={4} barSize={30} />
+              <Bar dataKey={dataKey} radius={4} barSize={30}>
+                 {/* For charts where each bar segment might need a different color based on its data item */}
+                {title === "Assessments by Status" && data.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${entry.name}-${index}`} 
+                    fill={statusDisplayConfig[entry.name]?.color || chartColorHSL("chart-1")}
+                  />
+                ))}
+                {/* For simple charts with a single color bar series, no Cells needed if color is on <Bar /> */}
+                {(title !== "Assessments by Status" && chartConfig[dataKey]) && (
+                    <Cell fill={chartConfig[dataKey]?.color} />
+                )}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -158,6 +172,7 @@ export default function StatisticsPage() {
         {renderBarChart(assessmentsByDepartment, "Assessments by Department", "Breakdown of assessments by the vessel department involved.", Building)}
       </div>
       
+      {/* Specific rendering for Assessments by Status chart */}
       <Card className="shadow-lg rounded-lg">
         <CardHeader>
             <div className="flex items-center gap-2 text-primary">
@@ -167,9 +182,9 @@ export default function StatisticsPage() {
           <CardDescription>Current status distribution of all assessments.</CardDescription>
         </CardHeader>
         <CardContent className="h-[400px] sm:h-[450px] w-full">
-          <ChartContainer config={statusChartConfig} className="w-full h-full">
+          <ChartContainer config={statusDisplayConfig} className="w-full h-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={assessmentsByStatus} layout="vertical" margin={{ right: 20, left: 150 }}>
+              <BarChart data={assessmentsByStatusData} layout="vertical" margin={{ right: 20, left: 150 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" allowDecimals={false} />
                 <YAxis 
@@ -182,11 +197,16 @@ export default function StatisticsPage() {
                 />
                 <Tooltip
                     cursor={{ fill: "hsl(var(--muted))" }}
-                    content={<ChartTooltipContent hideLabel />}
+                    content={<ChartTooltipContent />} // Let default handle it, config should provide labels
                 />
-                 {Object.keys(statusChartConfig).map((key) => (
-                    <Bar key={key} dataKey={(item) => item.name === key ? item.total : 0} stackId="a" fill={statusChartConfig[key].color} name={statusChartConfig[key].label as string} radius={4} barSize={30}/>
-                ))}
+                <Bar dataKey="total" radius={4} barSize={30}>
+                  {assessmentsByStatusData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-status-${entry.name}-${index}`} 
+                      fill={statusDisplayConfig[entry.name]?.color || chartColorHSL("chart-1")}
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartContainer>
@@ -196,4 +216,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-
