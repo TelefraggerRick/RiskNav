@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { RiskAssessment, Attachment } from '@/lib/types';
+import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Edit, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, FileUp, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft
+  Ship, FileText, CalendarDays, Edit, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, FileUp, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck, UserX
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -18,15 +19,13 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from '@/hooks/use-toast';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
+
 // import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog'; // To be created
 
 const handleDownloadAttachment = (attachment: Attachment) => {
-  // In a real app, this would trigger a download from attachment.url
-  // For File objects (newly uploaded, not yet saved with a URL), this might be disabled or show a preview.
   if (attachment.url && attachment.url !== '#') {
      window.open(attachment.url, '_blank');
   } else if (attachment.file) {
-     // For local files, could use URL.createObjectURL(attachment.file) for temporary link
      const tempUrl = URL.createObjectURL(attachment.file);
      const a = document.createElement('a');
      a.href = tempUrl;
@@ -40,6 +39,8 @@ const handleDownloadAttachment = (attachment: Attachment) => {
   }
 };
 
+const approvalLevelsOrder: ApprovalLevel[] = ['Vessel Certificates', 'Senior Director', 'Director General'];
+
 export default function AssessmentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -47,15 +48,19 @@ export default function AssessmentDetailPage() {
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
-  // const [showApprovalDialog, setShowApprovalDialog] = useState(false);
-  // const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | null>(null);
 
   const fetchAssessment = useCallback(() => {
     if (params.id) {
-      const foundAssessment = mockRiskAssessments.find(a => a.id === params.id); // Using mock
-      // In real app: const foundAssessment = await getAssessmentById(params.id as string);
+      const foundAssessment = mockRiskAssessments.find(a => a.id === params.id);
       if (foundAssessment) {
-        setAssessment(foundAssessment);
+        // Ensure approvalSteps always exists, even if empty or minimal
+        const populatedAssessment = {
+          ...foundAssessment,
+          approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0 
+            ? foundAssessment.approvalSteps 
+            : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) // Basic structure if empty
+        };
+        setAssessment(populatedAssessment);
       } else {
         toast({ title: "Error", description: "Assessment not found.", variant: "destructive" });
         router.push('/');
@@ -112,6 +117,27 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, riskScore: false}));
   };
 
+  const getCurrentApprovalStepInfo = () => {
+    if (!assessment) return { currentLevelToAct: null, canAct: false };
+    
+    for (const level of approvalLevelsOrder) {
+      const step = assessment.approvalSteps.find(s => s.level === level);
+      if (!step || !step.decision) {
+        // This is the current level awaiting action
+        // In a real app, you'd check if the logged-in user has permission for this level
+        return { currentLevelToAct: level, canAct: true }; 
+      }
+      if (step.decision === 'Rejected' || step.decision === 'Needs Information') {
+        // Process stops or is paused
+        return { currentLevelToAct: level, canAct: false, isHalted: true };
+      }
+    }
+    // All steps approved or assessment in a final state
+    return { currentLevelToAct: null, canAct: false };
+  };
+  
+  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted } = getCurrentApprovalStepInfo();
+
   if (isLoading) {
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
         <BrainCircuit className="h-16 w-16 animate-pulse text-primary" /> 
@@ -130,19 +156,42 @@ export default function AssessmentDetailPage() {
     );
   }
 
-  const statusConfig = {
-    'Pending': { icon: AlertTriangle, badgeClass: 'bg-yellow-100 text-yellow-700 border-yellow-300', progressClass: '[&>div]:bg-yellow-500' },
-    'Under Review': { icon: Clock, badgeClass: 'bg-blue-100 text-blue-700 border-blue-300', progressClass: '[&>div]:bg-blue-500' },
+  const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
+    'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+    'Pending Vessel Certificates': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-700 border-yellow-300', progressClass: '[&>div]:bg-yellow-500' },
+    'Pending Senior Director': { icon: UserCheck, badgeClass: 'bg-cyan-100 text-cyan-700 border-cyan-300', progressClass: '[&>div]:bg-cyan-500' },
+    'Pending Director General': { icon: UserCircle, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300', progressClass: '[&>div]:bg-purple-500' },
     'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-700 border-orange-300', progressClass: '[&>div]:bg-orange-500' },
     'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-700 border-green-300', progressClass: '[&>div]:bg-green-500' },
     'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-700 border-red-300', progressClass: '[&>div]:bg-red-500' },
   };
-  const currentStatusConfig = statusConfig[assessment.status] || statusConfig['Pending'];
+  const currentStatusConfig = statusConfig[assessment.status] || { icon: Info, badgeClass: 'bg-gray-200 text-gray-800' };
   const StatusIcon = currentStatusConfig.icon;
 
   const aiRiskColorClass = assessment.aiRiskScore !== undefined 
     ? assessment.aiRiskScore > 70 ? '[&>div]:bg-red-500' : assessment.aiRiskScore > 40 ? '[&>div]:bg-yellow-500' : '[&>div]:bg-green-500'
     : '[&>div]:bg-gray-300';
+
+  const getStepStatusIcon = (decision?: ApprovalDecision) => {
+    if (!decision) return Hourglass;
+    switch (decision) {
+      case 'Approved': return ThumbsUp;
+      case 'Rejected': return ThumbsDown;
+      case 'Needs Information': return MessageSquare;
+      default: return Hourglass;
+    }
+  };
+
+  const getStepStatusColor = (decision?: ApprovalDecision) => {
+    if (!decision) return 'text-muted-foreground'; // Pending
+    switch (decision) {
+      case 'Approved': return 'text-green-600';
+      case 'Rejected': return 'text-red-600';
+      case 'Needs Information': return 'text-orange-600';
+      default: return 'text-muted-foreground';
+    }
+  };
+  
 
   return (
     <div className="space-y-6 pb-12">
@@ -150,8 +199,6 @@ export default function AssessmentDetailPage() {
         <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
         </Button>
-        {/* TODO: Edit button for authorized users, linking to an edit page or enabling inline editing */}
-        {/* <Button variant="secondary" size="sm"><Edit className="mr-2 h-4 w-4" /> Edit Assessment</Button> */}
       </div>
 
       <Card className="shadow-lg rounded-lg overflow-hidden">
@@ -216,7 +263,6 @@ export default function AssessmentDetailPage() {
                 <AlertDescription>No attachments for this assessment.</AlertDescription>
               </Alert>
             )}
-            {/* <Button variant="outline" className="mt-4"><FileUp className="mr-2 h-4 w-4" /> Add Attachment</Button> */}
           </section>
           <Separator />
 
@@ -232,7 +278,7 @@ export default function AssessmentDetailPage() {
                 </Button>
               </div>
             </div>
-            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && !assessment.aiRiskScore) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass} animate-pulse`} />}
+            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && !assessment.aiRiskScore) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse`} />}
 
             {assessment.aiGeneratedSummary && (
               <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
@@ -273,59 +319,98 @@ export default function AssessmentDetailPage() {
           <Separator />
 
           <section>
-            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2"><UserCircle className="h-5 w-5 text-primary"/>Approval Status</h3>
-            {assessment.approvalDetails ? (
-              <Card className={`${assessment.approvalDetails.decision === 'Approved' ? 'bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-700' : 'bg-red-50 border-red-200 dark:bg-red-900/30 dark:border-red-700'}`}>
-                <CardHeader>
-                  <CardTitle className={`flex items-center gap-2 text-lg ${assessment.approvalDetails.decision === 'Approved' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
-                    {assessment.approvalDetails.decision === 'Approved' ? <ThumbsUp className="h-6 w-6" /> : <ThumbsDown className="h-6 w-6" />}
-                    Decision: {assessment.approvalDetails.decision}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-1">
-                  <p><strong>By:</strong> {assessment.approvalDetails.approvedBy}</p>
-                  <p><strong>Date:</strong> {format(parseISO(assessment.approvalDetails.approvalDate), "PPP p")}</p>
-                  <p className="mt-2"><strong>Notes:</strong> <span className="whitespace-pre-wrap">{assessment.approvalDetails.notes}</span></p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div>
-                <Alert variant="default" className="mb-4 border-dashed">
-                    <Users className="h-4 w-4" />
-                    <AlertDescription>This assessment is awaiting review and approval action.</AlertDescription>
-                </Alert>
-                {['Pending', 'Under Review', 'Needs Information'].includes(assessment.status) && (
+            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Approval Workflow</h3>
+            <div className="space-y-4">
+              {assessment.approvalSteps.map((step, index) => {
+                const StepIcon = getStepStatusIcon(step.decision);
+                const stepColor = getStepStatusColor(step.decision);
+                const isLastStep = index === assessment.approvalSteps.length - 1;
+                const isPending = !step.decision;
+                
+                return (
+                  <div key={step.level}>
+                    <Card className={`p-4 ${isPending && step.level === currentLevelToAct ? 'border-primary shadow-md' : 'bg-muted/30'}`}>
+                      <CardHeader className="p-0 pb-2">
+                        <CardTitle className={`text-md font-semibold flex items-center justify-between ${stepColor}`}>
+                          <span className="flex items-center gap-2">
+                            <StepIcon className="h-5 w-5" />
+                            {step.level}
+                          </span>
+                          {step.decision ? (
+                            <Badge variant={step.decision === 'Approved' ? 'default' : step.decision === 'Rejected' ? 'destructive' : 'secondary'} className="text-xs">
+                              {step.decision}
+                            </Badge>
+                          ) : ( step.level === currentLevelToAct ? 
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-600">Pending Action</Badge> 
+                            : <Badge variant="outline">Queued</Badge>
+                          )}
+                        </CardTitle>
+                      </CardHeader>
+                      {step.decision && (
+                        <CardContent className="text-sm space-y-1 pt-2 p-0">
+                          {step.userName && <p><strong>By:</strong> {step.userName}</p>}
+                          {step.date && <p><strong>Date:</strong> {format(parseISO(step.date), "PPP p")}</p>}
+                          {step.notes && <p className="mt-1"><strong>Notes:</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
+                        </CardContent>
+                      )}
+                    </Card>
+                    {!isLastStep && (
+                      <div className="flex justify-center my-1">
+                        <ChevronRight className="h-5 w-5 text-muted-foreground rotate-90 md:rotate-0" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {currentLevelToAct && userCanActOnCurrentStep && !isHalted && (
+                <div className="mt-6 pt-4 border-t">
+                    <h4 className="text-md font-semibold mb-3">Actions for {currentLevelToAct}:</h4>
                     <div className="flex flex-wrap gap-3">
-                        <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => toast({title: "Action Required", description: "Approval UI to be implemented."})}>
+                        <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => toast({title: "Action Required", description: `Approve action for ${currentLevelToAct} to be implemented.`})}>
                             <ThumbsUp className="mr-2 h-4 w-4"/> Approve
                         </Button>
-                        <Button variant="destructive" onClick={() => toast({title: "Action Required", description: "Rejection UI to be implemented."})}>
+                        <Button variant="destructive" onClick={() => toast({title: "Action Required", description: `Reject action for ${currentLevelToAct} to be implemented.`})}>
                             <ThumbsDown className="mr-2 h-4 w-4"/> Reject
                         </Button>
-                         <Button variant="outline" onClick={() => toast({title: "Action Required", description: "'Request Information' UI to be implemented."})}>
+                         <Button variant="outline" onClick={() => toast({title: "Action Required", description: `Request Information action for ${currentLevelToAct} to be implemented.`})}>
                             <MessageSquare className="mr-2 h-4 w-4"/> Request Information
                         </Button>
                     </div>
-                )}
-              </div>
+                </div>
             )}
+            {assessment.status === 'Approved' && (
+                <Alert variant="default" className="mt-6 bg-green-50 border-green-200">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <AlertTitle className="text-green-700 font-semibold">Assessment Fully Approved</AlertTitle>
+                  <AlertDescription className="text-green-600">This risk assessment has been approved by all required levels.</AlertDescription>
+                </Alert>
+            )}
+            {assessment.status === 'Rejected' && !currentLevelToAct && ( // Or check last step decision
+                 <Alert variant="destructive" className="mt-6">
+                  <XCircle className="h-5 w-5" />
+                  <AlertTitle className="font-semibold">Assessment Rejected</AlertTitle>
+                  <AlertDescription>This risk assessment has been rejected. See details in the workflow steps above.</AlertDescription>
+                </Alert>
+            )}
+             {assessment.status === 'Needs Information' && (
+                 <Alert variant="default" className="mt-6 bg-orange-50 border-orange-200">
+                  <FileWarning className="h-5 w-5 text-orange-600" />
+                  <AlertTitle className="text-orange-700 font-semibold">Information Requested</AlertTitle>
+                  <AlertDescription className="text-orange-600">Further information has been requested for this assessment. See notes in the relevant step.</AlertDescription>
+                </Alert>
+            )}
+             {!currentLevelToAct && !['Approved', 'Rejected', 'Needs Information'].includes(assessment.status) && assessment.approvalSteps.every(s => !s.decision) && (
+                 <Alert variant="default" className="mt-6 border-dashed">
+                    <Users className="h-4 w-4" />
+                    <AlertDescription>This assessment is awaiting initial review.</AlertDescription>
+                </Alert>
+            )}
+
           </section>
         </CardContent>
       </Card>
-
-      {/* Placeholder for ApprovalDialog
-      {showApprovalDialog && approvalAction && (
-        <ApprovalDialog
-          assessmentId={assessment.id}
-          action={approvalAction}
-          onClose={() => setShowApprovalDialog(false)}
-          onSubmitSuccess={(updatedAssessment) => {
-            setAssessment(updatedAssessment); // Or re-fetch
-            setShowApprovalDialog(false);
-            toast({ title: `Assessment ${approvalAction === 'approve' ? 'Approved' : 'Rejected'}`, description: `Assessment ${assessment.referenceNumber} has been updated.`});
-          }}
-        />
-      )} */}
     </div>
   );
 }

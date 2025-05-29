@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -27,6 +28,17 @@ const sortOptions: { value: SortKey; label: string }[] = [
   { value: 'status', label: 'Status' },
   { value: 'vesselName', label: 'Vessel Name' },
 ];
+
+const ALL_STATUSES: RiskAssessmentStatus[] = [
+  'Draft', 
+  'Pending Vessel Certificates', 
+  'Pending Senior Director', 
+  'Pending Director General', 
+  'Needs Information', 
+  'Approved', 
+  'Rejected'
+];
+
 
 export default function DashboardPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -93,7 +105,7 @@ export default function DashboardPage() {
     }
   }, [sortKey]);
 
-  const statuses: RiskAssessmentStatus[] = ['Pending', 'Under Review', 'Needs Information', 'Approved', 'Rejected'];
+  
   const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.label || 'Sort';
 
   return (
@@ -137,7 +149,7 @@ export default function DashboardPage() {
               <SelectGroup>
                 <SelectLabel>Filter by Status</SelectLabel>
                 <SelectItem value="all">All Statuses</SelectItem>
-                {statuses.map(status => (
+                {ALL_STATUSES.map(status => (
                   <SelectItem key={status} value={status}>{status}</SelectItem>
                 ))}
               </SelectGroup>

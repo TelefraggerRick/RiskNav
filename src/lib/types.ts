@@ -1,40 +1,52 @@
 export interface Attachment {
   id: string;
   name: string;
-  url: string; 
-  type: string; 
+  url: string;
+  type: string;
   size: number; // in bytes
   uploadedAt: string; // ISO date string
   file?: File; // For new uploads not yet persisted
 }
 
-export interface Approval {
-  approvedBy: string; 
-  approvalDate: string; // ISO date string
-  notes: string;
-  decision: 'Approved' | 'Rejected';
+export type ApprovalDecision = 'Approved' | 'Rejected' | 'Needs Information';
+export type ApprovalLevel = 'Vessel Certificates' | 'Senior Director' | 'Director General';
+
+export interface ApprovalStep {
+  level: ApprovalLevel;
+  decision?: ApprovalDecision;
+  userId?: string; // Optional: ID of the user who made the decision
+  userName?: string; // Optional: Name of the user
+  date?: string; // ISO date string of when the decision was made
+  notes?: string;
 }
 
-export type RiskAssessmentStatus = 'Pending' | 'Under Review' | 'Needs Information' | 'Approved' | 'Rejected';
+export type RiskAssessmentStatus =
+  | 'Draft'
+  | 'Pending Vessel Certificates'
+  | 'Pending Senior Director'
+  | 'Pending Director General'
+  | 'Needs Information'
+  | 'Approved' // Final approval by Director General
+  | 'Rejected'; // If rejected at any level
 
 export interface RiskAssessment {
   id: string;
-  referenceNumber: string; 
+  referenceNumber: string;
   vesselName: string;
   vesselIMO?: string;
-  voyageDetails: string; 
-  reasonForRequest: string; 
-  personnelShortages: string; 
+  voyageDetails: string;
+  reasonForRequest: string;
+  personnelShortages: string;
   proposedOperationalDeviations: string;
-  submittedBy: string; 
+  submittedBy: string;
   submissionDate: string; // ISO date string
   status: RiskAssessmentStatus;
   attachments: Attachment[];
+  approvalSteps: ApprovalStep[]; // Array to track each step, replaces approvalDetails
   aiRiskScore?: number;
-  aiGeneratedSummary?: string; 
-  aiSuggestedMitigations?: string; 
-  aiRegulatoryConsiderations?: string; 
-  approvalDetails?: Approval;
+  aiGeneratedSummary?: string;
+  aiSuggestedMitigations?: string;
+  aiRegulatoryConsiderations?: string;
   lastModified: string; // ISO date string
   submissionTimestamp: number; // For sorting
   lastModifiedTimestamp: number; // For sorting
@@ -44,5 +56,5 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'Submitter' | 'Approver' | 'Admin';
+  role: 'Submitter' | 'Approver' | 'Admin' | ApprovalLevel; // Approver role can be more specific
 }
