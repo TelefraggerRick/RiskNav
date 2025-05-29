@@ -41,7 +41,7 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
   'Rejected'
 ];
 
-const ALL_REGIONS: VesselRegion[] = ['Atlantic', 'Central', 'Western'];
+const ALL_REGIONS: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
 
 
 export default function DashboardPage() {

@@ -28,7 +28,7 @@ export const riskAssessmentFormSchema = z.object({
   department: z.enum(['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'], {
     required_error: "Department selection is required.",
   }),
-  region: z.enum(['Atlantic', 'Central', 'Western'], {
+  region: z.enum(['Atlantic', 'Central', 'Western', 'Arctic'], {
     required_error: "Region selection is required.",
   }),
   voyageDetails: z.string().min(10, "Voyage details must be at least 10 characters.").max(1000),

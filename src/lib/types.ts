@@ -61,7 +61,7 @@ export type RiskAssessmentStatus =
   | 'Rejected'; // If rejected at any level
 
 export type VesselDepartment = 'Navigation' | 'Deck' | 'Engine Room' | 'Logistics' | 'Other';
-export type VesselRegion = 'Atlantic' | 'Central' | 'Western';
+export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
 
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string;

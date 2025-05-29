@@ -29,7 +29,7 @@ const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'text/plain'];
 const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
-const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western'];
+const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
 
 export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = false }: RiskAssessmentFormProps) {
   const form = useForm<RiskAssessmentFormData>({
@@ -38,7 +38,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       vesselName: "",
       vesselIMO: "",
       department: undefined,
-      region: undefined, // Initialize new field
+      region: undefined, 
       voyageDetails: "",
       reasonForRequest: "",
       personnelShortages: "",
