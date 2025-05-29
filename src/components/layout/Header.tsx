@@ -1,7 +1,8 @@
+
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, Search } from 'lucide-react'; // Added Search
+import { ShieldHalf, UserCircle, Search, BarChart3 } from 'lucide-react'; // Added BarChart3
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Added Input
+import { Input } from '@/components/ui/input'; 
 
 export default function Header() {
   return (
@@ -40,9 +41,15 @@ export default function Header() {
              */}
           </div>
 
-          <nav className="flex items-center gap-2 sm:gap-4">
+          <nav className="flex items-center gap-1 sm:gap-2">
             <Link href="/" passHref>
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">Dashboard</Button>
+            </Link>
+            <Link href="/statistics" passHref>
+              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
+                <BarChart3 className="h-4 w-4 mr-0 sm:mr-2" /> 
+                <span className="hidden sm:inline">Statistics</span>
+              </Button>
             </Link>
             <Link href="/assessments/new" passHref>
               <Button variant="default" className="text-sm sm:text-base">New Assessment</Button>
@@ -56,3 +63,4 @@ export default function Header() {
     </header>
   );
 }
+
