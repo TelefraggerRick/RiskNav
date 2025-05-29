@@ -9,6 +9,36 @@ export interface Attachment {
   file?: File; // For new uploads not yet persisted
 }
 
+export type YesNoOptional = 'Yes' | 'No' | undefined;
+
+export interface ExemptionIndividualAssessmentData {
+  coDeptHeadSupportExemption?: YesNoOptional;
+  deptHeadConfidentInIndividual?: YesNoOptional;
+  deptHeadConfidenceReason?: string;
+  employeeFamiliarizationProvided?: YesNoOptional;
+  workedInDepartmentLast12Months?: YesNoOptional;
+  workedInDepartmentDetails?: string;
+  similarResponsibilityExperience?: YesNoOptional;
+  similarResponsibilityDetails?: string;
+  individualHasRequiredSeaService?: YesNoOptional;
+  individualWorkingTowardsCertification?: YesNoOptional;
+  certificationProgressSummary?: string;
+}
+
+export interface OperationalConsiderationsData {
+  // Crew/Team
+  requestCausesVacancyElsewhere?: YesNoOptional;
+  crewCompositionSufficientForSafety?: YesNoOptional;
+  detailedCrewCompetencyAssessment?: string;
+  crewContinuityAsPerProfile?: YesNoOptional;
+  crewContinuityDetails?: string;
+  // Voyage
+  specialVoyageConsiderations?: string;
+  reductionInVesselProgramRequirements?: YesNoOptional;
+  rocNotificationOfLimitations?: YesNoOptional;
+}
+
+
 export type ApprovalDecision = 'Approved' | 'Rejected' | 'Needs Information';
 export type ApprovalLevel = 'Crewing Standards and Oversight' | 'Senior Director' | 'Director General';
 
@@ -30,7 +60,7 @@ export type RiskAssessmentStatus =
   | 'Approved' // Final approval by Director General
   | 'Rejected'; // If rejected at any level
 
-export interface RiskAssessment {
+export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string;
   referenceNumber: string;
   vesselName: string;
@@ -43,7 +73,7 @@ export interface RiskAssessment {
   submissionDate: string; // ISO date string
   status: RiskAssessmentStatus;
   attachments: Attachment[];
-  approvalSteps: ApprovalStep[]; // Array to track each step, replaces approvalDetails
+  approvalSteps: ApprovalStep[]; 
   aiRiskScore?: number;
   aiGeneratedSummary?: string;
   aiSuggestedMitigations?: string;
@@ -57,5 +87,5 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'Submitter' | 'Approver' | 'Admin' | ApprovalLevel; // Approver role can be more specific
+  role: 'Submitter' | 'Approver' | 'Admin' | ApprovalLevel; 
 }

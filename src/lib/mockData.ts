@@ -32,12 +32,30 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-002', name: 'Deviation_Request_Form_001.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 51200, uploadedAt: twoDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight' }, // Pending this step
+      { level: 'Crewing Standards and Oversight' }, 
       { level: 'Senior Director' },
       { level: 'Director General' },
     ],
     lastModified: twoDaysAgo.toISOString(),
     lastModifiedTimestamp: twoDaysAgo.getTime(),
+    // New fields example
+    coDeptHeadSupportExemption: 'Yes',
+    deptHeadConfidentInIndividual: 'Yes',
+    deptHeadConfidenceReason: 'Individual has shown competence in simulated exercises and under direct supervision previously.',
+    employeeFamiliarizationProvided: 'Yes',
+    workedInDepartmentLast12Months: 'Yes',
+    workedInDepartmentDetails: 'Served as Acting NWR for 2 months during Q1 2024.',
+    similarResponsibilityExperience: 'Yes',
+    similarResponsibilityDetails: 'Has assisted in navigational duties on similar voyages.',
+    individualHasRequiredSeaService: 'No',
+    individualWorkingTowardsCertification: 'Yes',
+    certificationProgressSummary: 'All coursework completed. Final Transport Canada exam scheduled for August 2024. Bridge Watch Rating certificate is current.',
+    requestCausesVacancyElsewhere: 'No',
+    crewCompositionSufficientForSafety: 'Yes',
+    detailedCrewCompetencyAssessment: 'All other crew members are fully certified for their roles. The Master and Chief Officer have extensive experience in Arctic waters. The impact of one less NWR is mitigated by adjustments to watch schedules and prioritizing critical tasks.',
+    crewContinuityAsPerProfile: 'Yes',
+    specialVoyageConsiderations: 'Voyage is in remote Arctic waters, limited external support. Weather can change rapidly. 24-hour daylight during this period.',
+    reductionInVesselProgramRequirements: 'No',
   },
   {
     id: 'ra-002',
@@ -58,7 +76,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     ],
     approvalSteps: [
       { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Approver', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable.' },
-      { level: 'Senior Director' }, // Pending this step
+      { level: 'Senior Director' }, 
       { level: 'Director General' },
     ],
     aiRiskScore: 65,
@@ -94,6 +112,15 @@ export const mockRiskAssessments: RiskAssessment[] = [
     aiRegulatoryConsiderations: 'Compliance with STCW Code Chapter VIII and Marine Personnel Regulations regarding watchkeeping arrangements and prevention of fatigue.',
     lastModified: oneDayAgo.toISOString(),
     lastModifiedTimestamp: oneDayAgo.getTime(),
+    coDeptHeadSupportExemption: 'Yes',
+    deptHeadConfidentInIndividual: 'Yes',
+    deptHeadConfidenceReason: 'This is a general operational change, not specific to one individual. The Master confirms all watchkeeping officers are competent for this adjusted procedure under the specified conditions.',
+    employeeFamiliarizationProvided: 'Yes',
+    detailedCrewCompetencyAssessment: 'All watchkeeping officers are fully certified and familiar with the vessel and operational area. This change relies on their existing high competency levels.',
+    crewCompositionSufficientForSafety: 'Yes',
+    crewContinuityAsPerProfile: 'Yes',
+    specialVoyageConsiderations: 'Applicable only during SAR patrol in designated sector, under strict weather and visibility criteria. Does not apply during active SAR cases or transits in congested waters.',
+    reductionInVesselProgramRequirements: 'No',
   },
   {
     id: 'ra-004',
@@ -112,7 +139,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-006', name: 'Medevac_Report_GR001.pdf', url: '#', type: 'application/pdf', size: 95000, uploadedAt: now.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight' }, // Pending this step
+      { level: 'Crewing Standards and Oversight' }, 
       { level: 'Senior Director' },
       { level: 'Director General' },
     ],
@@ -139,7 +166,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     approvalSteps: [
       { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Tech Services', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.'},
       { level: 'Senior Director', decision: 'Rejected', userName: 'SD Navigational Safety', date: twoDaysAgo.toISOString(), notes: 'Operating on magnetic compass alone in the Great Lakes poses too high a risk. Gyro must be repaired or vessel operations significantly curtailed to daylight, clear weather, and open waters only.'},
-      { level: 'Director General' }, // Not reached
+      { level: 'Director General' }, 
     ],
     aiRiskScore: 75,
     aiGeneratedSummary: "CCGS Sir John Franklin proposes operating with magnetic compass as primary due to gyro overhaul. Mitigations include GPS/visual checks and restricted ops in poor conditions.",

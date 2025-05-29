@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 const MAX_FILE_SIZE_MB = 5;
@@ -29,12 +30,74 @@ export const riskAssessmentFormSchema = z.object({
   personnelShortages: z.string().min(10, "Personnel shortages description must be at least 10 characters.").max(2000),
   proposedOperationalDeviations: z.string().min(10, "Proposed operational deviations must be at least 10 characters.").max(2000),
   attachments: z.array(attachmentSchema).max(5, "Maximum of 5 attachments allowed.").optional().default([]),
+
+  // Exemption & Individual Assessment
+  coDeptHeadSupportExemption: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  deptHeadConfidentInIndividual: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  deptHeadConfidenceReason: z.string().optional(),
+  employeeFamiliarizationProvided: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  workedInDepartmentLast12Months: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  workedInDepartmentDetails: z.string().optional(), // Position and duration
+  similarResponsibilityExperience: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  similarResponsibilityDetails: z.string().optional(),
+  individualHasRequiredSeaService: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  individualWorkingTowardsCertification: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  certificationProgressSummary: z.string().optional(),
+
+  // Crew & Voyage Considerations
+  requestCausesVacancyElsewhere: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  crewCompositionSufficientForSafety: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  detailedCrewCompetencyAssessment: z.string().min(1, "This field is required.").optional(),
+  crewContinuityAsPerProfile: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  crewContinuityDetails: z.string().optional(), // If not, provide details.
+  
+  specialVoyageConsiderations: z.string().min(1, "This field is required.").optional(),
+  reductionInVesselProgramRequirements: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
+  rocNotificationOfLimitations: z.enum(['Yes', 'No']).optional(),
+})
+.refine(data => data.coDeptHeadSupportExemption !== undefined, { message: "CO/Dept Head support selection is required.", path: ["coDeptHeadSupportExemption"] })
+.refine(data => data.deptHeadConfidentInIndividual !== undefined, { message: "Dept Head confidence selection is required.", path: ["deptHeadConfidentInIndividual"] })
+.refine(data => !(data.deptHeadConfidentInIndividual === 'Yes' && !data.deptHeadConfidenceReason), {
+  message: "Reason for confidence is required if Dept Head is confident.",
+  path: ["deptHeadConfidenceReason"],
+})
+.refine(data => data.employeeFamiliarizationProvided !== undefined, { message: "Familiarization selection is required.", path: ["employeeFamiliarizationProvided"] })
+.refine(data => data.workedInDepartmentLast12Months !== undefined, { message: "This field is required.", path: ["workedInDepartmentLast12Months"] })
+.refine(data => !(data.workedInDepartmentLast12Months === 'Yes' && !data.workedInDepartmentDetails), {
+  message: "Position and duration are required if worked in department in last 12 months.",
+  path: ["workedInDepartmentDetails"],
+})
+.refine(data => data.similarResponsibilityExperience !== undefined, { message: "This field is required.", path: ["similarResponsibilityExperience"] })
+.refine(data => !(data.similarResponsibilityExperience === 'Yes' && !data.similarResponsibilityDetails), {
+  message: "Details are required if worked in similar positions.",
+  path: ["similarResponsibilityDetails"],
+})
+.refine(data => data.individualHasRequiredSeaService !== undefined, { message: "Sea service selection is required.", path: ["individualHasRequiredSeaService"] })
+.refine(data => data.individualWorkingTowardsCertification !== undefined, { message: "Certification progress selection is required.", path: ["individualWorkingTowardsCertification"] })
+.refine(data => !(data.individualWorkingTowardsCertification === 'Yes' && !data.certificationProgressSummary), {
+  message: "Summary of progress is required if working towards certification.",
+  path: ["certificationProgressSummary"],
+})
+.refine(data => data.requestCausesVacancyElsewhere !== undefined, { message: "Vacancy selection is required.", path: ["requestCausesVacancyElsewhere"] })
+.refine(data => data.crewCompositionSufficientForSafety !== undefined, { message: "Crew composition sufficiency selection is required.", path: ["crewCompositionSufficientForSafety"] })
+.refine(data => data.detailedCrewCompetencyAssessment !== undefined && data.detailedCrewCompetencyAssessment.length > 0, { message: "Detailed crew competency assessment is required.", path: ["detailedCrewCompetencyAssessment"] })
+.refine(data => data.crewContinuityAsPerProfile !== undefined, { message: "Crew continuity selection is required.", path: ["crewContinuityAsPerProfile"] })
+.refine(data => !(data.crewContinuityAsPerProfile === 'No' && !data.crewContinuityDetails), {
+  message: "Details are required if crew continuity is not met.",
+  path: ["crewContinuityDetails"],
+})
+.refine(data => data.specialVoyageConsiderations !== undefined && data.specialVoyageConsiderations.length > 0, { message: "Special voyage considerations are required.", path: ["specialVoyageConsiderations"] })
+.refine(data => data.reductionInVesselProgramRequirements !== undefined, { message: "Program requirements reduction selection is required.", path: ["reductionInVesselProgramRequirements"] })
+.refine(data => !(data.reductionInVesselProgramRequirements === 'Yes' && data.rocNotificationOfLimitations === undefined), {
+  message: "ROC/JRCC notification status is required if program requirements are reduced.",
+  path: ["rocNotificationOfLimitations"],
 });
+
 
 export type RiskAssessmentFormData = z.infer<typeof riskAssessmentFormSchema>;
 
 export const approvalFormSchema = z.object({
-  decision: z.enum(['Approved', 'Rejected'], { required_error: "Decision is required." }),
+  decision: z.enum(['Approved', 'Rejected', 'Needs Information'], { required_error: "Decision is required." }),
   notes: z.string().min(10, "Approval/rejection notes must be at least 10 characters.").max(1000),
 });
 

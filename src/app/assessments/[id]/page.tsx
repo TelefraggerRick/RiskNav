@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus } from '@/lib/types';
+import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Edit, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, FileUp, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck, UserX
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -19,7 +19,6 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from '@/hooks/use-toast';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
-
 // import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog'; // To be created
 
 const handleDownloadAttachment = (attachment: Attachment) => {
@@ -41,6 +40,24 @@ const handleDownloadAttachment = (attachment: Attachment) => {
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
+const SectionTitle: React.FC<{ icon: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
+  <h3 className={cn("text-lg font-semibold mb-4 text-foreground flex items-center gap-2 pt-1", className)}>
+    <Icon className="h-5 w-5 text-primary" />
+    {title}
+  </h3>
+);
+
+const DetailItem: React.FC<{ label: string; value?: string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean }> = ({ label, value, isPreformatted = false, fullWidth = false }) => {
+  if (value === undefined || value === null || value === '') return null;
+  return (
+    <div className={fullWidth ? "md:col-span-2" : ""}>
+      <strong className="font-medium text-muted-foreground block mb-0.5">{label}:</strong>
+      {isPreformatted ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{value}</p> : <p className="text-sm leading-relaxed">{value}</p>}
+    </div>
+  );
+};
+
+
 export default function AssessmentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -53,12 +70,11 @@ export default function AssessmentDetailPage() {
     if (params.id) {
       const foundAssessment = mockRiskAssessments.find(a => a.id === params.id);
       if (foundAssessment) {
-        // Ensure approvalSteps always exists, even if empty or minimal
         const populatedAssessment = {
           ...foundAssessment,
           approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0 
             ? foundAssessment.approvalSteps 
-            : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) // Basic structure if empty
+            : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) 
         };
         setAssessment(populatedAssessment);
       } else {
@@ -123,16 +139,12 @@ export default function AssessmentDetailPage() {
     for (const level of approvalLevelsOrder) {
       const step = assessment.approvalSteps.find(s => s.level === level);
       if (!step || !step.decision) {
-        // This is the current level awaiting action
-        // In a real app, you'd check if the logged-in user has permission for this level
         return { currentLevelToAct: level, canAct: true }; 
       }
       if (step.decision === 'Rejected' || step.decision === 'Needs Information') {
-        // Process stops or is paused
         return { currentLevelToAct: level, canAct: false, isHalted: true };
       }
     }
-    // All steps approved or assessment in a final state
     return { currentLevelToAct: null, canAct: false };
   };
   
@@ -150,7 +162,7 @@ export default function AssessmentDetailPage() {
       <Alert variant="destructive" className="max-w-2xl mx-auto text-center">
         <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
         <AlertTitle className="text-xl">Assessment Not Found</AlertTitle>
-        <AlertDescription>The requested risk assessment could not be found. It may have been moved or deleted.</AlertDescription>
+        <AlertDescription>The requested risk assessment could not be found.</AlertDescription>
          <Button onClick={() => router.push('/')} variant="link" className="mt-4">Return to Dashboard</Button>
       </Alert>
     );
@@ -159,13 +171,13 @@ export default function AssessmentDetailPage() {
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
     'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
     'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-700 border-yellow-300', progressClass: '[&>div]:bg-yellow-500' },
-    'Pending Senior Director': { icon: UserCheck, badgeClass: 'bg-cyan-100 text-cyan-700 border-cyan-300', progressClass: '[&>div]:bg-cyan-500' },
+    'Pending Senior Director': { icon: UserCheckIcon, badgeClass: 'bg-cyan-100 text-cyan-700 border-cyan-300', progressClass: '[&>div]:bg-cyan-500' },
     'Pending Director General': { icon: UserCircle, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300', progressClass: '[&>div]:bg-purple-500' },
     'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-700 border-orange-300', progressClass: '[&>div]:bg-orange-500' },
     'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-700 border-green-300', progressClass: '[&>div]:bg-green-500' },
     'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-700 border-red-300', progressClass: '[&>div]:bg-red-500' },
   };
-  const currentStatusConfig = statusConfig[assessment.status] || { icon: Info, badgeClass: 'bg-gray-200 text-gray-800' };
+  const currentStatusConfig = statusConfig[assessment.status] || { icon: HelpCircle, badgeClass: 'bg-gray-200 text-gray-800' };
   const StatusIcon = currentStatusConfig.icon;
 
   const aiRiskColorClass = assessment.aiRiskScore !== undefined 
@@ -183,7 +195,7 @@ export default function AssessmentDetailPage() {
   };
 
   const getStepStatusColor = (decision?: ApprovalDecision) => {
-    if (!decision) return 'text-muted-foreground'; // Pending
+    if (!decision) return 'text-muted-foreground';
     switch (decision) {
       case 'Approved': return 'text-green-600';
       case 'Rejected': return 'text-red-600';
@@ -192,6 +204,12 @@ export default function AssessmentDetailPage() {
     }
   };
   
+  const YesNoIcon = ({ value }: { value?: YesNoOptional }) => {
+    if (value === 'Yes') return <CheckSquare className="h-4 w-4 text-green-600 inline-block mr-1" />;
+    if (value === 'No') return <Square className="h-4 w-4 text-red-600 inline-block mr-1" />; // Using Square for 'No' to differentiate
+    return <HelpCircle className="h-4 w-4 text-muted-foreground inline-block mr-1" />;
+  };
+
 
   return (
     <div className="space-y-6 pb-12">
@@ -224,20 +242,58 @@ export default function AssessmentDetailPage() {
         <CardContent className="p-6 space-y-8">
           
           <section>
-            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2"><Info className="h-5 w-5 text-primary"/>Key Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm leading-relaxed">
-              <div><strong className="font-medium text-muted-foreground block">Submitted By:</strong> {assessment.submittedBy}</div>
-              <div><strong className="font-medium text-muted-foreground block">Submission Date:</strong> {format(parseISO(assessment.submissionDate), "PPP p")}</div>
-              <div className="md:col-span-2"><strong className="font-medium text-muted-foreground block">Voyage Details:</strong> <p className="whitespace-pre-wrap">{assessment.voyageDetails}</p></div>
-              <div className="md:col-span-2"><strong className="font-medium text-muted-foreground block">Reason for Request:</strong> <p className="whitespace-pre-wrap">{assessment.reasonForRequest}</p></div>
-              <div className="md:col-span-2"><strong className="font-medium text-muted-foreground block">Personnel Shortages:</strong> <p className="whitespace-pre-wrap">{assessment.personnelShortages}</p></div>
-              <div className="md:col-span-2"><strong className="font-medium text-muted-foreground block">Proposed Deviations/Mitigations:</strong> <p className="whitespace-pre-wrap">{assessment.proposedOperationalDeviations}</p></div>
+            <SectionTitle icon={Sailboat} title="Vessel & Assessment Overview" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <DetailItem label="Submitted By" value={assessment.submittedBy} />
+              <DetailItem label="Submission Date" value={format(parseISO(assessment.submissionDate), "PPP p")} />
+              <DetailItem label="Vessel IMO" value={assessment.vesselIMO} />
+              <DetailItem label="Voyage Details" value={assessment.voyageDetails} isPreformatted fullWidth/>
+              <DetailItem label="Reason for Request" value={assessment.reasonForRequest} isPreformatted fullWidth/>
+              <DetailItem label="Personnel Shortages & Impact" value={assessment.personnelShortages} isPreformatted fullWidth/>
+              <DetailItem label="Proposed Deviations/Mitigations" value={assessment.proposedOperationalDeviations} isPreformatted fullWidth/>
+            </div>
+          </section>
+          <Separator />
+          
+          <section>
+            <SectionTitle icon={UserCog} title="Exemption & Individual Assessment" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <DetailItem label="CO & Dept. Head Support Exemption" value={<><YesNoIcon value={assessment.coDeptHeadSupportExemption} /> {assessment.coDeptHeadSupportExemption || 'N/A'}</>} />
+                <DetailItem label="Dept. Head Confident in Individual" value={<><YesNoIcon value={assessment.deptHeadConfidentInIndividual} /> {assessment.deptHeadConfidentInIndividual || 'N/A'}</>} />
+                {assessment.deptHeadConfidentInIndividual === 'Yes' && <DetailItem label="Reason for Dept. Head Confidence" value={assessment.deptHeadConfidenceReason} isPreformatted fullWidth />}
+                <DetailItem label="Employee Familiarization Provided" value={<><YesNoIcon value={assessment.employeeFamiliarizationProvided} /> {assessment.employeeFamiliarizationProvided || 'N/A'}</>} />
+                <DetailItem label="Worked in Dept. (Last 12 Months)" value={<><YesNoIcon value={assessment.workedInDepartmentLast12Months} /> {assessment.workedInDepartmentLast12Months || 'N/A'}</>} />
+                {assessment.workedInDepartmentLast12Months === 'Yes' && <DetailItem label="Position and Duration" value={assessment.workedInDepartmentDetails} isPreformatted fullWidth />}
+                <DetailItem label="Similar Responsibility Experience" value={<><YesNoIcon value={assessment.similarResponsibilityExperience} /> {assessment.similarResponsibilityExperience || 'N/A'}</>} />
+                {assessment.similarResponsibilityExperience === 'Yes' && <DetailItem label="Details of Similar Responsibility" value={assessment.similarResponsibilityDetails} isPreformatted fullWidth />}
+                <DetailItem label="Has Required Sea Service" value={<><YesNoIcon value={assessment.individualHasRequiredSeaService} /> {assessment.individualHasRequiredSeaService || 'N/A'}</>} />
+                <DetailItem label="Working Towards Certification" value={<><YesNoIcon value={assessment.individualWorkingTowardsCertification} /> {assessment.individualWorkingTowardsCertification || 'N/A'}</>} />
+                {assessment.individualWorkingTowardsCertification === 'Yes' && <DetailItem label="Certification Progress Summary" value={assessment.certificationProgressSummary} isPreformatted fullWidth />}
             </div>
           </section>
           <Separator />
 
           <section>
-            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2"><FileText className="h-5 w-5 text-primary"/>Attachments</h3>
+            <SectionTitle icon={ClipboardList} title="Operational Considerations (Crew & Voyage)" />
+             <h4 className="text-md font-medium mb-2 text-muted-foreground">Crew/Team Considerations</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-6">
+                <DetailItem label="Request Causes Vacancy Elsewhere" value={<><YesNoIcon value={assessment.requestCausesVacancyElsewhere} /> {assessment.requestCausesVacancyElsewhere || 'N/A'}</>} />
+                <DetailItem label="Crew Composition Sufficient for Safety" value={<><YesNoIcon value={assessment.crewCompositionSufficientForSafety} /> {assessment.crewCompositionSufficientForSafety || 'N/A'}</>} />
+                <DetailItem label="Detailed Crew Competency Assessment" value={assessment.detailedCrewCompetencyAssessment} isPreformatted fullWidth />
+                <DetailItem label="Crew Continuity as per Profile" value={<><YesNoIcon value={assessment.crewContinuityAsPerProfile} /> {assessment.crewContinuityAsPerProfile || 'N/A'}</>} />
+                {assessment.crewContinuityAsPerProfile === 'No' && <DetailItem label="Crew Continuity Details" value={assessment.crewContinuityDetails} isPreformatted fullWidth />}
+            </div>
+            <h4 className="text-md font-medium mb-2 text-muted-foreground">Voyage Considerations</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <DetailItem label="Special Voyage Considerations" value={assessment.specialVoyageConsiderations} isPreformatted fullWidth />
+                <DetailItem label="Reduction in Vessel Program Requirements" value={<><YesNoIcon value={assessment.reductionInVesselProgramRequirements} /> {assessment.reductionInVesselProgramRequirements || 'N/A'}</>} />
+                {assessment.reductionInVesselProgramRequirements === 'Yes' && <DetailItem label="ROC/JRCC Notified of Limitations" value={<><YesNoIcon value={assessment.rocNotificationOfLimitations} /> {assessment.rocNotificationOfLimitations || 'N/A'}</>} />}
+            </div>
+          </section>
+          <Separator />
+
+          <section>
+            <SectionTitle icon={FileText} title="Attachments" />
             {assessment.attachments.length > 0 ? (
               <ul className="space-y-3">
                 {assessment.attachments.map(att => (
@@ -268,7 +324,7 @@ export default function AssessmentDetailPage() {
 
           <section>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2"><Bot className="h-6 w-6 text-primary" /> AI Insights</h3>
+              <SectionTitle icon={Bot} title="AI Insights" className="mb-0"/>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
                   {isAiLoading.summary ? "Generating..." : (assessment.aiGeneratedSummary ? "Summary Generated" : "Generate Summary")}
@@ -319,7 +375,7 @@ export default function AssessmentDetailPage() {
           <Separator />
 
           <section>
-            <h3 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Approval Workflow</h3>
+            <SectionTitle icon={Users} title="Approval Workflow" />
             <div className="space-y-4">
               {assessment.approvalSteps.map((step, index) => {
                 const StepIcon = getStepStatusIcon(step.decision);
@@ -387,7 +443,7 @@ export default function AssessmentDetailPage() {
                   <AlertDescription className="text-green-600">This risk assessment has been approved by all required levels.</AlertDescription>
                 </Alert>
             )}
-            {assessment.status === 'Rejected' && !currentLevelToAct && ( // Or check last step decision
+            {assessment.status === 'Rejected' && !currentLevelToAct && ( 
                  <Alert variant="destructive" className="mt-6">
                   <XCircle className="h-5 w-5" />
                   <AlertTitle className="font-semibold">Assessment Rejected</AlertTitle>
