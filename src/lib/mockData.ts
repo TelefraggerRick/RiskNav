@@ -6,6 +6,7 @@ const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 const fourDaysAgo = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
+const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
 
 const initialApprovalSteps: ApprovalStep[] = [
   { level: 'Crewing Standards and Oversight' },
@@ -240,5 +241,54 @@ export const mockRiskAssessments: RiskAssessment[] = [
     specialVoyageConsiderations: 'Great Lakes can have high traffic density and variable weather. Navigating by magnetic compass requires heightened diligence.',
     reductionInVesselProgramRequirements: 'Yes',
     rocNotificationOfLimitations: 'Yes',
+  },
+  {
+    id: 'ra-006',
+    referenceNumber: 'CCG-RA-2024-006',
+    vesselName: 'CCGS Terry Fox',
+    department: 'Deck',
+    region: 'Atlantic',
+    voyageDetails: 'SAR Standby, Approaches to Halifax, Starting 2024-07-20',
+    reasonForRequest: 'Request for information regarding crane operator certification for new crew member.',
+    personnelShortages: 'New Ordinary Seaman (OS) onboard, records unclear if specific crane familiarization for Vessel Type X crane is complete.',
+    proposedOperationalDeviations: 'Until certification is confirmed or familiarization provided, crane operations to be conducted only by senior AB or Bosun. New OS to observe only.',
+    submittedBy: 'Atlantic Operations', 
+    submissionDate: fiveDaysAgo.toISOString(),
+    submissionTimestamp: fiveDaysAgo.getTime(),
+    status: 'Needs Information',
+    attachments: [
+      { id: 'att-009', name: 'OS_Manning_Doc.pdf', url: '#', type: 'application/pdf', size: 85000, uploadedAt: fiveDaysAgo.toISOString() },
+    ],
+    approvalSteps: [
+      { 
+        level: 'Crewing Standards and Oversight', 
+        decision: 'Needs Information', 
+        userName: 'CSO Officer', 
+        date: fourDaysAgo.toISOString(), 
+        notes: 'Please provide a copy of the OS\'s training record or certification for the specific crane type. Alternatively, detail the familiarization plan if certification is not present.' 
+      }, 
+      { level: 'Senior Director' },
+      { level: 'Director General' },
+    ],
+    lastModified: fourDaysAgo.toISOString(),
+    lastModifiedTimestamp: fourDaysAgo.getTime(),
+    coDeptHeadSupportExemption: 'Yes',
+    deptHeadConfidentInIndividual: 'Yes',
+    deptHeadConfidenceReason: 'OS is generally competent and quick learner. This is a documentation/verification issue primarily.',
+    employeeFamiliarizationProvided: 'No', // Specifically for the crane
+    workedInDepartmentLast12Months: 'No', // New to this vessel
+    workedInDepartmentDetails: '',
+    similarResponsibilityExperience: 'Yes',
+    similarResponsibilityDetails: 'Has operated similar small cranes on previous, smaller vessels.',
+    individualHasRequiredSeaService: 'Yes', // For OS rating
+    individualWorkingTowardsCertification: 'Yes', // Assumed for crane specific cert if needed
+    certificationProgressSummary: 'Currently verifying existing certs. If new cert/familiarization needed, will be expedited.',
+    requestCausesVacancyElsewhere: 'No',
+    crewCompositionSufficientForSafety: 'Yes',
+    detailedCrewCompetencyAssessment: 'All other deck crew are fully certified. The Bosun and senior ABs are experienced crane operators. The limitation only applies to the new OS.',
+    crewContinuityAsPerProfile: 'Yes',
+    specialVoyageConsiderations: 'SAR standby may require rapid deployment of rescue boat using crane. Need to ensure operator competency is not a delay factor.',
+    reductionInVesselProgramRequirements: 'No',
   }
 ];
+
