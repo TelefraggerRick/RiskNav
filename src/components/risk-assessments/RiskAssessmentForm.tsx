@@ -36,7 +36,6 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     resolver: zodResolver(riskAssessmentFormSchema),
     defaultValues: initialData || {
       vesselName: "",
-      vesselIMO: "",
       department: undefined,
       region: undefined, 
       voyageDetails: "",
@@ -131,7 +130,6 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>Vessel Name *</FormLabel> <FormControl><Input placeholder="e.g., CCGS Amundsen" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="vesselIMO" render={({ field }) => ( <FormItem> <FormLabel>Vessel IMO Number (Optional)</FormLabel> <FormControl><Input placeholder="e.g., 9275052 (7 digits)" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField
               control={form.control}
               name="department"

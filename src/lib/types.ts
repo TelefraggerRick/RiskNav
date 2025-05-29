@@ -67,7 +67,6 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   id: string;
   referenceNumber: string;
   vesselName: string;
-  vesselIMO?: string;
   department?: VesselDepartment;
   region?: VesselRegion; // Added region
   voyageDetails: string;

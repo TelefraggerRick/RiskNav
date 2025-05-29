@@ -98,7 +98,7 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, summary: true}));
     try {
       const summaryResult = await generateRiskAssessmentSummary({
-        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.vesselIMO || 'N/A'}, Region: ${assessment.region || 'N/A'}`,
+        vesselInformation: `Name: ${assessment.vesselName}, Region: ${assessment.region || 'N/A'}`,
         personnelShortages: assessment.personnelShortages,
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
@@ -117,7 +117,7 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, riskScore: true}));
     try {
       const result = await generateRiskScoreAndRecommendations({
-        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.vesselIMO || 'N/A'}. Voyage: ${assessment.voyageDetails}. Region: ${assessment.region || 'N/A'}`,
+        vesselInformation: `Name: ${assessment.vesselName}. Voyage: ${assessment.voyageDetails}. Region: ${assessment.region || 'N/A'}`,
         personnelShortages: assessment.personnelShortages,
         operationalDeviations: assessment.proposedOperationalDeviations,
         attachedDocuments: assessment.attachments.map(a => a.name), 
@@ -262,7 +262,6 @@ export default function AssessmentDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label="Submitted By" value={assessment.submittedBy} />
               <DetailItem label="Submission Date" value={format(parseISO(assessment.submissionDate), "PPP p")} />
-              <DetailItem label="Vessel IMO" value={assessment.vesselIMO} />
               <DetailItem label="Department" value={assessment.department} />
               <DetailItem label="Region" value={assessment.region} />
               <DetailItem label="Voyage Details" value={assessment.voyageDetails} isPreformatted fullWidth/>

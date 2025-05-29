@@ -18,14 +18,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-001',
     referenceNumber: 'CCG-RA-2024-001',
     vesselName: 'CCGS Amundsen',
-    vesselIMO: '9275052',
     department: 'Navigation',
     region: 'Arctic',
     voyageDetails: 'Arctic Survey Mission, Resolute Bay to Kugluktuk, Departs 2024-07-15',
     reasonForRequest: 'Sailing with one less certified navigation officer.',
     personnelShortages: 'Missing 1x Navigational Watch Rating (NWR). Current NWR has exceeded work hours.',
     proposedOperationalDeviations: 'Master to take additional watch duty. Increased rest periods for remaining NWR.',
-    submittedBy: 'Arctic Coordination Center', // Updated
+    submittedBy: 'Arctic Operations', 
     submissionDate: twoDaysAgo.toISOString(),
     submissionTimestamp: twoDaysAgo.getTime(),
     status: 'Pending Crewing Standards and Oversight',
@@ -62,14 +61,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-002',
     referenceNumber: 'CCG-RA-2024-002',
     vesselName: 'CCGS Terry Fox',
-    vesselIMO: '8127719',
     department: 'Engine Room',
     region: 'Atlantic',
     voyageDetails: 'Icebreaking Escort, St. John\'s to Strait of Belle Isle, Departs 2024-07-10',
     reasonForRequest: 'Chief Engineer certificate expired, renewal pending.',
     personnelShortages: 'Chief Engineer\'s CoC (Certificate of Competency) expired 2 days ago. Renewal paperwork submitted, awaiting issuance.',
     proposedOperationalDeviations: 'Second Engineer (holding valid CoC for the role) to assume Chief Engineer duties under remote supervision from shore-based Senior Chief Engineer. Daily operational checks to be reported.',
-    submittedBy: 'Atlantic Fleet Desk', // Updated
+    submittedBy: 'Atlantic Operations', 
     submissionDate: oneDayAgo.toISOString(),
     submissionTimestamp: oneDayAgo.getTime(),
     status: 'Pending Senior Director',
@@ -78,7 +76,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-004', name: 'Renewal_Application_Confirmation.png', dataAiHint:"document scan", url: 'https://placehold.co/150x100.png', type: 'image/png', size: 120000, uploadedAt: oneDayAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Duty Officer', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable.' }, // Updated userName
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable.' }, 
       { level: 'Senior Director' },
       { level: 'Director General' },
     ],
@@ -109,14 +107,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-003',
     referenceNumber: 'CCG-RA-2024-003',
     vesselName: 'CCGS Ann Harvey',
-    vesselIMO: '8320442',
     department: 'Navigation',
     region: 'Atlantic',
     voyageDetails: 'SAR Patrol, Halifax Sector, Continuous Operations',
     reasonForRequest: 'Proposed reduction in minimum watchkeeping personnel during non-critical phases.',
     personnelShortages: 'No current shortage, but proposing a deviation to standard watchkeeping levels to manage crew fatigue on extended patrols.',
     proposedOperationalDeviations: 'During daylight hours and in clear weather (Visibility > 5NM, Wind < Force 4), reduce bridge watch to one certified officer and one lookout, from standard two officers and one lookout. Engine room to remain UMS (Unmanned Machinery Spaces) capable.',
-    submittedBy: 'Central Logistics Team', // Updated (Example for variety)
+    submittedBy: 'Central Operations', 
     submissionDate: threeDaysAgo.toISOString(),
     submissionTimestamp: threeDaysAgo.getTime(),
     status: 'Approved',
@@ -124,9 +121,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
        { id: 'att-005', name: 'FatigueManagementPlan_AnnHarvey.pdf', url: '#', type: 'application/pdf', size: 204800, uploadedAt: threeDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Lead Reviewer', date: twoDaysAgo.toISOString(), notes: 'Acceptable under proposed conditions.'}, // Updated
-      { level: 'Senior Director', decision: 'Approved', userName: 'A. Senior Director', date: oneDayAgo.toISOString(), notes: 'Concur with CSO assessment. Emphasize strict adherence.'}, // Updated
-      { level: 'Director General', decision: 'Approved', userName: 'B. Director General', date: oneDayAgo.toISOString(), notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.'}, // Updated
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: twoDaysAgo.toISOString(), notes: 'Acceptable under proposed conditions.'}, 
+      { level: 'Senior Director', decision: 'Approved', userName: 'Senior Director (Approver)', date: oneDayAgo.toISOString(), notes: 'Concur with CSO assessment. Emphasize strict adherence.'}, 
+      { level: 'Director General', decision: 'Approved', userName: 'Director General (Approver)', date: oneDayAgo.toISOString(), notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.'}, 
     ],
     aiRiskScore: 30,
     aiGeneratedSummary: "Request for reduced watchkeeping on CCGS Ann Harvey during favorable conditions to manage crew fatigue. Proposes one officer and one lookout on bridge.",
@@ -156,14 +153,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-004',
     referenceNumber: 'CCG-RA-2024-004',
     vesselName: 'CCGS Gordon Reid',
-    vesselIMO: '8320454',
     department: 'Deck',
     region: 'Western',
     voyageDetails: 'Fisheries Patrol, West Coast Vancouver Island, Departs 2024-07-12',
     reasonForRequest: 'Medical evacuation of one Able Seaman, replacement not immediately available.',
     personnelShortages: 'One Able Seaman (AS) medevaced. Vessel will be short one AS for approximately 48-72 hours.',
     proposedOperationalDeviations: 'Remaining deck crew to absorb duties. Non-essential maintenance postponed. Mooring operations to be conducted with extra caution and supervision.',
-    submittedBy: 'Western Region Operations', // Updated
+    submittedBy: 'Western Operations', 
     submissionDate: now.toISOString(),
     submissionTimestamp: now.getTime(),
     status: 'Pending Crewing Standards and Oversight',
@@ -201,14 +197,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-005',
     referenceNumber: 'CCG-RA-2024-005',
     vesselName: 'CCGS Sir John Franklin',
-    vesselIMO: '9744441',
     department: 'Navigation',
     region: 'Central',
     voyageDetails: 'Aids to Navigation maintenance, Great Lakes, Commences 2024-08-01',
     reasonForRequest: 'Gyrocompass requires overhaul, will operate on secondary magnetic compass.',
     personnelShortages: 'N/A directly, but primary navigation system impacted.',
     proposedOperationalDeviations: 'Reliance on magnetic compass as primary heading source. Regular cross-checks with GPS and visual bearings. Restricted operations in low visibility or complex waters until gyro is repaired.',
-    submittedBy: 'Central Logistics Team', // Updated
+    submittedBy: 'Central Operations', 
     submissionDate: fourDaysAgo.toISOString(),
     submissionTimestamp: fourDaysAgo.getTime(),
     status: 'Rejected',
@@ -217,8 +212,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-008', name: 'Proposed_Nav_Procedures.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 65000, uploadedAt: fourDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Technical Unit', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.'}, // Updated
-      { level: 'Senior Director', decision: 'Rejected', userName: 'A. Senior Director (NAVSAFE)', date: twoDaysAgo.toISOString(), notes: 'Operating on magnetic compass alone in the Great Lakes poses too high a risk. Gyro must be repaired or vessel operations significantly curtailed to daylight, clear weather, and open waters only.'}, // Updated
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.'}, 
+      { level: 'Senior Director', decision: 'Rejected', userName: 'Senior Director (Approver)', date: twoDaysAgo.toISOString(), notes: 'Operating on magnetic compass alone in the Great Lakes poses too high a risk. Gyro must be repaired or vessel operations significantly curtailed to daylight, clear weather, and open waters only.'}, 
       { level: 'Director General' },
     ],
     aiRiskScore: 75,
@@ -247,5 +242,3 @@ export const mockRiskAssessments: RiskAssessment[] = [
     rocNotificationOfLimitations: 'Yes',
   }
 ];
-
-    
