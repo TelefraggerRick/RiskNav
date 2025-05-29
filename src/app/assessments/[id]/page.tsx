@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor
-} from 'lucide-react';
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe
+} from 'lucide-react'; // Added Globe
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
@@ -95,7 +95,7 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, summary: true}));
     try {
       const summaryResult = await generateRiskAssessmentSummary({
-        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.vesselIMO || 'N/A'}`,
+        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.vesselIMO || 'N/A'}, Region: ${assessment.region || 'N/A'}`,
         personnelShortages: assessment.personnelShortages,
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
@@ -114,7 +114,7 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, riskScore: true}));
     try {
       const result = await generateRiskScoreAndRecommendations({
-        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.vesselIMO || 'N/A'}. Voyage: ${assessment.voyageDetails}`,
+        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.vesselIMO || 'N/A'}. Voyage: ${assessment.voyageDetails}. Region: ${assessment.region || 'N/A'}`,
         personnelShortages: assessment.personnelShortages,
         operationalDeviations: assessment.proposedOperationalDeviations,
         attachedDocuments: assessment.attachments.map(a => a.name), 
@@ -249,6 +249,7 @@ export default function AssessmentDetailPage() {
               <DetailItem label="Submission Date" value={format(parseISO(assessment.submissionDate), "PPP p")} />
               <DetailItem label="Vessel IMO" value={assessment.vesselIMO} />
               <DetailItem label="Department" value={assessment.department} />
+              <DetailItem label="Region" value={assessment.region} />
               <DetailItem label="Voyage Details" value={assessment.voyageDetails} isPreformatted fullWidth/>
               <DetailItem label="Reason for Request" value={assessment.reasonForRequest} isPreformatted fullWidth/>
               <DetailItem label="Personnel Shortages & Impact" value={assessment.personnelShortages} isPreformatted fullWidth/>

@@ -2,13 +2,13 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { RiskAssessment, RiskAssessmentStatus } from '@/lib/types';
+import type { RiskAssessment, RiskAssessmentStatus, VesselRegion } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData'; 
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check } from 'lucide-react';
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe } from 'lucide-react'; // Added Globe
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
 
-type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified';
+type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
 
 const sortOptions: { value: SortKey; label: string }[] = [
@@ -28,6 +28,7 @@ const sortOptions: { value: SortKey; label: string }[] = [
   { value: 'lastModified', label: 'Last Modified' },
   { value: 'status', label: 'Status' },
   { value: 'vesselName', label: 'Vessel Name' },
+  { value: 'region', label: 'Region' },
 ];
 
 const ALL_STATUSES: RiskAssessmentStatus[] = [
@@ -40,16 +41,25 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
   'Rejected'
 ];
 
+const ALL_REGIONS: VesselRegion[] = ['Atlantic', 'Central', 'Western'];
+
 
 export default function DashboardPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<RiskAssessmentStatus[]>([]);
+  const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
-    setAssessments(mockRiskAssessments);
+    // In a real app, you'd fetch this data
+    // For now, we ensure mock data has region and it is compatible with VesselRegion type
+    const typedMockAssessments = mockRiskAssessments.map(assessment => ({
+        ...assessment,
+        region: assessment.region ? assessment.region as VesselRegion : undefined
+    }));
+    setAssessments(typedMockAssessments);
   }, []);
 
   const handleStatusChange = (status: RiskAssessmentStatus) => {
@@ -57,6 +67,14 @@ export default function DashboardPage() {
       prev.includes(status)
         ? prev.filter(s => s !== status)
         : [...prev, status]
+    );
+  };
+
+  const handleRegionChange = (region: VesselRegion) => {
+    setSelectedRegions(prev =>
+      prev.includes(region)
+        ? prev.filter(r => r !== region)
+        : [...prev, region]
     );
   };
 
@@ -68,13 +86,19 @@ export default function DashboardPage() {
       filtered = filtered.filter(assessment =>
         assessment.vesselName.toLowerCase().includes(lowerSearchTerm) ||
         assessment.referenceNumber.toLowerCase().includes(lowerSearchTerm) ||
-        (assessment.reasonForRequest && assessment.reasonForRequest.toLowerCase().includes(lowerSearchTerm))
+        (assessment.reasonForRequest && assessment.reasonForRequest.toLowerCase().includes(lowerSearchTerm)) ||
+        (assessment.region && assessment.region.toLowerCase().includes(lowerSearchTerm))
       );
     }
 
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter(assessment => selectedStatuses.includes(assessment.status));
     }
+    
+    if (selectedRegions.length > 0) {
+      filtered = filtered.filter(assessment => assessment.region && selectedRegions.includes(assessment.region));
+    }
+
 
     const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
@@ -95,13 +119,17 @@ export default function DashboardPage() {
           valA = a.vesselName.toLowerCase();
           valB = b.vesselName.toLowerCase();
           break;
+        case 'region':
+          valA = a.region || '';
+          valB = b.region || '';
+          break;
         default:
           return 0;
       }
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      if (a.submissionTimestamp < b.submissionTimestamp) return 1;
+      if (a.submissionTimestamp < b.submissionTimestamp) return 1; // Secondary sort
       if (a.submissionTimestamp > b.submissionTimestamp) return -1;
       return 0;
     });
@@ -121,7 +149,7 @@ export default function DashboardPage() {
     
     return sortedVesselGroups;
 
-  }, [assessments, searchTerm, selectedStatuses, sortKey, sortDirection]);
+  }, [assessments, searchTerm, selectedStatuses, selectedRegions, sortKey, sortDirection]);
 
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
@@ -134,9 +162,15 @@ export default function DashboardPage() {
 
   
   const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.label || 'Sort';
+  
   const statusFilterLabel = selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length
     ? 'All Statuses'
     : `${selectedStatuses.length} Selected`;
+
+  const regionFilterLabel = selectedRegions.length === 0 || selectedRegions.length === ALL_REGIONS.length
+    ? 'All Regions'
+    : `${selectedRegions.length} Selected`;
+
 
   return (
     <div className="space-y-6">
@@ -145,8 +179,8 @@ export default function DashboardPage() {
       </div>
 
       <Card className="p-4 sm:p-6 shadow-sm rounded-lg">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="relative">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted to 4 columns for new filter */}
+          <div className="relative lg:col-span-1"> {/* Search input can take one column */}
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search assessments..."
@@ -186,14 +220,44 @@ export default function DashboardPage() {
                   key={status}
                   checked={selectedStatuses.includes(status)}
                   onCheckedChange={() => handleStatusChange(status)}
-                  onSelect={(e) => e.preventDefault()} // Prevent closing on select
+                  onSelect={(e) => e.preventDefault()} 
                 >
                   {status}
                 </DropdownMenuCheckboxItem>
               ))}
                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setSelectedStatuses([])} disabled={selectedStatuses.length === 0}>
-                  Clear Filters
+                  Clear Status Filters
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label="Filter by region">
+                 <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span>Filter by Region</span>
+                </div>
+                {selectedRegions.length > 0 && <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">{regionFilterLabel}</Badge>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <DropdownMenuLabel>Filter by Region</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ALL_REGIONS.map(region => (
+                <DropdownMenuCheckboxItem
+                  key={region}
+                  checked={selectedRegions.includes(region)}
+                  onCheckedChange={() => handleRegionChange(region)}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  {region}
+                </DropdownMenuCheckboxItem>
+              ))}
+               <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setSelectedRegions([])} disabled={selectedRegions.length === 0}>
+                  Clear Region Filters
                 </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

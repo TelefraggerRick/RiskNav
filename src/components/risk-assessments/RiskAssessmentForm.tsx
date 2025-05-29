@@ -12,11 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor } from "lucide-react";
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe } from "lucide-react"; // Added Globe
 import React, { useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { VesselDepartment } from "@/lib/types";
+import type { VesselDepartment, VesselRegion } from "@/lib/types";
 
 
 interface RiskAssessmentFormProps {
@@ -29,6 +29,7 @@ const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'text/plain'];
 const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
+const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western'];
 
 export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = false }: RiskAssessmentFormProps) {
   const form = useForm<RiskAssessmentFormData>({
@@ -36,7 +37,8 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     defaultValues: initialData || {
       vesselName: "",
       vesselIMO: "",
-      department: undefined, // Initialize new field
+      department: undefined,
+      region: undefined, // Initialize new field
       voyageDetails: "",
       reasonForRequest: "",
       personnelShortages: "",
@@ -146,6 +148,31 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                       <SelectGroup>
                         <SelectLabel>Departments</SelectLabel>
                         {departmentOptions.map(option => (
+                          <SelectItem key={option} value={option}>{option}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Region *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                         <SelectValue placeholder="Select region..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Regions</SelectLabel>
+                        {regionOptions.map(option => (
                           <SelectItem key={option} value={option}>{option}</SelectItem>
                         ))}
                       </SelectGroup>

@@ -1,5 +1,5 @@
 
-import type { RiskAssessment, ApprovalStep, VesselDepartment } from './types';
+import type { RiskAssessment, ApprovalStep, VesselDepartment, VesselRegion } from './types';
 
 const now = new Date();
 const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -20,6 +20,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     vesselName: 'CCGS Amundsen',
     vesselIMO: '9275052',
     department: 'Navigation',
+    region: 'Arctic', // Example - assuming 'Arctic' could be a value or adjust if only Atlantic, Central, Western
     voyageDetails: 'Arctic Survey Mission, Resolute Bay to Kugluktuk, Departs 2024-07-15',
     reasonForRequest: 'Sailing with one less certified navigation officer.',
     personnelShortages: 'Missing 1x Navigational Watch Rating (NWR). Current NWR has exceeded work hours.',
@@ -63,6 +64,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     vesselName: 'CCGS Terry Fox',
     vesselIMO: '8127719',
     department: 'Engine Room',
+    region: 'Atlantic',
     voyageDetails: 'Icebreaking Escort, St. John\'s to Strait of Belle Isle, Departs 2024-07-10',
     reasonForRequest: 'Chief Engineer certificate expired, renewal pending.',
     personnelShortages: 'Chief Engineer\'s CoC (Certificate of Competency) expired 2 days ago. Renewal paperwork submitted, awaiting issuance.',
@@ -96,7 +98,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     individualHasRequiredSeaService: 'Yes',
     individualWorkingTowardsCertification: 'Yes', // Referring to the Chief Engineer's renewal
     certificationProgressSummary: 'Renewal application submitted to Transport Canada. All supporting docs provided.',
-    requestCausesVacancyElsewhere: 'No', // Assuming Second Engineer role is being covered internally or is acceptable vacancy for short term.
+    requestCausesVacancyElsewhere: 'No', 
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All other engine room staff are certified. Second Engineer holds appropriate certification for their substantive role and is familiar with all systems.',
     crewContinuityAsPerProfile: 'Yes',
@@ -109,6 +111,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     vesselName: 'CCGS Ann Harvey',
     vesselIMO: '8320442',
     department: 'Navigation',
+    region: 'Atlantic',
     voyageDetails: 'SAR Patrol, Halifax Sector, Continuous Operations',
     reasonForRequest: 'Proposed reduction in minimum watchkeeping personnel during non-critical phases.',
     personnelShortages: 'No current shortage, but proposing a deviation to standard watchkeeping levels to manage crew fatigue on extended patrols.',
@@ -132,16 +135,16 @@ export const mockRiskAssessments: RiskAssessment[] = [
     lastModified: oneDayAgo.toISOString(),
     lastModifiedTimestamp: oneDayAgo.getTime(),
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // N/A in this context as it's a procedural change
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'This is a general operational change, not specific to one individual. The Master confirms all watchkeeping officers are competent for this adjusted procedure under the specified conditions.',
-    employeeFamiliarizationProvided: 'Yes', // N/A
-    workedInDepartmentLast12Months: 'Yes', // N/A
-    workedInDepartmentDetails: '', // N/A
-    similarResponsibilityExperience: 'Yes', // N/A
-    similarResponsibilityDetails: '', // N/A
-    individualHasRequiredSeaService: 'Yes', // N/A
-    individualWorkingTowardsCertification: 'Yes', // N/A
-    certificationProgressSummary: '', // N/A
+    employeeFamiliarizationProvided: 'Yes', 
+    workedInDepartmentLast12Months: 'Yes', 
+    workedInDepartmentDetails: '', 
+    similarResponsibilityExperience: 'Yes', 
+    similarResponsibilityDetails: '', 
+    individualHasRequiredSeaService: 'Yes', 
+    individualWorkingTowardsCertification: 'Yes', 
+    certificationProgressSummary: '', 
     requestCausesVacancyElsewhere: 'No',
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All watchkeeping officers are fully certified and familiar with the vessel and operational area. This change relies on their existing high competency levels.',
@@ -155,6 +158,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     vesselName: 'CCGS Gordon Reid',
     vesselIMO: '8320454',
     department: 'Deck',
+    region: 'Western',
     voyageDetails: 'Fisheries Patrol, West Coast Vancouver Island, Departs 2024-07-12',
     reasonForRequest: 'Medical evacuation of one Able Seaman, replacement not immediately available.',
     personnelShortages: 'One Able Seaman (AS) medevaced. Vessel will be short one AS for approximately 48-72 hours.',
@@ -174,20 +178,20 @@ export const mockRiskAssessments: RiskAssessment[] = [
     lastModified: now.toISOString(),
     lastModifiedTimestamp: now.getTime(),
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Assuming this applies to the deck team's ability to cope
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'Remaining deck crew are experienced and capable of managing the temporary shortage. The Bosun is particularly strong.',
     employeeFamiliarizationProvided: 'Yes',
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'All remaining deck crew have served more than 12 months in their roles on this vessel.',
     similarResponsibilityExperience: 'Yes',
     similarResponsibilityDetails: 'Team has operated with minimum manning for short periods before due to training/appointments.',
-    individualHasRequiredSeaService: 'Yes', // Refers to remaining crew
-    individualWorkingTowardsCertification: 'No', // Not applicable to this situation
+    individualHasRequiredSeaService: 'Yes', 
+    individualWorkingTowardsCertification: 'No', 
     certificationProgressSummary: '',
     requestCausesVacancyElsewhere: 'No',
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'The remaining deck ratings are fully certified. One Ordinary Seaman is less experienced but will be paired with a senior AB. All critical tasks (mooring, boat work) will have OOW oversight.',
-    crewContinuityAsPerProfile: 'No', // Temporarily not met
+    crewContinuityAsPerProfile: 'No', 
     crewContinuityDetails: 'Short one AB, will be gapped for estimated 48-72 hours. All efforts to find replacement are underway.',
     specialVoyageConsiderations: 'Fisheries patrols involve boat work. Risk assessment for small boat launch/recovery will be heightened.',
     reductionInVesselProgramRequirements: 'Yes',
@@ -199,6 +203,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     vesselName: 'CCGS Sir John Franklin',
     vesselIMO: '9744441',
     department: 'Navigation',
+    region: 'Central',
     voyageDetails: 'Aids to Navigation maintenance, Great Lakes, Commences 2024-08-01',
     reasonForRequest: 'Gyrocompass requires overhaul, will operate on secondary magnetic compass.',
     personnelShortages: 'N/A directly, but primary navigation system impacted.',
@@ -223,7 +228,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     lastModified: twoDaysAgo.toISOString(),
     lastModifiedTimestamp: twoDaysAgo.getTime(),
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // All officers are capable of navigating by magnetic compass
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'All navigating officers are trained and certified in traditional navigation techniques, including primary reliance on magnetic compass.',
     employeeFamiliarizationProvided: 'Yes',
     workedInDepartmentLast12Months: 'Yes',
