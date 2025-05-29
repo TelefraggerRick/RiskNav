@@ -8,96 +8,98 @@ body {
 
 @layer base {
   :root {
-    --background: 210 20% 90%; /* #E0E5EA - Very light blue-gray */
-    --foreground: 210 10% 20%; /* Darker gray for text readability */
+    --background: 0 0% 97%; /* Very light gray (L: 97, #F7F7F7) */
+    --foreground: 0 0% 13%; /* Near black (L: 13, #212121) */
 
-    --muted: 210 15% 80%; 
-    --muted-foreground: 210 10% 35%; 
+    --muted: 0 0% 94%; /* Light gray (L: 94, #F0F0F0) */
+    --muted-foreground: 0 0% 40%; /* Medium gray (L: 40, #666666) */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 10% 20%;
+    --popover: 0 0% 100%; /* White (L: 100, #FFFFFF) */
+    --popover-foreground: 0 0% 13%; /* Near black (L: 13, #212121) */
 
-    --card: 0 0% 100%; 
-    --card-foreground: 210 10% 20%;
+    --card: 0 0% 100%; /* White (L: 100, #FFFFFF) */
+    --card-foreground: 0 0% 13%; /* Near black (L: 13, #212121) */
 
-    --border: 210 15% 75%; 
-    --input: 210 15% 85%; 
+    --border: 0 0% 87%; /* Light gray border (L: 87, #DEDEDE) */
+    --input: 0 0% 93%; /* Input background (L: 93, #EDEDED) */
 
-    --primary: 216 58% 47%; /* #3066BE - Deep ocean blue */
-    --primary-foreground: 0 0% 100%; 
+    --primary: 0 65% 45%; /* CCG Red (L: 45, S: 65, #C23030) */
+    --primary-foreground: 0 0% 100%; /* White (L: 100, #FFFFFF) */
 
-    --secondary: 210 20% 80%; 
-    --secondary-foreground: 216 58% 47%; 
+    --secondary: 210 25% 35%; /* Dark Slate Blue/Charcoal (L: 35, S: 25, #3A4B5C) */
+    --secondary-foreground: 0 0% 98%; /* Off-white (L: 98, #FAFAFA) */
 
-    --accent: 167 30% 40%; /* #468577 - Muted teal */
-    --accent-foreground: 0 0% 100%; 
+    --accent: 0 0% 85%; /* Light gray accent (L: 85, #D9D9D9) */
+    --accent-foreground: 0 0% 13%; /* Dark text on light accent (L: 13, #212121) */
 
-    --destructive: 0 72% 51%; 
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 70% 50%; /* Destructive Red (L: 50, S: 70, #E04747) */
+    --destructive-foreground: 0 0% 100%; /* White (L: 100, #FFFFFF) */
 
-    --ring: 216 58% 47%; 
+    --ring: 0 65% 55%; /* Lighter Red for focus rings (L: 55, S: 65, #D94F4F) */
     --radius: 0.5rem;
 
-    --chart-1: 216 58% 47%;
-    --chart-2: 167 30% 40%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 190 50% 50%;
+    --chart-1: 0 65% 45%; /* Primary Red */
+    --chart-2: 210 25% 35%; /* Secondary Dark Slate Blue */
+    --chart-3: 0 50% 60%; /* Lighter Red */
+    --chart-4: 210 20% 60%; /* Lighter Slate Blue */
+    --chart-5: 0 0% 50%; /* Medium Gray */
 
-    --sidebar-background: 210 20% 96%;
-    --sidebar-foreground: 210 10% 25%;
-    --sidebar-primary: 216 58% 47%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 167 30% 40%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 15% 80%;
-    --sidebar-ring: 216 58% 47%;
+    /* Sidebar specific colors to harmonize with CCG theme */
+    --sidebar-background: 0 0% 94%; /* Same as --muted (L: 94, #F0F0F0) */
+    --sidebar-foreground: 0 0% 13%; /* Near black (L: 13, #212121) */
+    --sidebar-primary: 0 65% 45%; /* CCG Red (L: 45, S: 65, #C23030) */
+    --sidebar-primary-foreground: 0 0% 100%; /* White (L: 100, #FFFFFF) */
+    --sidebar-accent: 210 25% 35%; /* Dark Slate Blue/Charcoal (L: 35, S: 25, #3A4B5C) */
+    --sidebar-accent-foreground: 0 0% 98%; /* Off-white (L: 98, #FAFAFA) */
+    --sidebar-border: 0 0% 80%; /* Slightly darker gray border for sidebar (L: 80, #CCCCCC) */
+    --sidebar-ring: 0 65% 55%; /* Lighter Red for focus rings (L: 55, S: 65, #D94F4F) */
   }
 
   .dark {
-    --background: 210 10% 15%;
-    --foreground: 210 20% 90%;
+    --background: 220 10% 12%; /* Very Dark Desaturated Blue (L: 12, #1A1D21) */
+    --foreground: 0 0% 85%; /* Light Gray Text (L: 85, #D9D9D9) */
 
-    --muted: 210 10% 25%;
-    --muted-foreground: 210 20% 75%;
+    --muted: 220 10% 20%; /* Dark Muted Background (L: 20, #2B3036) */
+    --muted-foreground: 0 0% 60%; /* Medium-Light Gray Text (L: 60, #999999) */
 
-    --popover: 210 10% 10%;
-    --popover-foreground: 210 20% 90%;
+    --popover: 220 10% 10%; /* Very Dark Popover (L: 10, #14171A) */
+    --popover-foreground: 0 0% 85%; /* Light Gray Text (L: 85, #D9D9D9) */
 
-    --card: 210 10% 12%;
-    --card-foreground: 210 20% 90%;
+    --card: 220 10% 16%; /* Slightly Lighter Dark Blue for Cards (L: 16, #22262B) */
+    --card-foreground: 0 0% 85%; /* Light Gray Text (L: 85, #D9D9D9) */
 
-    --border: 210 10% 30%;
-    --input: 210 10% 25%;
+    --border: 220 10% 25%; /* Dark Border (L: 25, #353B43) */
+    --input: 220 10% 18%; /* Dark Input Background (L: 18, #262B30) */
 
-    --primary: 216 58% 57%;
-    --primary-foreground: 210 10% 5%;
+    --primary: 0 70% 60%; /* Brighter Red for Dark Mode (L: 60, S: 70, #F26B6B) */
+    --primary-foreground: 0 0% 10%; /* Very Dark Text on Bright Red (L: 10, #1A1A1A) */
 
-    --secondary: 210 10% 25%;
-    --secondary-foreground: 216 58% 57%;
+    --secondary: 210 20% 55%; /* Lighter Slate Blue for Dark Mode (L: 55, S: 20, #7A8A99) */
+    --secondary-foreground: 0 0% 10%; /* Very Dark Text (L: 10, #1A1A1A) */
 
-    --accent: 167 30% 50%;
-    --accent-foreground: 210 10% 5%;
+    --accent: 220 10% 30%; /* Dark Accent (L: 30, #404751) */
+    --accent-foreground: 0 0% 90%; /* Light Gray Text (L: 90, #E6E6E6) */
 
-    --destructive: 0 62% 40%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 70% 55%; /* Clear Destructive Red for Dark Mode (L: 55, S: 70, #ED5C5C) */
+    --destructive-foreground: 0 0% 10%; /* Very Dark Text (L: 10, #1A1A1A) */
 
-    --ring: 216 58% 57%;
+    --ring: 0 70% 65%; /* Brighter Red Ring for Dark Mode (L: 65, S: 70, #F58080) */
     
-    --chart-1: 216 58% 57%;
-    --chart-2: 167 30% 50%;
-    --chart-3: 30 80% 65%;
-    --chart-4: 280 65% 70%;
-    --chart-5: 190 50% 60%;
+    --chart-1: 0 70% 60%; /* Primary Red (Dark) */
+    --chart-2: 210 20% 55%; /* Secondary Slate Blue (Dark) */
+    --chart-3: 0 60% 70%; /* Lighter Red (Dark) */
+    --chart-4: 210 15% 70%; /* Lighter Slate Blue (Dark) */
+    --chart-5: 0 0% 60%; /* Medium Gray (Dark) */
 
-    --sidebar-background: 210 10% 10%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 216 58% 57%;
-    --sidebar-primary-foreground: 210 10% 5%;
-    --sidebar-accent: 167 30% 50%;
-    --sidebar-accent-foreground: 210 10% 5%;
-    --sidebar-border: 210 10% 25%;
-    --sidebar-ring: 216 58% 57%;
+    /* Sidebar specific colors for dark theme */
+    --sidebar-background: 220 10% 15%; /* Darker than card bg (L: 15, #1E2227) */
+    --sidebar-foreground: 0 0% 85%; /* Light Gray Text (L: 85, #D9D9D9) */
+    --sidebar-primary: 0 70% 60%; /* Brighter Red (L: 60, S: 70, #F26B6B) */
+    --sidebar-primary-foreground: 0 0% 10%; /* Very Dark Text (L: 10, #1A1A1A) */
+    --sidebar-accent: 210 20% 55%; /* Lighter Slate Blue (L: 55, S: 20, #7A8A99) */
+    --sidebar-accent-foreground: 0 0% 10%; /* Very Dark Text (L: 10, #1A1A1A) */
+    --sidebar-border: 220 10% 22%; /* Darker border for sidebar (L: 22, #2E333A) */
+    --sidebar-ring: 0 70% 65%; /* Brighter Red Ring (L: 65, S: 70, #F58080) */
   }
 }
 
