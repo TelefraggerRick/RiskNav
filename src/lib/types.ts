@@ -88,9 +88,19 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   lastModifiedTimestamp: number; // For sorting
 }
 
+export type UserRole = 
+  | ApprovalLevel 
+  | 'Atlantic Region Submitter' 
+  | 'Central Region Submitter' 
+  | 'Western Region Submitter' 
+  | 'Arctic Region Submitter' 
+  | 'Generic Submitter' 
+  | 'Admin'
+  | 'Unauthenticated';
+
 export interface User {
   id: string;
   name: string;
-  email: string;
-  role: 'Submitter' | 'Approver' | 'Admin' | ApprovalLevel; 
+  email?: string; // Making email optional for mock users
+  role: UserRole; 
 }

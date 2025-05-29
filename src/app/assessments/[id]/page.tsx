@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
+import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional, UserRole } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe
-} from 'lucide-react'; // Added Globe
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock
+} from 'lucide-react'; 
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
@@ -20,6 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
+import { useUser } from '@/contexts/UserContext'; // Added useUser
+
 // import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog'; // To be created
 
 const handleDownloadAttachment = (attachment: Attachment) => {
@@ -63,6 +65,7 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { currentUser } = useUser(); // Get current user
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
@@ -134,22 +137,34 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, riskScore: false}));
   };
 
-  const getCurrentApprovalStepInfo = () => {
-    if (!assessment) return { currentLevelToAct: null, canAct: false };
+  const getCurrentApprovalStepInfo = useCallback(() => {
+    if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false };
     
+    let currentLevelToAct: ApprovalLevel | null = null;
+    let isHalted = false;
+
     for (const level of approvalLevelsOrder) {
       const step = assessment.approvalSteps.find(s => s.level === level);
       if (!step || !step.decision) {
-        return { currentLevelToAct: level, canAct: true }; 
+        currentLevelToAct = level;
+        break;
       }
       if (step.decision === 'Rejected' || step.decision === 'Needs Information') {
-        return { currentLevelToAct: level, canAct: false, isHalted: true };
+        currentLevelToAct = level; // The action was taken at this level
+        isHalted = true;
+        break;
       }
     }
-    return { currentLevelToAct: null, canAct: false };
-  };
+    // Role check - does the currentUser's role match the currentLevelToAct?
+    // This is a simplified check; a real system might have more granular roles.
+    const userIsApproverForCurrentStep = currentUser.role === currentLevelToAct;
+    const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
+
+    return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep };
+  }, [assessment, currentUser]);
   
-  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted } = getCurrentApprovalStepInfo();
+  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted, userIsApproverForCurrentStep } = getCurrentApprovalStepInfo();
+
 
   if (isLoading) {
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
@@ -388,7 +403,7 @@ export default function AssessmentDetailPage() {
                 
                 return (
                   <div key={step.level}>
-                    <Card className={`p-4 ${isPending && step.level === currentLevelToAct ? 'border-primary shadow-md' : 'bg-muted/30'}`}>
+                    <Card className={`p-4 ${isPending && step.level === currentLevelToAct && !isHalted ? 'border-primary shadow-md' : 'bg-muted/30'}`}>
                       <CardHeader className="p-0 pb-2">
                         <CardTitle className={`text-md font-semibold flex items-center justify-between ${stepColor}`}>
                           <span className="flex items-center gap-2">
@@ -399,17 +414,17 @@ export default function AssessmentDetailPage() {
                             <Badge
                               variant={
                                 step.decision === 'Rejected' ? 'destructive' :
-                                'outline' // Base for Approved and Needs Info
+                                'outline' 
                               }
-                              className={`text-xs px-2 py-0.5 rounded-sm ${ // Adjusted padding
+                              className={`text-xs px-2 py-0.5 rounded-sm ${ 
                                 step.decision === 'Approved' ? 'bg-green-100 text-green-800 border-green-400' :
                                 step.decision === 'Needs Information' ? 'bg-orange-100 text-orange-800 border-orange-400' :
-                                '' // Destructive variant handles styling for Rejected
+                                '' 
                               }`}
                             >
                               {step.decision}
                             </Badge>
-                          ) : ( step.level === currentLevelToAct ? 
+                          ) : ( step.level === currentLevelToAct && !isHalted ? 
                             <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">Pending Action</Badge> 
                             : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm">Queued</Badge>
                           )}
@@ -433,20 +448,30 @@ export default function AssessmentDetailPage() {
               })}
             </div>
 
-            {currentLevelToAct && userCanActOnCurrentStep && !isHalted && (
+            {currentLevelToAct && !isHalted && (
                 <div className="mt-6 pt-4 border-t">
                     <h4 className="text-md font-semibold mb-3">Actions for {currentLevelToAct}:</h4>
-                    <div className="flex flex-wrap gap-3">
-                        <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => toast({title: "Action Required", description: `Approve action for ${currentLevelToAct} to be implemented.`})}>
-                            <ThumbsUp className="mr-2 h-4 w-4"/> Approve
-                        </Button>
-                        <Button variant="destructive" onClick={() => toast({title: "Action Required", description: `Reject action for ${currentLevelToAct} to be implemented.`})}>
-                            <ThumbsDown className="mr-2 h-4 w-4"/> Reject
-                        </Button>
-                         <Button variant="outline" onClick={() => toast({title: "Action Required", description: `Request Information action for ${currentLevelToAct} to be implemented.`})}>
-                            <MessageSquare className="mr-2 h-4 w-4"/> Request Information
-                        </Button>
-                    </div>
+                    {userCanActOnCurrentStep ? (
+                      <div className="flex flex-wrap gap-3">
+                          <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => toast({title: "Action Required", description: `Approve action for ${currentLevelToAct} to be implemented.`})}>
+                              <ThumbsUp className="mr-2 h-4 w-4"/> Approve
+                          </Button>
+                          <Button variant="destructive" onClick={() => toast({title: "Action Required", description: `Reject action for ${currentLevelToAct} to be implemented.`})}>
+                              <ThumbsDown className="mr-2 h-4 w-4"/> Reject
+                          </Button>
+                          <Button variant="outline" onClick={() => toast({title: "Action Required", description: `Request Information action for ${currentLevelToAct} to be implemented.`})}>
+                              <MessageSquare className="mr-2 h-4 w-4"/> Request Information
+                          </Button>
+                      </div>
+                    ) : (
+                       <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
+                          <Lock className="h-4 w-4 text-blue-600" />
+                          <AlertTitle className="text-blue-700 dark:text-blue-300">Action Required by Another Role</AlertTitle>
+                          <AlertDescription className="text-blue-600 dark:text-blue-400">
+                            Your current role ({currentUser.role}) does not match the required role for this action ({currentLevelToAct}).
+                          </AlertDescription>
+                        </Alert>
+                    )}
                 </div>
             )}
             {assessment.status === 'Approved' && (
@@ -456,18 +481,18 @@ export default function AssessmentDetailPage() {
                   <AlertDescription className="text-green-600">This risk assessment has been approved by all required levels.</AlertDescription>
                 </Alert>
             )}
-            {assessment.status === 'Rejected' && !currentLevelToAct && ( 
+            {(assessment.status === 'Rejected' && isHalted) && ( 
                  <Alert variant="destructive" className="mt-6">
                   <XCircle className="h-5 w-5" />
-                  <AlertTitle className="font-semibold">Assessment Rejected</AlertTitle>
-                  <AlertDescription>This risk assessment has been rejected. See details in the workflow steps above.</AlertDescription>
+                  <AlertTitle className="font-semibold">Assessment Rejected</AlertTitle
+                  ><AlertDescription>This risk assessment was rejected at the {currentLevelToAct} stage. See details in the workflow steps above.</AlertDescription>
                 </Alert>
             )}
-             {assessment.status === 'Needs Information' && (
+             {(assessment.status === 'Needs Information' && isHalted) && (
                  <Alert variant="default" className="mt-6 bg-orange-50 border-orange-200">
                   <FileWarning className="h-5 w-5 text-orange-600" />
                   <AlertTitle className="text-orange-700 font-semibold">Information Requested</AlertTitle>
-                  <AlertDescription className="text-orange-600">Further information has been requested for this assessment. See notes in the relevant step.</AlertDescription>
+                  <AlertDescription className="text-orange-600">Further information was requested at the {currentLevelToAct} stage. See notes in the relevant step.</AlertDescription>
                 </Alert>
             )}
              {!currentLevelToAct && !['Approved', 'Rejected', 'Needs Information'].includes(assessment.status) && assessment.approvalSteps.every(s => !s.decision) && (
