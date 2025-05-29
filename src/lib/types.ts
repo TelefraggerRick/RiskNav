@@ -60,11 +60,14 @@ export type RiskAssessmentStatus =
   | 'Approved' // Final approval by Director General
   | 'Rejected'; // If rejected at any level
 
+export type VesselDepartment = 'Navigation' | 'Deck' | 'Engine Room' | 'Logistics' | 'Other';
+
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string;
   referenceNumber: string;
   vesselName: string;
   vesselIMO?: string;
+  department?: VesselDepartment; // Added department
   voyageDetails: string;
   reasonForRequest: string;
   personnelShortages: string;
@@ -89,3 +92,4 @@ export interface User {
   email: string;
   role: 'Submitter' | 'Approver' | 'Admin' | ApprovalLevel; 
 }
+

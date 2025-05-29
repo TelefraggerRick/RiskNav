@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -248,6 +248,7 @@ export default function AssessmentDetailPage() {
               <DetailItem label="Submitted By" value={assessment.submittedBy} />
               <DetailItem label="Submission Date" value={format(parseISO(assessment.submissionDate), "PPP p")} />
               <DetailItem label="Vessel IMO" value={assessment.vesselIMO} />
+              <DetailItem label="Department" value={assessment.department} />
               <DetailItem label="Voyage Details" value={assessment.voyageDetails} isPreformatted fullWidth/>
               <DetailItem label="Reason for Request" value={assessment.reasonForRequest} isPreformatted fullWidth/>
               <DetailItem label="Personnel Shortages & Impact" value={assessment.personnelShortages} isPreformatted fullWidth/>
@@ -481,6 +482,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-
-
-    

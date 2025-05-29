@@ -11,10 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor } from "lucide-react";
 import React, { useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { VesselDepartment } from "@/lib/types";
+
 
 interface RiskAssessmentFormProps {
   onSubmit: (data: RiskAssessmentFormData) => Promise<void>;
@@ -25,6 +28,7 @@ interface RiskAssessmentFormProps {
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'text/plain'];
+const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
 
 export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = false }: RiskAssessmentFormProps) {
   const form = useForm<RiskAssessmentFormData>({
@@ -32,12 +36,12 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     defaultValues: initialData || {
       vesselName: "",
       vesselIMO: "",
+      department: undefined, // Initialize new field
       voyageDetails: "",
       reasonForRequest: "",
       personnelShortages: "",
       proposedOperationalDeviations: "",
       attachments: [],
-      // Initialize new fields
       coDeptHeadSupportExemption: undefined,
       deptHeadConfidentInIndividual: undefined,
       deptHeadConfidenceReason: "",
@@ -126,6 +130,31 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
           <CardContent className="space-y-6 pt-6">
             <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>Vessel Name *</FormLabel> <FormControl><Input placeholder="e.g., CCGS Amundsen" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="vesselIMO" render={({ field }) => ( <FormItem> <FormLabel>Vessel IMO Number (Optional)</FormLabel> <FormControl><Input placeholder="e.g., 9275052 (7 digits)" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField
+              control={form.control}
+              name="department"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Department *</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                         <SelectValue placeholder="Select department..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Departments</SelectLabel>
+                        {departmentOptions.map(option => (
+                          <SelectItem key={option} value={option}>{option}</SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="voyageDetails" render={({ field }) => ( <FormItem> <FormLabel>Voyage Details *</FormLabel> <FormControl><Textarea placeholder="e.g., Route, dates, purpose of voyage" {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="reasonForRequest" render={({ field }) => ( <FormItem> <FormLabel>Reason for Risk Assessment *</FormLabel> <FormControl><Textarea placeholder="e.g., Sailing short-handed due to X, Officer Y without proper certification for Z" {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="personnelShortages" render={({ field }) => ( <FormItem> <FormLabel>Personnel Shortages & Impact *</FormLabel> <FormControl><Textarea placeholder="Describe specific shortages, roles affected, and potential impact on operations." {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
