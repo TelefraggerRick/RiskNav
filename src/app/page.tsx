@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter } from 'lucide-react';
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon } from 'lucide-react'; // Added ShipIcon
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +26,7 @@ const sortOptions: { value: SortKey; label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date' },
   { value: 'lastModified', label: 'Last Modified' },
   { value: 'status', label: 'Status' },
-  { value: 'vesselName', label: 'Vessel Name' },
+  { value: 'vesselName', label: 'Vessel Name' }, // Technically vesselName sort will be implicit due to grouping, but kept for consistency
 ];
 
 const ALL_STATUSES: RiskAssessmentStatus[] = [
@@ -51,7 +51,7 @@ export default function DashboardPage() {
     setAssessments(mockRiskAssessments);
   }, []);
 
-  const filteredAndSortedAssessments = useMemo(() => {
+  const groupedAndSortedAssessments = useMemo(() => {
     let filtered = assessments;
 
     if (searchTerm) {
@@ -59,7 +59,7 @@ export default function DashboardPage() {
       filtered = filtered.filter(assessment =>
         assessment.vesselName.toLowerCase().includes(lowerSearchTerm) ||
         assessment.referenceNumber.toLowerCase().includes(lowerSearchTerm) ||
-        assessment.reasonForRequest.toLowerCase().includes(lowerSearchTerm)
+        (assessment.reasonForRequest && assessment.reasonForRequest.toLowerCase().includes(lowerSearchTerm))
       );
     }
 
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       filtered = filtered.filter(assessment => assessment.status === statusFilter);
     }
 
-    return [...filtered].sort((a, b) => {
+    const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
       switch (sortKey) {
         case 'submissionDate':
@@ -82,7 +82,7 @@ export default function DashboardPage() {
           valA = a.status;
           valB = b.status;
           break;
-        case 'vesselName':
+        case 'vesselName': // This sort key will primarily affect order within groups if not already sorted by vessel name
           valA = a.vesselName.toLowerCase();
           valB = b.vesselName.toLowerCase();
           break;
@@ -92,8 +92,28 @@ export default function DashboardPage() {
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      // Secondary sort by submission date if primary keys are equal (e.g. two items with same status)
+      if (a.submissionTimestamp < b.submissionTimestamp) return 1; // Newest first for secondary
+      if (a.submissionTimestamp > b.submissionTimestamp) return -1;
       return 0;
     });
+    
+    const groupedByVessel: Record<string, RiskAssessment[]> = sortedAssessments.reduce((acc, assessment) => {
+      const key = assessment.vesselName;
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(assessment);
+      return acc;
+    }, {} as Record<string, RiskAssessment[]>);
+
+    // Sort vessel groups by vessel name alphabetically
+    const sortedVesselGroups = Object.entries(groupedByVessel).sort(([vesselA], [vesselB]) => 
+      vesselA.localeCompare(vesselB)
+    );
+    
+    return sortedVesselGroups;
+
   }, [assessments, searchTerm, statusFilter, sortKey, sortDirection]);
 
   const handleSort = useCallback((key: SortKey) => {
@@ -111,7 +131,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between pb-4 border-b">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary">Risk Assessments</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary">Risk Assessments Dashboard</h1>
       </div>
 
       <Card className="p-4 sm:p-6 shadow-sm rounded-lg">
@@ -180,10 +200,22 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {filteredAndSortedAssessments.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredAndSortedAssessments.map(assessment => (
-            <RiskAssessmentCard key={assessment.id} assessment={assessment} />
+      {groupedAndSortedAssessments.length > 0 ? (
+        <div className="space-y-8"> {/* Container for all vessel groups */}
+          {groupedAndSortedAssessments.map(([vesselName, vesselAssessments]) => (
+            <section key={vesselName} aria-labelledby={`vessel-group-${vesselName.replace(/\s+/g, '-').toLowerCase()}`}>
+              <div className="flex items-center gap-3 mb-4 pb-2 border-b">
+                <ShipIcon className="h-6 w-6 text-secondary" />
+                <h2 id={`vessel-group-${vesselName.replace(/\s+/g, '-').toLowerCase()}`} className="text-xl sm:text-2xl font-semibold text-secondary">
+                  {vesselName}
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {vesselAssessments.map(assessment => (
+                  <RiskAssessmentCard key={assessment.id} assessment={assessment} />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       ) : (
