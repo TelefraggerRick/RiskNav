@@ -8,7 +8,7 @@ import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe } from 'lucide-react'; // Added Globe
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
+
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
 const sortOptions: { value: SortKey; label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date' },
@@ -52,15 +54,43 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  useEffect(() => {
-    // In a real app, you'd fetch this data
-    // For now, we ensure mock data has region and it is compatible with VesselRegion type
-    const typedMockAssessments = mockRiskAssessments.map(assessment => ({
-        ...assessment,
-        region: assessment.region ? assessment.region as VesselRegion : undefined
-    }));
-    setAssessments(typedMockAssessments);
+  const loadAssessments = useCallback(() => {
+    const baseAssessments = [...mockRiskAssessments];
+    let storedAssessments: RiskAssessment[] = [];
+    if (typeof window !== 'undefined') {
+        const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+        storedAssessments = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
+    }
+
+    const combinedMap = new Map<string, RiskAssessment>();
+
+    // Add mock assessments first
+    baseAssessments.forEach(assessment => {
+        combinedMap.set(assessment.id, {
+            ...assessment,
+            region: assessment.region ? assessment.region as VesselRegion : undefined
+        });
+    });
+
+    // Override with or add stored assessments
+    storedAssessments.forEach(storedAssessment => {
+        combinedMap.set(storedAssessment.id, {
+            ...storedAssessment,
+            region: storedAssessment.region ? storedAssessment.region as VesselRegion : undefined
+        });
+    });
+    
+    setAssessments(Array.from(combinedMap.values()));
   }, []);
+
+
+  useEffect(() => {
+    loadAssessments();
+    // Optional: Listen for storage changes from other tabs/windows, though less common for this kind of app
+    // window.addEventListener('storage', loadAssessments);
+    // return () => window.removeEventListener('storage', loadAssessments);
+  }, [loadAssessments]);
+
 
   const handleStatusChange = (status: RiskAssessmentStatus) => {
     setSelectedStatuses(prev =>
@@ -129,8 +159,11 @@ export default function DashboardPage() {
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      if (a.submissionTimestamp < b.submissionTimestamp) return 1; // Secondary sort
-      if (a.submissionTimestamp > b.submissionTimestamp) return -1;
+      // Secondary sort by submission date if primary sort values are equal
+      if (sortKey !== 'submissionDate') {
+        if (a.submissionTimestamp < b.submissionTimestamp) return 1; 
+        if (a.submissionTimestamp > b.submissionTimestamp) return -1;
+      }
       return 0;
     });
     
@@ -143,6 +176,7 @@ export default function DashboardPage() {
       return acc;
     }, {} as Record<string, RiskAssessment[]>);
 
+    // Sort vessel groups by vessel name
     const sortedVesselGroups = Object.entries(groupedByVessel).sort(([vesselA], [vesselB]) => 
       vesselA.localeCompare(vesselB)
     );
@@ -156,7 +190,7 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('asc');
+      setSortDirection('asc'); // Default to ascending when changing sort key
     }
   }, [sortKey]);
 
@@ -179,8 +213,8 @@ export default function DashboardPage() {
       </div>
 
       <Card className="p-4 sm:p-6 shadow-sm rounded-lg">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"> {/* Adjusted to 4 columns for new filter */}
-          <div className="relative lg:col-span-1"> {/* Search input can take one column */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="relative lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search assessments..."

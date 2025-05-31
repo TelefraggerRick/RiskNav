@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional, UserRole } from '@/lib/types';
+import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, UserX, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock
-} from 'lucide-react'; 
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock
+} from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
@@ -20,14 +20,56 @@ import { useToast } from '@/hooks/use-toast';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
-import { useUser } from '@/contexts/UserContext'; // Added useUser
+import { useUser } from '@/contexts/UserContext';
+import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
 
-// import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog'; // To be created
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+
+const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+
+// Helper function to get all assessments (mock + localStorage)
+const getAllAssessments = (): RiskAssessment[] => {
+  const storedAssessmentsRaw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEY) : null;
+  const storedAssessments: RiskAssessment[] = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
+  
+  const combinedAssessments = [...mockRiskAssessments];
+  storedAssessments.forEach(storedAssessment => {
+    const index = combinedAssessments.findIndex(mock => mock.id === storedAssessment.id);
+    if (index !== -1) {
+      combinedAssessments[index] = storedAssessment; // Replace mock with stored if ID matches
+    } else {
+      combinedAssessments.push(storedAssessment); // Add new assessment from storage
+    }
+  });
+  return combinedAssessments;
+};
+
+// Helper function to get a single assessment by ID
+const getAssessmentById = (id: string): RiskAssessment | undefined => {
+  return getAllAssessments().find(assessment => assessment.id === id);
+};
+
+// Helper function to save an updated assessment
+const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
+  if (typeof window === 'undefined') return;
+  let assessments = getAllAssessments();
+  const index = assessments.findIndex(a => a.id === updatedAssessment.id);
+  if (index !== -1) {
+    assessments[index] = updatedAssessment;
+  } else {
+    assessments.push(updatedAssessment); // Should not happen for updates, but good fallback
+  }
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
+};
+
 
 const handleDownloadAttachment = (attachment: Attachment) => {
   if (attachment.url && attachment.url !== '#') {
      window.open(attachment.url, '_blank');
   } else if (attachment.file) {
+     // This part is for files selected in the form but not yet "uploaded"
+     // For a real app, 'file' would be uploaded and get a URL
+     // For now, we can simulate download if it's a local File object
      const tempUrl = URL.createObjectURL(attachment.file);
      const a = document.createElement('a');
      a.href = tempUrl;
@@ -40,8 +82,6 @@ const handleDownloadAttachment = (attachment: Attachment) => {
     alert(`Download for ${attachment.name} is not available (No URL or local file).`);
   }
 };
-
-const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 const SectionTitle: React.FC<{ icon: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
   <h3 className={cn("text-lg font-semibold mb-4 text-foreground flex items-center gap-2 pt-1", className)}>
@@ -65,14 +105,18 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { currentUser } = useUser(); // Get current user
+  const { currentUser } = useUser();
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
+  const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
+  const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
 
   const fetchAssessment = useCallback(() => {
     if (params.id) {
-      const foundAssessment = mockRiskAssessments.find(a => a.id === params.id);
+      const foundAssessment = getAssessmentById(params.id as string);
       if (foundAssessment) {
         const populatedAssessment = {
           ...foundAssessment,
@@ -103,7 +147,9 @@ export default function AssessmentDetailPage() {
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
       });
-      setAssessment(prev => prev ? { ...prev, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString() } : null);
+      const updatedAssessment = { ...assessment, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString(), lastModifiedTimestamp: Date.now() };
+      setAssessment(updatedAssessment);
+      saveAssessmentUpdate(updatedAssessment);
       toast({ title: "AI Summary Generated", description: "Summary has been added." });
     } catch (error) {
       console.error("AI Summary Error:", error);
@@ -120,15 +166,18 @@ export default function AssessmentDetailPage() {
         vesselInformation: `Name: ${assessment.vesselName}. Voyage: ${assessment.voyageDetails}. Region: ${assessment.region || 'N/A'}`,
         personnelShortages: assessment.personnelShortages,
         operationalDeviations: assessment.proposedOperationalDeviations,
-        attachedDocuments: assessment.attachments.map(a => a.name), 
+        attachedDocuments: assessment.attachments.map(a => a.url || a.name), // Prefer URL if available
       });
-      setAssessment(prev => prev ? { 
-        ...prev, 
+      const updatedAssessment = { 
+        ...assessment, 
         aiRiskScore: result.riskScore,
         aiSuggestedMitigations: result.recommendations,
         aiRegulatoryConsiderations: result.regulatoryConsiderations,
         lastModified: new Date().toISOString(),
-      } : null);
+        lastModifiedTimestamp: Date.now(),
+      };
+      setAssessment(updatedAssessment);
+      saveAssessmentUpdate(updatedAssessment);
       toast({ title: "AI Risk Score & Recommendations Generated" });
     } catch (error) {
       console.error("AI Risk Score Error:", error);
@@ -138,10 +187,12 @@ export default function AssessmentDetailPage() {
   };
 
   const getCurrentApprovalStepInfo = useCallback(() => {
-    if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false };
+    if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false, overallStatus: assessment?.status };
     
     let currentLevelToAct: ApprovalLevel | null = null;
     let isHalted = false;
+    let overallStatus: RiskAssessmentStatus = assessment.status;
+
 
     for (const level of approvalLevelsOrder) {
       const step = assessment.approvalSteps.find(s => s.level === level);
@@ -150,20 +201,79 @@ export default function AssessmentDetailPage() {
         break;
       }
       if (step.decision === 'Rejected' || step.decision === 'Needs Information') {
-        currentLevelToAct = level; // The action was taken at this level
+        currentLevelToAct = level; 
         isHalted = true;
+        overallStatus = step.decision === 'Rejected' ? 'Rejected' : 'Needs Information';
         break;
       }
     }
-    // Role check - does the currentUser's role match the currentLevelToAct?
-    // This is a simplified check; a real system might have more granular roles.
+     if (!currentLevelToAct && assessment.approvalSteps.every(s => s.decision === 'Approved')) {
+      overallStatus = 'Approved';
+    }
+    
     const userIsApproverForCurrentStep = currentUser.role === currentLevelToAct;
     const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
 
-    return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep };
+    return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus };
   }, [assessment, currentUser]);
   
-  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted, userIsApproverForCurrentStep } = getCurrentApprovalStepInfo();
+  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted } = getCurrentApprovalStepInfo();
+
+  const handleOpenApprovalDialog = (decision: ApprovalDecision) => {
+    setCurrentDecision(decision);
+    setIsApprovalDialogOpen(true);
+  };
+
+  const handleApprovalAction = async (notes: string) => {
+    if (!assessment || !currentLevelToAct || !currentUser || !currentDecision) return;
+
+    setIsSubmittingApproval(true);
+
+    const nowISO = new Date().toISOString();
+    const nowTimestamp = Date.now();
+
+    const updatedApprovalSteps = assessment.approvalSteps.map(step =>
+      step.level === currentLevelToAct
+        ? { ...step, decision: currentDecision, userName: currentUser.name, date: nowISO, notes }
+        : step
+    );
+
+    let newStatus: RiskAssessmentStatus = assessment.status;
+    if (currentDecision === 'Approved') {
+      const currentIndex = approvalLevelsOrder.indexOf(currentLevelToAct);
+      if (currentIndex === approvalLevelsOrder.length - 1) {
+        newStatus = 'Approved';
+      } else {
+        const nextLevel = approvalLevelsOrder[currentIndex + 1];
+        newStatus = `Pending ${nextLevel}` as RiskAssessmentStatus;
+      }
+    } else if (currentDecision === 'Rejected') {
+      newStatus = 'Rejected';
+    } else if (currentDecision === 'Needs Information') {
+      newStatus = 'Needs Information';
+    }
+    
+    const updatedAssessment: RiskAssessment = {
+      ...assessment,
+      approvalSteps: updatedApprovalSteps,
+      status: newStatus,
+      lastModified: nowISO,
+      lastModifiedTimestamp: nowTimestamp,
+    };
+
+    setAssessment(updatedAssessment);
+    saveAssessmentUpdate(updatedAssessment);
+    
+    toast({
+      title: `Assessment ${currentDecision}`,
+      description: `The assessment has been ${currentDecision.toLowerCase()} with your notes.`,
+    });
+    
+    setIsSubmittingApproval(false);
+    setIsApprovalDialogOpen(false);
+    setCurrentDecision(undefined);
+    // Re-fetch or re-evaluate current step info if necessary, but local state update should cover it.
+  };
 
 
   if (isLoading) {
@@ -452,13 +562,13 @@ export default function AssessmentDetailPage() {
                     <h4 className="text-md font-semibold mb-3">Actions for {currentLevelToAct}:</h4>
                     {userCanActOnCurrentStep ? (
                       <div className="flex flex-wrap gap-3">
-                          <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => toast({title: "Action Required", description: `Approve action for ${currentLevelToAct} to be implemented.`})}>
+                          <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleOpenApprovalDialog('Approved')} disabled={isSubmittingApproval}>
                               <ThumbsUp className="mr-2 h-4 w-4"/> Approve
                           </Button>
-                          <Button variant="destructive" onClick={() => toast({title: "Action Required", description: `Reject action for ${currentLevelToAct} to be implemented.`})}>
+                          <Button variant="destructive" onClick={() => handleOpenApprovalDialog('Rejected')} disabled={isSubmittingApproval}>
                               <ThumbsDown className="mr-2 h-4 w-4"/> Reject
                           </Button>
-                          <Button variant="outline" onClick={() => toast({title: "Action Required", description: `Request Information action for ${currentLevelToAct} to be implemented.`})}>
+                          <Button variant="outline" onClick={() => handleOpenApprovalDialog('Needs Information')} disabled={isSubmittingApproval}>
                               <MessageSquare className="mr-2 h-4 w-4"/> Request Information
                           </Button>
                       </div>
@@ -504,6 +614,14 @@ export default function AssessmentDetailPage() {
           </section>
         </CardContent>
       </Card>
+       <ApprovalDialog
+        isOpen={isApprovalDialogOpen}
+        onClose={() => { setIsApprovalDialogOpen(false); setCurrentDecision(undefined);}}
+        onSubmit={handleApprovalAction}
+        decision={currentDecision}
+        isLoading={isSubmittingApproval}
+      />
     </div>
   );
 }
+
