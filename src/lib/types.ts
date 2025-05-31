@@ -68,7 +68,7 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   referenceNumber: string;
   vesselName: string;
   department?: VesselDepartment;
-  region?: VesselRegion; // Added region
+  region?: VesselRegion;
   voyageDetails: string;
   reasonForRequest: string;
   personnelShortages: string;
@@ -77,7 +77,7 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   submissionDate: string; // ISO date string
   status: RiskAssessmentStatus;
   attachments: Attachment[];
-  approvalSteps: ApprovalStep[]; 
+  approvalSteps: ApprovalStep[];
   aiRiskScore?: number;
   aiGeneratedSummary?: string;
   aiSuggestedMitigations?: string;
@@ -87,13 +87,13 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   lastModifiedTimestamp: number; // For sorting
 }
 
-export type UserRole = 
-  | ApprovalLevel 
-  | 'Atlantic Region Submitter' 
-  | 'Central Region Submitter' 
-  | 'Western Region Submitter' 
-  | 'Arctic Region Submitter' 
-  | 'Generic Submitter' 
+export type UserRole =
+  | ApprovalLevel
+  | 'Atlantic Region Submitter'
+  | 'Central Region Submitter'
+  | 'Western Region Submitter'
+  | 'Arctic Region Submitter'
+  | 'Generic Submitter'
   | 'Admin'
   | 'Unauthenticated';
 
@@ -101,5 +101,5 @@ export interface User {
   id: string;
   name: string;
   email?: string; // Making email optional for mock users
-  role: UserRole; 
+  role: UserRole;
 }
