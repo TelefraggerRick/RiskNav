@@ -11,16 +11,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn } from "lucide-react";
+import { LogIn, Users } from "lucide-react";
+import { mockUsers } from '@/lib/mockUsers';
 
 const loginSchema = z.object({
-  userId: z.string().min(1, "User ID is required."),
+  userId: z.string().min(1, "User selection is required."),
   password: z.string().min(1, "Password is required."),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+const availableLoginUsers = mockUsers.filter(user => user.id !== 'user-unauth');
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,11 +47,16 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
+    // The login function in UserContext will update currentUser if successful
     const success = await login(data.userId, data.password);
     if (success) {
+      // We need to get the updated user's name for the toast.
+      // Since context update might be async, it's safer to find user again or delay toast.
+      // For simplicity here, we'll assume login updates currentUser synchronously for the toast.
+      const loggedInUser = mockUsers.find(u => u.id === data.userId);
       toast({
         title: "Login Successful",
-        description: `Welcome back, ${currentUser.name}!`, // currentUser will be updated by context
+        description: `Welcome back, ${loggedInUser?.name || 'User'}!`, 
       });
       router.push("/"); // Redirect to dashboard
     } else {
@@ -73,7 +82,7 @@ export default function LoginPage() {
             <LogIn className="h-6 w-6 text-primary" /> Login
           </CardTitle>
           <CardDescription>
-            Enter your User ID and password to access your account.
+            Select your user profile and enter the password.
             (Hint: password is "coastguard2025" for all mock users)
           </CardDescription>
         </CardHeader>
@@ -85,10 +94,24 @@ export default function LoginPage() {
                 name="userId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>User ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., user-cso, user-atlantic" {...field} />
-                    </FormControl>
+                    <FormLabel>User Profile</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a user profile..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel className="flex items-center gap-2"><Users className="h-4 w-4"/>Available Users</SelectLabel>
+                          {availableLoginUsers.map(user => (
+                            <SelectItem key={user.id} value={user.id}>
+                              {user.name} ({user.role})
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
