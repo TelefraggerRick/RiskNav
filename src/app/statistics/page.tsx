@@ -13,12 +13,12 @@ import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 
 interface ChartDataItem {
-  name: string;
+  name: string; // Can be department, region, or status name
   total: number;
 }
 
 interface DepartmentAvgLengthItem {
-  name: string; // Using string for name to match ChartDataItem and allow department names
+  name: string; // Department name
   averageLength: number;
 }
 
@@ -26,11 +26,11 @@ const chartColorHSL = (variable: string) => `hsl(var(--${variable}))`;
 
 export default function StatisticsPage() {
   const [totalAssessments, setTotalAssessments] = useState(0);
-  const [assessmentsByRegion, setAssessmentsByRegion] = useState<ChartDataItem[]>([]);
-  const [assessmentsByDepartment, setAssessmentsByDepartment] = useState<ChartDataItem[]>([]);
+  const [assessmentsByRegionData, setAssessmentsByRegionData] = useState<ChartDataItem[]>([]);
+  const [assessmentsByDepartmentData, setAssessmentsByDepartmentData] = useState<ChartDataItem[]>([]);
   const [assessmentsByStatusData, setAssessmentsByStatusData] = useState<ChartDataItem[]>([]);
   const [overallAveragePatrolLength, setOverallAveragePatrolLength] = useState<number>(0);
-  const [averagePatrolLengthByDepartment, setAveragePatrolLengthByDepartment] = useState<DepartmentAvgLengthItem[]>([]);
+  const [averagePatrolLengthByDepartmentData, setAveragePatrolLengthByDepartmentData] = useState<DepartmentAvgLengthItem[]>([]);
 
   const { getTranslation } = useLanguage(); 
 
@@ -53,42 +53,45 @@ export default function StatisticsPage() {
     averagePatrolLengthByDeptTitle: { en: "Average Patrol Length by Department", fr: "Durée moyenne des patrouilles par département" },
     averagePatrolLengthByDeptDesc: { en: "Average patrol duration for assessments, broken down by department.", fr: "Durée moyenne des patrouilles pour les évaluations, ventilée par département." },
     averageDaysLabel: { en: "Avg. Days", fr: "Jours moy." },
+    // For ChartConfig labels
+    Navigation: { en: 'Navigation', fr: 'Navigation'},
+    Deck: { en: 'Deck', fr: 'Pont'},
+    EngineRoom: { en: 'Engine Room', fr: 'Salle des machines'},
+    Logistics: { en: 'Logistics', fr: 'Logistique'},
+    Other: { en: 'Other', fr: 'Autre'},
+    Atlantic: { en: 'Atlantic', fr: 'Atlantique' },
+    Central: { en: 'Central', fr: 'Centre' },
+    Western: { en: 'Western', fr: 'Ouest' },
+    Arctic: { en: 'Arctic', fr: 'Arctique' },
   };
 
+
   useEffect(() => {
-    const data: RiskAssessment[] = mockRiskAssessments;
+    const data: RiskAssessment[] = mockRiskAssessments; // Assuming mockData is sufficient for now
     setTotalAssessments(data.length);
 
-    // Assessments by Region
-    const regionCounts: Record<VesselRegion, number> = {
-      'Atlantic': 0, 'Central': 0, 'Western': 0, 'Arctic': 0,
-    };
+    const regionCounts: Record<string, number> = {};
     data.forEach(assessment => {
-      if (assessment.region && regionCounts[assessment.region] !== undefined) {
-        regionCounts[assessment.region]++;
+      if (assessment.region) {
+        regionCounts[assessment.region] = (regionCounts[assessment.region] || 0) + 1;
       }
     });
-    setAssessmentsByRegion(Object.entries(regionCounts).map(([name, total]) => ({ name: name as VesselRegion, total })));
+    setAssessmentsByRegionData(Object.entries(regionCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total));
 
-    // Assessments by Department
-    const departmentCounts: Record<VesselDepartment, number> = {
-      'Navigation': 0, 'Deck': 0, 'Engine Room': 0, 'Logistics': 0, 'Other': 0,
-    };
+    const departmentCounts: Record<string, number> = {};
     data.forEach(assessment => {
-      if (assessment.department && departmentCounts[assessment.department] !== undefined) {
-        departmentCounts[assessment.department]++;
+      if (assessment.department) {
+        departmentCounts[assessment.department] = (departmentCounts[assessment.department] || 0) + 1;
       }
     });
-    setAssessmentsByDepartment(Object.entries(departmentCounts).map(([name, total]) => ({ name: name as VesselDepartment, total })));
+    setAssessmentsByDepartmentData(Object.entries(departmentCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total));
 
-    // Assessments by Status
     const statusCounts: Record<string, number> = {};
     data.forEach(assessment => {
       statusCounts[assessment.status] = (statusCounts[assessment.status] || 0) + 1;
     });
     setAssessmentsByStatusData(Object.entries(statusCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total));
-
-    // Overall Average Patrol Length
+    
     let totalPatrolDays = 0;
     let countWithPatrolLength = 0;
     data.forEach(assessment => {
@@ -99,57 +102,65 @@ export default function StatisticsPage() {
     });
     setOverallAveragePatrolLength(countWithPatrolLength > 0 ? parseFloat((totalPatrolDays / countWithPatrolLength).toFixed(1)) : 0);
     
-    // Average Patrol Length by Department
-    const deptPatrolLengths: Record<VesselDepartment, { totalDays: number; count: number }> = {
-      'Navigation': { totalDays: 0, count: 0 },
-      'Deck': { totalDays: 0, count: 0 },
-      'Engine Room': { totalDays: 0, count: 0 },
-      'Logistics': { totalDays: 0, count: 0 },
-      'Other': { totalDays: 0, count: 0 },
-    };
+    const deptPatrolLengths: Record<string, { totalDays: number; count: number }> = {};
+    (Object.keys(T) as Array<keyof typeof T>)
+        .filter(key => ['Navigation', 'Deck', 'EngineRoom', 'Logistics', 'Other'].includes(key))
+        .forEach(key => {
+            deptPatrolLengths[getTranslation(T[key as 'Navigation'])] = { totalDays: 0, count: 0 };
+        });
+
     data.forEach(assessment => {
       if (assessment.department && assessment.patrolLengthDays !== undefined && assessment.patrolLengthDays > 0) {
-        if (deptPatrolLengths[assessment.department]) {
-          deptPatrolLengths[assessment.department].totalDays += assessment.patrolLengthDays;
-          deptPatrolLengths[assessment.department].count++;
+        const departmentName = getTranslation(T[assessment.department.replace(' ', '') as 'Navigation' | 'Deck' | 'EngineRoom' | 'Logistics' | 'Other']);
+        if (deptPatrolLengths[departmentName]) {
+          deptPatrolLengths[departmentName].totalDays += assessment.patrolLengthDays;
+          deptPatrolLengths[departmentName].count++;
         }
       }
     });
     
-    const avgLengthByDeptData = (Object.keys(deptPatrolLengths) as VesselDepartment[]).map(dept => ({
-      name: dept,
-      averageLength: deptPatrolLengths[dept].count > 0 
-        ? parseFloat((deptPatrolLengths[dept].totalDays / deptPatrolLengths[dept].count).toFixed(1))
+    const avgLengthByDeptData = Object.entries(deptPatrolLengths).map(([deptName, {totalDays, count}]) => ({
+      name: deptName,
+      averageLength: count > 0 
+        ? parseFloat((totalDays / count).toFixed(1))
         : 0,
     })).sort((a,b) => b.averageLength - a.averageLength);
-    setAveragePatrolLengthByDepartment(avgLengthByDeptData);
+    setAveragePatrolLengthByDepartmentData(avgLengthByDeptData);
 
-  }, []);
+  }, [getTranslation, T]);
 
-  const commonChartConfig = useMemo(() => ({
-    total: {
-      label: getTranslation(T.assessmentsLabel),
-      color: chartColorHSL("chart-1"),
-    },
-  }), [getTranslation, T.assessmentsLabel]) satisfies ChartConfig;
-  
-  const avgLengthChartConfig = useMemo(() => ({
-    averageLength: {
-      label: getTranslation(T.averageDaysLabel),
-      color: chartColorHSL("chart-2"),
-    },
-  }), [getTranslation, T.averageDaysLabel]) satisfies ChartConfig;
+  const departmentDisplayConfig = useMemo((): ChartConfig => ({
+    [getTranslation(T.Navigation)]: { label: getTranslation(T.Navigation), color: 'hsl(210, 65%, 50%)' }, // Blue
+    [getTranslation(T.Deck)]: { label: getTranslation(T.Deck), color: 'hsl(210, 25%, 35%)' }, // Dark Slate Blue
+    [getTranslation(T.EngineRoom)]: { label: getTranslation(T.EngineRoom), color: 'hsl(270, 50%, 55%)' }, // Purple
+    [getTranslation(T.Logistics)]: { label: getTranslation(T.Logistics), color: 'hsl(120, 50%, 45%)' }, // Green
+    [getTranslation(T.Other)]: { label: getTranslation(T.Other), color: 'hsl(30, 80%, 55%)' }, // Orange
+  }), [getTranslation, T]);
 
-  const statusDisplayConfig = useMemo(() => {
+  const regionDisplayConfig = useMemo((): ChartConfig => ({
+    [getTranslation(T.Atlantic)]: { label: getTranslation(T.Atlantic), color: chartColorHSL("chart-1") }, // Primary Red
+    [getTranslation(T.Central)]: { label: getTranslation(T.Central), color: chartColorHSL("chart-2") },  // Dark Slate Blue
+    [getTranslation(T.Western)]: { label: getTranslation(T.Western), color: chartColorHSL("chart-3") },  // Lighter Red
+    [getTranslation(T.Arctic)]: { label: getTranslation(T.Arctic), color: chartColorHSL("chart-4") },   // Lighter Slate Blue
+  }), [getTranslation, T]);
+
+  const statusDisplayConfig = useMemo((): ChartConfig => {
     const config: ChartConfig = {};
     assessmentsByStatusData.forEach((item, index) => {
         config[item.name] = { 
-            label: item.name,
+            label: item.name, // Assuming status names don't need translation here or are already fine
             color: chartColorHSL(`chart-${(index % 5) + 1}` as "chart-1" | "chart-2" | "chart-3" | "chart-4" | "chart-5")
         };
     });
     return config;
   }, [assessmentsByStatusData]);
+  
+  const avgLengthDataKeyConfig = useMemo((): ChartConfig => ({ // Config for the dataKey itself if bars are not individually colored by name
+    averageLength: {
+      label: getTranslation(T.averageDaysLabel),
+      color: chartColorHSL("chart-2"), // Default color for averageLength bars if not overridden by department color
+    },
+  }), [getTranslation, T.averageDaysLabel]);
 
 
   const renderBarChart = (
@@ -157,8 +168,8 @@ export default function StatisticsPage() {
     titleKey: keyof typeof T, 
     descriptionKey: keyof typeof T,
     Icon: React.ElementType,
-    chartConfig: ChartConfig = commonChartConfig,
-    dataKey: string = "total" // "total" or "averageLength"
+    chartConfigToUse: ChartConfig, // Explicitly pass the config for this chart
+    dataKey: string = "total" 
   ) => (
     <Card className="shadow-lg rounded-lg">
       <CardHeader>
@@ -169,38 +180,36 @@ export default function StatisticsPage() {
         <CardDescription>{getTranslation(T[descriptionKey])}</CardDescription>
       </CardHeader>
       <CardContent className="h-[300px] sm:h-[350px] w-full">
-        <ChartContainer config={chartConfig} className="w-full h-full">
+        <ChartContainer config={chartConfigToUse} className="w-full h-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ right: 20, left: titleKey === "assessmentsByStatusTitle" ? 150 : (titleKey === "averagePatrolLengthByDeptTitle" ? 100 : 100) }}>
+            <BarChart data={data} layout="vertical" margin={{ right: 20, left: (titleKey === "assessmentsByStatusTitle" || titleKey === "assessmentsByDeptTitle" || titleKey === "averagePatrolLengthByDeptTitle") ? 120 : 100 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" allowDecimals={false} />
+              <XAxis type="number" allowDecimals={dataKey === "averageLength"} />
               <YAxis 
                 dataKey="name" 
                 type="category" 
                 tickLine={false} 
                 axisLine={false} 
-                width={titleKey === "assessmentsByStatusTitle" ? 150 : (titleKey === "averagePatrolLengthByDeptTitle" ? 100 : 100)}
+                width={(titleKey === "assessmentsByStatusTitle" || titleKey === "assessmentsByDeptTitle" || titleKey === "averagePatrolLengthByDeptTitle") ? 120 : 100}
                 tick={{ fontSize: 12 }}
+                className="truncate"
               />
               <Tooltip
                 cursor={{ fill: "hsl(var(--muted))" }}
                 content={<ChartTooltipContent labelClassName="text-sm" formatter={(value, name, props) => {
-                    if (name === getTranslation(T.averageDaysLabel)) {
-                        return [`${value} ${getTranslation(T.daysLabel)}`, name];
+                    if (props.dataKey === "averageLength") { // Check based on dataKey of the bar
+                        return [`${value} ${getTranslation(T.daysLabel)}`, props.payload?.name || name];
                     }
-                    return [value, name];
+                    return [value, props.payload?.name || name];
                 }} />}
               />
               <Bar dataKey={dataKey} radius={4} barSize={30}>
-                { (titleKey === "assessmentsByStatusTitle" || chartConfig === statusDisplayConfig) && Array.isArray(data) ? data.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${entry.name}-${index}`} 
-                    fill={(statusDisplayConfig as ChartConfig)[entry.name]?.color || chartColorHSL("chart-1")}
-                  />
-                )) : 
-                (chartConfig[dataKey] && Array.isArray(data)) ? data.map((_entry, index) => (
-                     <Cell key={`cell-generic-${index}`} fill={chartConfig[dataKey]?.color || chartColorHSL("chart-1")} />
-                )) : null }
+                {data.map((entry, index) => {
+                    const color = chartConfigToUse[entry.name]?.color || // Color by entry name (department, region, status)
+                                  chartConfigToUse[dataKey]?.color ||    // Color by dataKey (total, averageLength)
+                                  chartColorHSL("chart-1"); // Fallback
+                    return <Cell key={`cell-${entry.name}-${index}`} fill={color} />;
+                })}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -257,60 +266,28 @@ export default function StatisticsPage() {
 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {renderBarChart(assessmentsByRegion, "assessmentsByRegionTitle", "assessmentsByRegionDesc", MapPinned)}
-        {renderBarChart(assessmentsByDepartment, "assessmentsByDeptTitle", "assessmentsByDeptDesc", Building)}
+        {renderBarChart(assessmentsByRegionData, "assessmentsByRegionTitle", "assessmentsByRegionDesc", MapPinned, regionDisplayConfig, "total")}
+        {renderBarChart(assessmentsByDepartmentData, "assessmentsByDeptTitle", "assessmentsByDeptDesc", Building, departmentDisplayConfig, "total")}
       </div>
       
       {renderBarChart(
-        averagePatrolLengthByDepartment, 
+        averagePatrolLengthByDepartmentData, 
         "averagePatrolLengthByDeptTitle", 
         "averagePatrolLengthByDeptDesc", 
         Clock,
-        avgLengthChartConfig,
+        departmentDisplayConfig, // Color bars by department
         "averageLength"
       )}
 
-      <Card className="shadow-lg rounded-lg">
-        <CardHeader>
-            <div className="flex items-center gap-2 text-primary">
-                <ListChecks className="h-6 w-6" />
-                <CardTitle className="text-xl">{getTranslation(T.assessmentsByStatusTitle)}</CardTitle>
-            </div>
-          <CardDescription>{getTranslation(T.assessmentsByStatusDesc)}</CardDescription>
-        </CardHeader>
-        <CardContent className="h-[400px] sm:h-[450px] w-full">
-          <ChartContainer config={statusDisplayConfig} className="w-full h-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={assessmentsByStatusData} layout="vertical" margin={{ right: 20, left: 150 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} />
-                <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    tickLine={false} 
-                    axisLine={false} 
-                    width={150} 
-                    tick={{ fontSize: 12 }}
-                />
-                <Tooltip
-                    cursor={{ fill: "hsl(var(--muted))" }}
-                    content={<ChartTooltipContent labelClassName="text-sm" />}
-                />
-                <Bar dataKey="total" radius={4} barSize={30}>
-                  {assessmentsByStatusData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-status-${entry.name}-${index}`} 
-                      fill={statusDisplayConfig[entry.name]?.color || chartColorHSL("chart-1")}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      {renderBarChart(
+        assessmentsByStatusData, 
+        "assessmentsByStatusTitle", 
+        "assessmentsByStatusDesc", 
+        ListChecks,
+        statusDisplayConfig,
+        "total"
+      )}
 
     </div>
   );
 }
-
