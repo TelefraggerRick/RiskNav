@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe } from 'lucide-react';
+import { format, parseISO } from 'date-fns'; // Added format and parseISO
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +20,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
-import { useLanguage } from '@/contexts/LanguageContext'; // Added
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
@@ -54,7 +55,7 @@ export default function DashboardPage() {
   const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const { getTranslation, currentLanguage } = useLanguage(); // Added
+  const { getTranslation, currentLanguage } = useLanguage();
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -73,6 +74,8 @@ export default function DashboardPage() {
     noMatchFilters: { en: "No risk assessments match your current filters. Try adjusting your search or filter criteria, or create a new assessment.", fr: "Aucune évaluation des risques ne correspond à vos filtres actuels. Essayez d'ajuster vos critères de recherche ou de filtrage, ou créez une nouvelle évaluation." },
     clearStatusFilters: { en: "Clear Status Filters", fr: "Effacer les filtres de statut" },
     clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
+    patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
+    generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
   };
 
 
@@ -183,20 +186,21 @@ export default function DashboardPage() {
       return 0;
     });
     
-    const groupedByVessel: Record<string, RiskAssessment[]> = sortedAssessments.reduce((acc, assessment) => {
-      const key = assessment.vesselName;
-      if (!acc[key]) {
-        acc[key] = [];
+    const groupedByPatrol: Record<string, RiskAssessment[]> = sortedAssessments.reduce((acc, assessment) => {
+      const patrolKey = `${assessment.patrolStartDate || 'NO_START_DATE'}-${assessment.patrolEndDate || 'NO_END_DATE'}`;
+      const groupKey = `${assessment.vesselName}|${patrolKey}`;
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
       }
-      acc[key].push(assessment);
+      acc[groupKey].push(assessment);
       return acc;
     }, {} as Record<string, RiskAssessment[]>);
 
-    const sortedVesselGroups = Object.entries(groupedByVessel).sort(([vesselA], [vesselB]) => 
-      vesselA.localeCompare(vesselB)
+    const sortedPatrolGroups = Object.entries(groupedByPatrol).sort(([keyA], [keyB]) => 
+      keyA.localeCompare(keyB)
     );
     
-    return sortedVesselGroups;
+    return sortedPatrolGroups;
 
   }, [assessments, searchTerm, selectedStatuses, selectedRegions, sortKey, sortDirection]);
 
@@ -219,6 +223,29 @@ export default function DashboardPage() {
   const regionFilterLabel = selectedRegions.length === 0 || selectedRegions.length === ALL_REGIONS.length
     ? getTranslation(T.allRegions)
     : `${selectedRegions.length} ${getTranslation(T.selected)}`;
+
+  const getGroupDisplayTitle = (assessmentsInGroup: RiskAssessment[]): string => {
+    if (!assessmentsInGroup || assessmentsInGroup.length === 0) return "Unknown Group";
+    const firstAssessment = assessmentsInGroup[0];
+    const { vesselName, patrolStartDate, patrolEndDate } = firstAssessment;
+
+    if (patrolStartDate && patrolEndDate) {
+      try {
+        return `${vesselName} (${getTranslation(T.patrolLabel)} ${format(parseISO(patrolStartDate), "MMM d, yyyy")} - ${format(parseISO(patrolEndDate), "MMM d, yyyy")})`;
+      } catch (e) { /* date parse error, fall through */ }
+    }
+    if (patrolStartDate) {
+      try {
+        return `${vesselName} (${getTranslation(T.patrolLabel)} ${format(parseISO(patrolStartDate), "MMM d, yyyy")} - ...)`;
+      } catch (e) { /* date parse error, fall through */ }
+    }
+     if (patrolEndDate) {
+      try {
+        return `${vesselName} (... - ${getTranslation(T.patrolLabel)} ${format(parseISO(patrolEndDate), "MMM d, yyyy")})`;
+      } catch (e) { /* date parse error, fall through */ }
+    }
+    return `${vesselName} (${getTranslation(T.generalAssessmentsLabel)})`;
+  };
 
 
   return (
@@ -271,7 +298,7 @@ export default function DashboardPage() {
                   onCheckedChange={() => handleStatusChange(status)}
                   onSelect={(e) => e.preventDefault()} 
                 >
-                  {status} {/* Status values are usually not translated or handled by i18n keys */}
+                  {status}
                 </DropdownMenuCheckboxItem>
               ))}
                <DropdownMenuSeparator />
@@ -301,7 +328,7 @@ export default function DashboardPage() {
                   onCheckedChange={() => handleRegionChange(region)}
                   onSelect={(e) => e.preventDefault()}
                 >
-                  {region} {/* Region values are usually not translated or handled by i18n keys */}
+                  {region}
                 </DropdownMenuCheckboxItem>
               ))}
                <DropdownMenuSeparator />
@@ -337,21 +364,27 @@ export default function DashboardPage() {
 
       {groupedAndSortedAssessments.length > 0 ? (
         <div className="space-y-8">
-          {groupedAndSortedAssessments.map(([vesselName, vesselAssessments]) => (
-            <section key={vesselName} aria-labelledby={`vessel-group-${vesselName.replace(/\s+/g, '-').toLowerCase()}`}>
-              <div className="flex items-center gap-3 mb-4 pb-2 border-b">
-                <ShipIcon className="h-6 w-6 text-secondary" />
-                <h2 id={`vessel-group-${vesselName.replace(/\s+/g, '-').toLowerCase()}`} className="text-xl sm:text-2xl font-semibold text-secondary">
-                  {vesselName}
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {vesselAssessments.map(assessment => (
-                  <RiskAssessmentCard key={assessment.id} assessment={assessment} />
-                ))}
-              </div>
-            </section>
-          ))}
+          {groupedAndSortedAssessments.map(([groupKey, patrolAssessments]) => {
+            const displayTitle = getGroupDisplayTitle(patrolAssessments);
+            const groupId = displayTitle.replace(/\s+/g, '-').toLowerCase();
+            const vesselNameFromGroup = patrolAssessments[0]?.vesselName || "Unknown Vessel";
+            
+            return (
+              <section key={groupKey} aria-labelledby={`patrol-group-${groupId}`}>
+                <div className="flex items-center gap-3 mb-4 pb-2 border-b">
+                  <ShipIcon className="h-6 w-6 text-secondary" />
+                  <h2 id={`patrol-group-${groupId}`} className="text-xl sm:text-2xl font-semibold text-secondary">
+                    {displayTitle}
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {patrolAssessments.map(assessment => (
+                    <RiskAssessmentCard key={assessment.id} assessment={assessment} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       ) : (
         <Card className="p-10 text-center shadow-sm rounded-lg">
@@ -365,3 +398,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
