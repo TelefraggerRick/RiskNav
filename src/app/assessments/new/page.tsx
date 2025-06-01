@@ -101,6 +101,7 @@ export default function NewAssessmentPage() {
       id: newId,
       referenceNumber: `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`, // More dynamic ref number
       vesselName: data.vesselName,
+      imoNumber: data.imoNumber,
       department: data.department,
       region: data.region,
       voyageDetails: data.voyageDetails,
@@ -169,3 +170,4 @@ export default function NewAssessmentPage() {
     </div>
   );
 }
+

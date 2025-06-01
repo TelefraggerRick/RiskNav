@@ -67,6 +67,7 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   id: string;
   referenceNumber: string;
   vesselName: string;
+  imoNumber?: string; // Added IMO number back
   department?: VesselDepartment;
   region?: VesselRegion;
   voyageDetails: string;
@@ -103,3 +104,4 @@ export interface User {
   email?: string; // Making email optional for mock users
   role: UserRole;
 }
+

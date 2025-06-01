@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -12,7 +13,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateRiskScoreAndRecommendationsInputSchema = z.object({
-  vesselInformation: z.string().describe('Information about the vessel involved in the risk assessment.'),
+  vesselInformation: z.string().describe('Information about the vessel involved in the risk assessment, including name, voyage, and region.'),
+  imoNumber: z.string().optional().describe('The IMO number of the vessel, if available.'),
   personnelShortages: z.string().describe('Details about personnel shortages on the vessel.'),
   operationalDeviations: z.string().describe('Description of proposed operational deviations.'),
   attachedDocuments: z.array(z.string()).describe('List of attached documents (URLs or data URIs).'),
@@ -22,8 +24,8 @@ export type GenerateRiskScoreAndRecommendationsInput = z.infer<typeof GenerateRi
 
 const GenerateRiskScoreAndRecommendationsOutputSchema = z.object({
   riskScore: z.number().describe('The calculated risk score (0-100).'),
-  recommendations: z.string().describe('AI-generated recommendations for mitigating the identified risks.'),
-  regulatoryConsiderations: z.string().describe('Relevant regulatory considerations for the approval authorities.'),
+  recommendations: z.string().describe('AI-generated recommendations for mitigating the identified risks, considering SOLAS and Canadian Marine Personnel Regulations.'),
+  regulatoryConsiderations: z.string().describe('Relevant regulatory considerations for the approval authorities, specifically referencing SOLAS and Canadian Marine Personnel Regulations.'),
 });
 
 export type GenerateRiskScoreAndRecommendationsOutput = z.infer<typeof GenerateRiskScoreAndRecommendationsOutputSchema>;
@@ -41,15 +43,19 @@ const prompt = ai.definePrompt({
   prompt: `You are an AI assistant designed to evaluate risk assessments for the Canadian Coast Guard.
 
   Based on the provided information, you will generate a risk score, recommendations, and regulatory considerations.
+  Your analysis, recommendations, and regulatory considerations MUST explicitly consider and reference (where appropriate) the vessel's IMO number, the SOLAS convention, and the Canadian Marine Personnel Regulations.
 
   Vessel Information: {{{vesselInformation}}}
+  {{#if imoNumber}}IMO Number: {{{imoNumber}}}{{/if}}
   Personnel Shortages: {{{personnelShortages}}}
   Operational Deviations: {{{operationalDeviations}}}
   Attached Documents: {{#each attachedDocuments}}{{{this}}} {{/each}}
 
-  Provide a risk score between 0 and 100, where 0 is minimal risk and 100 is maximum risk.  Also suggest mitigations for the approval authorities to consider and regulatory considerations.
+  Provide a risk score between 0 and 100, where 0 is minimal risk and 100 is maximum risk.
+  Suggest mitigations for the approval authorities to consider.
+  Outline regulatory considerations, specifically referencing the Canadian Marine Personnel Regulations and relevant SOLAS chapters/regulations.
   Remember to always provide a regulatory consideration.
-  Follow the output schema exactly. No addtional prose, just JSON.
+  Follow the output schema exactly. No additional prose, just JSON.
   `,
 });
 
@@ -64,3 +70,4 @@ const generateRiskScoreAndRecommendationsFlow = ai.defineFlow(
     return output!;
   }
 );
+

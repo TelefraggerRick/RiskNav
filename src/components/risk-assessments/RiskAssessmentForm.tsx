@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe } from "lucide-react"; // Added Globe
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint } from "lucide-react"; // Added Fingerprint for IMO
 import React, { useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -36,6 +36,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     resolver: zodResolver(riskAssessmentFormSchema),
     defaultValues: initialData || {
       vesselName: "",
+      imoNumber: "",
       department: undefined,
       region: undefined, 
       voyageDetails: "",
@@ -130,6 +131,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
             <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>Vessel Name *</FormLabel> <FormControl><Input placeholder="e.g., CCGS Amundsen" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> Vessel IMO Number (Optional)</FormLabel> <FormControl><Input placeholder="e.g., 1234567" {...field} /></FormControl> <FormDescription>Enter the 7-digit IMO number if available.</FormDescription> <FormMessage /> </FormItem> )} />
             <FormField
               control={form.control}
               name="department"
@@ -418,3 +420,4 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     </Form>
   );
 }
+

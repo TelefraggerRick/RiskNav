@@ -24,6 +24,7 @@ export const attachmentSchema = z.object({
 
 export const riskAssessmentFormSchema = z.object({
   vesselName: z.string().min(3, "Vessel name must be at least 3 characters.").max(100),
+  imoNumber: z.string().regex(/^[0-9]{7}$/, "IMO number must be 7 digits.").optional().or(z.literal('')), // Optional IMO number, must be 7 digits if provided
   department: z.enum(['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'], {
     required_error: "Department selection is required.",
   }),
@@ -107,3 +108,4 @@ export const approvalFormSchema = z.object({
 });
 
 export type ApprovalFormData = z.infer<typeof approvalFormSchema>;
+

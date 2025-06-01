@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -90,11 +90,14 @@ const SectionTitle: React.FC<{ icon: React.ElementType; title: string; className
   </h3>
 );
 
-const DetailItem: React.FC<{ label: string; value?: React.ReactNode | string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean }> = ({ label, value, isPreformatted = false, fullWidth = false }) => {
+const DetailItem: React.FC<{ label: string; value?: React.ReactNode | string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean; icon?: React.ElementType }> = ({ label, value, isPreformatted = false, fullWidth = false, icon: Icon }) => {
   if (value === undefined || value === null || value === '') return null;
   return (
     <div className={fullWidth ? "md:col-span-2" : ""}>
-      <strong className="font-medium text-muted-foreground block mb-0.5">{label}:</strong>
+      <strong className="font-medium text-muted-foreground block mb-0.5 flex items-center gap-1">
+        {Icon && <Icon className="h-4 w-4 text-muted-foreground"/>}
+        {label}:
+      </strong>
       {isPreformatted && typeof value === 'string' ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{value}</p> : <div className="text-sm leading-relaxed">{value}</div>}
     </div>
   );
@@ -142,7 +145,8 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, summary: true}));
     try {
       const summaryResult = await generateRiskAssessmentSummary({
-        vesselInformation: `Name: ${assessment.vesselName}, Region: ${assessment.region || 'N/A'}`,
+        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.imoNumber || 'N/A'}, Region: ${assessment.region || 'N/A'}`,
+        imoNumber: assessment.imoNumber,
         personnelShortages: assessment.personnelShortages,
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
@@ -163,7 +167,8 @@ export default function AssessmentDetailPage() {
     setIsAiLoading(prev => ({...prev, riskScore: true}));
     try {
       const result = await generateRiskScoreAndRecommendations({
-        vesselInformation: `Name: ${assessment.vesselName}. Voyage: ${assessment.voyageDetails}. Region: ${assessment.region || 'N/A'}`,
+        vesselInformation: `Name: ${assessment.vesselName}, IMO: ${assessment.imoNumber || 'N/A'}. Voyage: ${assessment.voyageDetails}. Region: ${assessment.region || 'N/A'}`,
+        imoNumber: assessment.imoNumber,
         personnelShortages: assessment.personnelShortages,
         operationalDeviations: assessment.proposedOperationalDeviations,
         attachedDocuments: assessment.attachments.map(a => a.url || a.name), // Prefer URL if available
@@ -347,12 +352,17 @@ export default function AssessmentDetailPage() {
 
       <Card className="shadow-lg rounded-lg overflow-hidden">
         <CardHeader className="bg-muted/20 p-6">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+          <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
             <div>
               <CardTitle className="text-2xl font-bold text-primary flex items-center gap-3">
                 <Ship className="h-8 w-8" /> {assessment.vesselName}
               </CardTitle>
-              <CardDescription className="text-sm mt-1">{assessment.referenceNumber}</CardDescription>
+              <CardDescription className="text-sm mt-1">
+                {assessment.referenceNumber}
+                {assessment.imoNumber && (
+                    <span className="ml-2 pl-2 border-l border-muted-foreground/50">IMO: {assessment.imoNumber}</span>
+                )}
+              </CardDescription>
             </div>
             <div className="flex flex-col items-start md:items-end gap-2">
                  <Badge className={`text-base px-4 py-2 rounded-full font-medium ${currentStatusConfig.badgeClass}`}>
@@ -372,6 +382,7 @@ export default function AssessmentDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label="Submitted By" value={assessment.submittedBy} />
               <DetailItem label="Submission Date" value={format(parseISO(assessment.submissionDate), "PPP p")} />
+              {assessment.imoNumber && <DetailItem label="IMO Number" value={assessment.imoNumber} icon={Fingerprint} />}
               <DetailItem label="Department" value={assessment.department} />
               <DetailItem label="Region" value={assessment.region} />
               <DetailItem label="Voyage Details" value={assessment.voyageDetails} isPreformatted fullWidth/>
