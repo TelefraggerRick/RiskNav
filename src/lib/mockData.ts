@@ -7,6 +7,7 @@ const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 const fourDaysAgo = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
 const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+const sixDaysAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
 
 const initialApprovalSteps: ApprovalStep[] = [
   { level: 'Crewing Standards and Oversight' },
@@ -19,7 +20,6 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-001',
     referenceNumber: 'CCG-RA-2024-001',
     vesselName: 'CCGS Amundsen',
-    imoNumber: '9275002',
     department: 'Navigation',
     region: 'Arctic',
     patrolStartDate: '2024-07-15',
@@ -66,7 +66,6 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-002',
     referenceNumber: 'CCG-RA-2024-002',
     vesselName: 'CCGS Terry Fox',
-    imoNumber: '8127713',
     department: 'Engine Room',
     region: 'Atlantic',
     patrolStartDate: '2024-07-10',
@@ -118,12 +117,11 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-003',
     referenceNumber: 'CCG-RA-2024-003',
     vesselName: 'CCGS Ann Harvey',
-    imoNumber: '8320086',
     department: 'Navigation',
     region: 'Atlantic',
-    patrolStartDate: '2024-07-01', // Example date
-    patrolEndDate: '2024-07-31',   // Example date
-    patrolLengthDays: 31,        // Calculated
+    patrolStartDate: '2024-07-01', 
+    patrolEndDate: '2024-07-31',   
+    patrolLengthDays: 31,        
     voyageDetails: 'SAR Patrol, Halifax Sector, Continuous Operations',
     reasonForRequest: 'Proposed reduction in minimum watchkeeping personnel during non-critical phases.',
     personnelShortages: 'No current shortage, but proposing a deviation to standard watchkeeping levels to manage crew fatigue on extended patrols.',
@@ -170,9 +168,11 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-004',
     referenceNumber: 'CCG-RA-2024-004',
     vesselName: 'CCGS Gordon Reid',
-    imoNumber: '8320098',
     department: 'Deck',
     region: 'Western',
+    patrolStartDate: '2024-07-12',
+    patrolEndDate: '2024-07-28',
+    patrolLengthDays: 17,
     voyageDetails: 'Fisheries Patrol, West Coast Vancouver Island, Departs 2024-07-12',
     reasonForRequest: 'Medical evacuation of one Able Seaman, replacement not immediately available.',
     personnelShortages: 'One Able Seaman (AS) medevaced. Vessel will be short one AS for approximately 48-72 hours.',
@@ -215,9 +215,11 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-005',
     referenceNumber: 'CCG-RA-2024-005',
     vesselName: 'CCGS Sir John Franklin',
-    imoNumber: '9744787',
     department: 'Navigation',
     region: 'Central',
+    patrolStartDate: '2024-08-01',
+    patrolEndDate: '2024-08-15',
+    patrolLengthDays: 15,
     voyageDetails: 'Aids to Navigation maintenance, Great Lakes, Commences 2024-08-01',
     reasonForRequest: 'Gyrocompass requires overhaul, will operate on secondary magnetic compass.',
     personnelShortages: 'N/A directly, but primary navigation system impacted.',
@@ -266,7 +268,6 @@ export const mockRiskAssessments: RiskAssessment[] = [
     id: 'ra-006',
     referenceNumber: 'CCG-RA-2024-006',
     vesselName: 'CCGS Terry Fox', 
-    imoNumber: '8127713', 
     department: 'Deck',
     region: 'Atlantic',
     patrolStartDate: '2024-07-20',
@@ -313,6 +314,49 @@ export const mockRiskAssessments: RiskAssessment[] = [
     crewContinuityAsPerProfile: 'Yes',
     specialVoyageConsiderations: 'SAR standby may require rapid deployment of rescue boat using crane. Need to ensure operator competency is not a delay factor.',
     reductionInVesselProgramRequirements: 'No',
+  },
+  {
+    id: 'ra-007',
+    referenceNumber: 'CCG-RA-2024-007',
+    vesselName: 'CCGS Ann Harvey',
+    department: 'Engine Room',
+    region: 'Atlantic',
+    patrolStartDate: '2024-07-01', // Same patrol dates as ra-003
+    patrolEndDate: '2024-07-31',
+    patrolLengthDays: 31,
+    voyageDetails: 'SAR Patrol, Halifax Sector, Continuous Operations (Concurrent with ra-003)',
+    reasonForRequest: 'Temporary use of non-standard lubricant for auxiliary generator due to supply chain issues.',
+    personnelShortages: 'N/A - Issue is with consumables.',
+    proposedOperationalDeviations: 'Use of alternative lubricant (Brand Y, Spec Z) for Auxiliary Generator #2. Increased monitoring of generator parameters (temp, pressure, vibration). Intend to switch back to standard lubricant ASAP (est. 1 week).',
+    submittedBy: 'Atlantic Operations', 
+    submissionDate: sixDaysAgo.toISOString(),
+    submissionTimestamp: sixDaysAgo.getTime(),
+    status: 'Pending Crewing Standards and Oversight',
+    attachments: [
+      { id: 'att-010', name: 'Lubricant_Comparison_Sheet.pdf', url: '#', type: 'application/pdf', size: 120000, uploadedAt: sixDaysAgo.toISOString() },
+      { id: 'att-011', name: 'OEM_Consultation_Email.txt', dataAiHint:"email text", url: 'https://placehold.co/200x50.png', type: 'text/plain', size: 5000, uploadedAt: sixDaysAgo.toISOString() },
+    ],
+    approvalSteps: [...initialApprovalSteps],
+    lastModified: sixDaysAgo.toISOString(),
+    lastModifiedTimestamp: sixDaysAgo.getTime(),
+    coDeptHeadSupportExemption: 'Yes',
+    deptHeadConfidentInIndividual: 'Yes', // For Chief Engineer's decision making
+    deptHeadConfidenceReason: 'Chief Engineer has thoroughly reviewed the alternative lubricant specs and consulted with technical support. Confident in the temporary mitigation measures.',
+    employeeFamiliarizationProvided: 'Yes', // Regarding the monitoring plan
+    workedInDepartmentLast12Months: 'Yes', // Refers to CE
+    workedInDepartmentDetails: 'CE has been with vessel for 2+ years.',
+    similarResponsibilityExperience: 'Yes', // CE has handled similar situations
+    similarResponsibilityDetails: 'Managed temporary part substitutions during previous refits without incident.',
+    individualHasRequiredSeaService: 'Yes', // CE
+    individualWorkingTowardsCertification: 'No',
+    certificationProgressSummary: '',
+    requestCausesVacancyElsewhere: 'No',
+    crewCompositionSufficientForSafety: 'Yes',
+    detailedCrewCompetencyAssessment: 'Engine room staff are fully competent to monitor the generator and execute switch-over procedures. This is a technical deviation, not personnel.',
+    crewContinuityAsPerProfile: 'Yes',
+    specialVoyageConsiderations: 'SAR patrol requires high readiness. Auxiliary generator reliability is important for redundancy, but vessel has two main generators and another auxiliary.',
+    reductionInVesselProgramRequirements: 'No',
   }
 ];
 
+    
