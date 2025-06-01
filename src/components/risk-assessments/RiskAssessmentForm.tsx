@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock } from "lucide-react";
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2 } from "lucide-react";
 import React, { useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -58,6 +58,12 @@ const T_FORM = {
     proposedDeviationsPlaceholder: { en: "Describe changes to standard procedures or mitigating actions proposed to manage the risk.", fr: "Décrivez les modifications aux procédures standard ou les mesures d'atténuation proposées pour gérer le risque." },
     exemptionAndIndividualAssessment: { en: "Exemption & Individual Assessment", fr: "Exemption et évaluation individuelle" },
     exemptionAndIndividualAssessmentDesc: { en: "Details regarding the specific exemption and the individual(s) involved.", fr: "Détails concernant l'exemption spécifique et la ou les personnes impliquées." },
+    employeeNameLabel: { en: "Employee Name (if applicable)", fr: "Nom de l'employé (le cas échéant)" },
+    employeeNamePlaceholder: { en: "e.g., Jane Doe", fr: "ex : Jeanne Dupont" },
+    certificateHeldLabel: { en: "Certificate Held (if applicable)", fr: "Certificat détenu (le cas échéant)" },
+    certificateHeldPlaceholder: { en: "e.g., Watchkeeping Mate", fr: "ex : Officier de quart à la passerelle" },
+    requiredCertificateLabel: { en: "Required Certificate for Position (if applicable)", fr: "Certificat requis pour le poste (le cas échéant)" },
+    requiredCertificatePlaceholder: { en: "e.g., Chief Mate", fr: "ex : Premier officier du pont" },
     coSupportExemptionLabel: { en: "Does the Commanding Officer AND Department Head support this exemption? *", fr: "Le commandant ET le chef de département appuient-ils cette exemption? *" },
     deptHeadConfidentLabel: { en: "Is the Department Head confident that the individual can fulfill the required duties? *", fr: "Le chef de département est-il confiant que la personne peut remplir les fonctions requises? *" },
     deptHeadConfidenceReasonLabel: { en: "If yes, why is the Department Head confident? *", fr: "Si oui, pourquoi le chef de département est-il confiant? *" },
@@ -109,7 +115,7 @@ const T_FORM = {
     fileUploadIssues: { en: "File Upload Issues", fr: "Problèmes de téléversement de fichiers" },
   };
 
-export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = false }: RiskAssessmentFormProps) {
+const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSubmit, initialData, isLoading = false }) => {
   const form = useForm<RiskAssessmentFormData>({
     resolver: zodResolver(riskAssessmentFormSchema),
     defaultValues: initialData || {
@@ -124,6 +130,9 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       personnelShortages: "",
       proposedOperationalDeviations: "",
       attachments: [],
+      employeeName: "",
+      certificateHeld: "",
+      requiredCertificate: "",
       coDeptHeadSupportExemption: undefined,
       deptHeadConfidentInIndividual: undefined,
       deptHeadConfidenceReason: "",
@@ -282,6 +291,10 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                 <CardDescription>{getTranslation(T_FORM.exemptionAndIndividualAssessmentDesc)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
+                <FormField control={form.control} name="employeeName" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><UserIcon className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.employeeNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.employeeNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="certificateHeld" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><Award className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.certificateHeldLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.certificateHeldPlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="requiredCertificate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><FileCheck2 className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.requiredCertificateLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.requiredCertificatePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                
                 <FormField control={form.control} name="coDeptHeadSupportExemption" render={({ field }) => (
                     <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.coSupportExemptionLabel)}</FormLabel>
                         <FormControl>
@@ -506,4 +519,6 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       </form>
     </Form>
   );
-}
+});
+RiskAssessmentForm.displayName = 'RiskAssessmentForm';
+export default RiskAssessmentForm;

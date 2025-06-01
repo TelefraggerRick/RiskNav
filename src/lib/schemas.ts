@@ -44,6 +44,9 @@ export const riskAssessmentFormSchema = z.object({
   attachments: z.array(attachmentSchema).max(5, "Maximum of 5 attachments allowed.").optional().default([]),
 
   // Exemption & Individual Assessment
+  employeeName: z.string().max(100, "Employee name must be 100 characters or less.").optional().or(z.literal('')),
+  certificateHeld: z.string().max(200, "Certificate held must be 200 characters or less.").optional().or(z.literal('')),
+  requiredCertificate: z.string().max(200, "Required certificate must be 200 characters or less.").optional().or(z.literal('')),
   coDeptHeadSupportExemption: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
   deptHeadConfidentInIndividual: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
   deptHeadConfidenceReason: z.string().optional(),

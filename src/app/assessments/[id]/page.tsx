@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -49,6 +49,9 @@ const T_DETAILS_PAGE = {
   personnelShortages: { en: "Personnel Shortages & Impact", fr: "Pénuries de personnel et impact" },
   proposedDeviations: { en: "Proposed Deviations/Mitigations", fr: "Dérogations/Mesures d'atténuation proposées" },
   exemptionIndividualAssessment: { en: "Exemption & Individual Assessment", fr: "Exemption et évaluation individuelle" },
+  employeeName: { en: "Employee Name", fr: "Nom de l'employé" },
+  certificateHeld: { en: "Certificate Held", fr: "Certificat détenu" },
+  requiredCertificate: { en: "Required Certificate", fr: "Certificat requis" },
   coSupportExemption: { en: "CO & Dept. Head Support Exemption", fr: "Soutien de l'exemption par le commandant et le chef de département" },
   deptHeadConfident: { en: "Dept. Head Confident in Individual", fr: "Chef de département confiant envers l'individu" },
   reasonForConfidence: { en: "Reason for Dept. Head Confidence", fr: "Raison de la confiance du chef de département" },
@@ -391,8 +394,8 @@ export default function AssessmentDetailPage() {
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
     'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300', progressClass: '[&>div]:bg-gray-500' },
     'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400', progressClass: '[&>div]:bg-yellow-500' },
-    'Pending Senior Director': { icon: UserCheckIcon, badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-400', progressClass: '[&>div]:bg-cyan-500' },
-    'Pending Director General': { icon: UserCircle, badgeClass: 'bg-purple-100 text-purple-800 border border-purple-400', progressClass: '[&>div]:bg-purple-500' },
+    'Pending Senior Director': { icon: UserCheckLucideIcon, badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-400', progressClass: '[&>div]:bg-cyan-500' },
+    'Pending Director General': { icon: UserCircleIcon, badgeClass: 'bg-purple-100 text-purple-800 border border-purple-400', progressClass: '[&>div]:bg-purple-500' },
     'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-800 border border-orange-400', progressClass: '[&>div]:bg-orange-500' },
     'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-800 border border-green-400', progressClass: '[&>div]:bg-green-500' },
     'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-800 border border-red-400', progressClass: '[&>div]:bg-red-500' },
@@ -488,6 +491,9 @@ export default function AssessmentDetailPage() {
           <section>
             <SectionTitle icon={UserCog} title={getTranslation(T_DETAILS_PAGE.exemptionIndividualAssessment)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <DetailItem label={getTranslation(T_DETAILS_PAGE.employeeName)} value={assessment.employeeName} icon={User} />
+                <DetailItem label={getTranslation(T_DETAILS_PAGE.certificateHeld)} value={assessment.certificateHeld} icon={Award} />
+                <DetailItem label={getTranslation(T_DETAILS_PAGE.requiredCertificate)} value={assessment.requiredCertificate} icon={FileCheck2} fullWidth/>
                 <DetailItem label={getTranslation(T_DETAILS_PAGE.coSupportExemption)} value={<><YesNoIcon value={assessment.coDeptHeadSupportExemption} /> {assessment.coDeptHeadSupportExemption || getTranslation(T_DETAILS_PAGE.na)}</>} />
                 <DetailItem label={getTranslation(T_DETAILS_PAGE.deptHeadConfident)} value={<><YesNoIcon value={assessment.deptHeadConfidentInIndividual} /> {assessment.deptHeadConfidentInIndividual || getTranslation(T_DETAILS_PAGE.na)}</>} />
                 {assessment.deptHeadConfidentInIndividual === 'Yes' && <DetailItem label={getTranslation(T_DETAILS_PAGE.reasonForConfidence)} value={assessment.deptHeadConfidenceReason} isPreformatted fullWidth />}

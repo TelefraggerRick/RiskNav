@@ -12,6 +12,9 @@ export interface Attachment {
 export type YesNoOptional = 'Yes' | 'No' | undefined;
 
 export interface ExemptionIndividualAssessmentData {
+  employeeName?: string;
+  certificateHeld?: string;
+  requiredCertificate?: string;
   coDeptHeadSupportExemption?: YesNoOptional;
   deptHeadConfidentInIndividual?: YesNoOptional;
   deptHeadConfidenceReason?: string;

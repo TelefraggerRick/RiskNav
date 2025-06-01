@@ -128,6 +128,9 @@ export default function NewAssessmentPage() {
       proposedOperationalDeviations: data.proposedOperationalDeviations,
       attachments: newAttachments,
       
+      employeeName: data.employeeName,
+      certificateHeld: data.certificateHeld,
+      requiredCertificate: data.requiredCertificate,
       coDeptHeadSupportExemption: data.coDeptHeadSupportExemption,
       deptHeadConfidentInIndividual: data.deptHeadConfidentInIndividual,
       deptHeadConfidenceReason: data.deptHeadConfidenceReason,
