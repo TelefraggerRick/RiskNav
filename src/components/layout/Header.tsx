@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn } from 'lucide-react';
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays } from 'lucide-react'; // Added CalendarDays
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,12 +13,12 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useUser } from '@/contexts/UserContext';
-import { useLanguage } from '@/contexts/LanguageContext'; // Added useLanguage
+import { useLanguage } from '@/contexts/LanguageContext'; 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export default function Header() {
   const { currentUser, availableUsers, switchUser, logout } = useUser();
-  const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); // Added language context
+  const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); 
 
   const getInitials = (name: string) => {
     const parts = name.split(' ');
@@ -33,6 +33,7 @@ export default function Header() {
     riskNav: { en: "RiskNav", fr: "NavRisques" },
     dashboard: { en: "Dashboard", fr: "Tableau de bord" },
     statistics: { en: "Statistics", fr: "Statistiques" },
+    calendar: { en: "Calendar", fr: "Calendrier" }, // Added
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
@@ -73,6 +74,12 @@ export default function Header() {
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
                 <BarChart3 className="h-4 w-4 mr-0 sm:mr-2" />
                 <span className="hidden sm:inline">{getTranslation(T.statistics)}</span>
+              </Button>
+            </Link>
+            <Link href="/calendar" passHref> {/* Added Calendar Link */}
+              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
+                <CalendarDays className="h-4 w-4 mr-0 sm:mr-2" />
+                <span className="hidden sm:inline">{getTranslation(T.calendar)}</span>
               </Button>
             </Link>
             {currentUser.id !== 'user-unauth' && (
@@ -126,3 +133,5 @@ export default function Header() {
     </header>
   );
 }
+
+    
