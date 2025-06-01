@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { RiskAssessment } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData';
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ArrowLeft, CalendarDays, Info, List } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -31,9 +31,24 @@ const T_CALENDAR_PAGE = {
 const getAllAssessments = (): RiskAssessment[] => {
   const baseAssessments = [...mockRiskAssessments];
   let storedAssessments: RiskAssessment[] = [];
+
   if (typeof window !== 'undefined') {
-      const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      storedAssessments = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
+    const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedAssessmentsRaw) {
+      try {
+        const parsed = JSON.parse(storedAssessmentsRaw);
+        if (Array.isArray(parsed)) {
+          // Further check if elements are somewhat valid (e.g., have an id)
+          storedAssessments = parsed.filter(item => item && typeof item.id === 'string');
+        } else {
+          console.warn("Stored risk assessments data from localStorage is not an array. Clearing it.", parsed);
+          localStorage.removeItem(LOCAL_STORAGE_KEY); // Optional: clear corrupted data
+        }
+      } catch (error) {
+        console.error("Error parsing risk assessments from localStorage. Clearing it.", error);
+        localStorage.removeItem(LOCAL_STORAGE_KEY); // Optional: clear corrupted data
+      }
+    }
   }
 
   const combinedMap = new Map<string, RiskAssessment>();
@@ -65,14 +80,25 @@ export default function AssessmentCalendarPage() {
     assessments.forEach(assessment => {
       if (assessment.patrolStartDate && assessment.patrolEndDate) {
         try {
-          const start = startOfDay(parseISO(assessment.patrolStartDate));
-          const end = endOfDay(parseISO(assessment.patrolEndDate));
+          const startDate = parseISO(assessment.patrolStartDate);
+          const endDate = parseISO(assessment.patrolEndDate);
+
+          if (!isValid(startDate) || !isValid(endDate)) {
+            console.warn(`Invalid date format for assessment ${assessment.id}: StartDate: ${assessment.patrolStartDate}, EndDate: ${assessment.patrolEndDate}`);
+            return;
+          }
+            
+          const start = startOfDay(startDate);
+          const end = endOfDay(endDate);
+          
           if (start <= end) {
             const intervalDates = eachDayOfInterval({ start, end });
             intervalDates.forEach(date => daysWithPatrols.add(format(date, 'yyyy-MM-dd')));
+          } else {
+            console.warn(`Patrol start date is after end date for assessment ${assessment.id}`);
           }
         } catch (e) {
-          console.error("Error parsing patrol dates for assessment:", assessment.id, e);
+          console.error(`Error processing patrol dates for assessment ${assessment.id}:`, e);
         }
       }
     });
@@ -86,10 +112,18 @@ export default function AssessmentCalendarPage() {
       const active = assessments.filter(assessment => {
         if (assessment.patrolStartDate && assessment.patrolEndDate) {
           try {
-            const patrolStart = startOfDay(parseISO(assessment.patrolStartDate));
-            const patrolEnd = endOfDay(parseISO(assessment.patrolEndDate));
-            return isWithinInterval(clickedDayStart, { start: patrolStart, end: patrolEnd });
+            const patrolStartDate = parseISO(assessment.patrolStartDate);
+            const patrolEndDate = parseISO(assessment.patrolEndDate);
+
+            if (!isValid(patrolStartDate) || !isValid(patrolEndDate)) {
+                return false;
+            }
+
+            const start = startOfDay(patrolStartDate);
+            const end = endOfDay(patrolEndDate);
+            return start <= end && isWithinInterval(clickedDayStart, { start, end });
           } catch (e) {
+            console.error(`Error in handleDayClick for assessment ${assessment.id}:`, e);
             return false; 
           }
         }
@@ -101,18 +135,20 @@ export default function AssessmentCalendarPage() {
     }
   }, [assessments]);
 
-  // Effect to select today and load its assessments on initial load
   useEffect(() => {
     if (!isLoading) {
         handleDayClick(new Date());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, handleDayClick]); // handleDayClick is stable due to useCallback
+  }, [isLoading, handleDayClick]);
 
   const formatPatrolDateRange = (assessment: RiskAssessment) => {
     if (assessment.patrolStartDate && assessment.patrolEndDate) {
       try {
-        return `${format(parseISO(assessment.patrolStartDate), 'MMM d, yyyy')} - ${format(parseISO(assessment.patrolEndDate), 'MMM d, yyyy')}`;
+        const startDate = parseISO(assessment.patrolStartDate);
+        const endDate = parseISO(assessment.patrolEndDate);
+        if (!isValid(startDate) || !isValid(endDate)) return getTranslation(T_CALENDAR_PAGE.noPatrolDates);
+        return `${format(startDate, 'MMM d, yyyy')} - ${format(endDate, 'MMM d, yyyy')}`;
       } catch (e) { return getTranslation(T_CALENDAR_PAGE.noPatrolDates); }
     }
     return getTranslation(T_CALENDAR_PAGE.noPatrolDates);
@@ -161,7 +197,7 @@ export default function AssessmentCalendarPage() {
                 },
               }}
               className="w-full"
-              numberOfMonths={currentLanguage === 'fr' ? 1 : 2} // Show 2 months for EN, 1 for FR to manage space
+              numberOfMonths={currentLanguage === 'fr' ? 1 : 2} 
               pagedNavigation
             />
           </CardContent>
