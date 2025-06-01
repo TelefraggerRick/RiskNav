@@ -13,10 +13,12 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { useUser } from '@/contexts/UserContext';
+import { useLanguage } from '@/contexts/LanguageContext'; // Added useLanguage
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export default function Header() {
   const { currentUser, availableUsers, switchUser, logout } = useUser();
+  const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); // Added language context
 
   const getInitials = (name: string) => {
     const parts = name.split(' ');
@@ -24,6 +26,18 @@ export default function Header() {
       return parts[0][0] + parts[parts.length - 1][0];
     }
     return name.substring(0, 2).toUpperCase();
+  };
+
+  const T = {
+    govCanada: { en: "Government of Canada", fr: "Gouvernement du Canada" },
+    riskNav: { en: "RiskNav", fr: "NavRisques" },
+    dashboard: { en: "Dashboard", fr: "Tableau de bord" },
+    statistics: { en: "Statistics", fr: "Statistiques" },
+    newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
+    login: { en: "Login", fr: "Connexion" },
+    logout: { en: "Log Out", fr: "Déconnexion" },
+    switchUser: { en: "Switch User (Dev)", fr: "Changer d'utilisateur (Dev)" },
+    french: { en: "Français", fr: "English" },
   };
 
   return (
@@ -36,11 +50,11 @@ export default function Header() {
               <span className="text-xs font-bold text-primary-foreground">C</span>
             </div>
             <span className="text-sm font-semibold text-foreground">
-              Government of Canada / <span className="font-normal">Gouvernement du Canada</span>
+              {getTranslation(T.govCanada)} / <span className="font-normal">{currentLanguage === 'en' ? T.govCanada.fr : T.govCanada.en}</span>
             </span>
           </div>
-          <Button variant="link" size="sm" className="text-sm text-foreground hover:text-primary">
-            Français
+          <Button variant="link" size="sm" className="text-sm text-foreground hover:text-primary" onClick={toggleLanguage}>
+            {getTranslation(T.french)}
           </Button>
         </div>
 
@@ -48,22 +62,22 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-primary">
             <ShieldHalf className="h-7 w-7" />
-            <span className="font-bold">RiskNav</span>
+            <span className="font-bold">{getTranslation(T.riskNav)}</span>
           </Link>
 
           <nav className="flex items-center gap-1 sm:gap-2">
             <Link href="/" passHref>
-              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">Dashboard</Button>
+              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">{getTranslation(T.dashboard)}</Button>
             </Link>
             <Link href="/statistics" passHref>
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
                 <BarChart3 className="h-4 w-4 mr-0 sm:mr-2" />
-                <span className="hidden sm:inline">Statistics</span>
+                <span className="hidden sm:inline">{getTranslation(T.statistics)}</span>
               </Button>
             </Link>
             {currentUser.id !== 'user-unauth' && (
                  <Link href="/assessments/new" passHref>
-                    <Button variant="default" className="text-sm sm:text-base">New Assessment</Button>
+                    <Button variant="default" className="text-sm sm:text-base">{getTranslation(T.newAssessment)}</Button>
                 </Link>
             )}
 
@@ -71,7 +85,7 @@ export default function Header() {
               <Link href="/login" passHref>
                 <Button variant="outline">
                   <LogIn className="mr-2 h-4 w-4" />
-                  Login
+                  {getTranslation(T.login)}
                 </Button>
               </Link>
             ) : (
@@ -91,7 +105,7 @@ export default function Header() {
                     <p className="text-xs text-muted-foreground font-normal">{currentUser.role}</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs font-normal">Switch User (Dev)</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs font-normal">{getTranslation(T.switchUser)}</DropdownMenuLabel>
                   {availableUsers.filter(u => u.id !== 'user-unauth' && u.id !== currentUser.id).map(user => (
                     <DropdownMenuItem key={user.id} onClick={() => switchUser(user.id)}>
                       <Users className="mr-2 h-4 w-4" />
@@ -101,7 +115,7 @@ export default function Header() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log Out</span>
+                    <span>{getTranslation(T.logout)}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

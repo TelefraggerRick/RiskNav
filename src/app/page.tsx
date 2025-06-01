@@ -19,18 +19,19 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
+import { useLanguage } from '@/contexts/LanguageContext'; // Added
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
 
 const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
-const sortOptions: { value: SortKey; label: string }[] = [
-  { value: 'submissionDate', label: 'Submission Date' },
-  { value: 'lastModified', label: 'Last Modified' },
-  { value: 'status', label: 'Status' },
-  { value: 'vesselName', label: 'Vessel Name' },
-  { value: 'region', label: 'Region' },
+const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
+  { value: 'submissionDate', label: 'Submission Date', fr_label: 'Date de soumission' },
+  { value: 'lastModified', label: 'Last Modified', fr_label: 'Dernière modification' },
+  { value: 'status', label: 'Status', fr_label: 'Statut' },
+  { value: 'vesselName', label: 'Vessel Name', fr_label: 'Nom du navire' },
+  { value: 'region', label: 'Region', fr_label: 'Région' },
 ];
 
 const ALL_STATUSES: RiskAssessmentStatus[] = [
@@ -53,6 +54,27 @@ export default function DashboardPage() {
   const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const { getTranslation, currentLanguage } = useLanguage(); // Added
+
+  const T = {
+    dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
+    searchPlaceholder: { en: "Search assessments...", fr: "Rechercher des évaluations..." },
+    clearSearch: { en: "Clear search", fr: "Effacer la recherche" },
+    filterByStatus: { en: "Filter by Status", fr: "Filtrer par statut" },
+    filterByRegion: { en: "Filter by Region", fr: "Filtrer par région" },
+    allStatuses: { en: "All Statuses", fr: "Tous les statuts" },
+    allRegions: { en: "All Regions", fr: "Toutes les régions" },
+    selected: { en: "Selected", fr: "Sélectionné(s)" },
+    sortBy: { en: "Sort by", fr: "Trier par" },
+    sort: { en: "Sort", fr: "Trier" },
+    asc: { en: "Asc", fr: "Asc" },
+    desc: { en: "Desc", fr: "Desc" },
+    noAssessmentsFound: { en: "No Assessments Found", fr: "Aucune évaluation trouvée" },
+    noMatchFilters: { en: "No risk assessments match your current filters. Try adjusting your search or filter criteria, or create a new assessment.", fr: "Aucune évaluation des risques ne correspond à vos filtres actuels. Essayez d'ajuster vos critères de recherche ou de filtrage, ou créez une nouvelle évaluation." },
+    clearStatusFilters: { en: "Clear Status Filters", fr: "Effacer les filtres de statut" },
+    clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
+  };
+
 
   const loadAssessments = useCallback(() => {
     const baseAssessments = [...mockRiskAssessments];
@@ -64,7 +86,6 @@ export default function DashboardPage() {
 
     const combinedMap = new Map<string, RiskAssessment>();
 
-    // Add mock assessments first
     baseAssessments.forEach(assessment => {
         combinedMap.set(assessment.id, {
             ...assessment,
@@ -72,7 +93,6 @@ export default function DashboardPage() {
         });
     });
 
-    // Override with or add stored assessments
     storedAssessments.forEach(storedAssessment => {
         combinedMap.set(storedAssessment.id, {
             ...storedAssessment,
@@ -86,9 +106,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadAssessments();
-    // Optional: Listen for storage changes from other tabs/windows, though less common for this kind of app
-    // window.addEventListener('storage', loadAssessments);
-    // return () => window.removeEventListener('storage', loadAssessments);
   }, [loadAssessments]);
 
 
@@ -159,7 +176,6 @@ export default function DashboardPage() {
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      // Secondary sort by submission date if primary sort values are equal
       if (sortKey !== 'submissionDate') {
         if (a.submissionTimestamp < b.submissionTimestamp) return 1; 
         if (a.submissionTimestamp > b.submissionTimestamp) return -1;
@@ -176,7 +192,6 @@ export default function DashboardPage() {
       return acc;
     }, {} as Record<string, RiskAssessment[]>);
 
-    // Sort vessel groups by vessel name
     const sortedVesselGroups = Object.entries(groupedByVessel).sort(([vesselA], [vesselB]) => 
       vesselA.localeCompare(vesselB)
     );
@@ -190,26 +205,26 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('asc'); // Default to ascending when changing sort key
+      setSortDirection('asc'); 
     }
   }, [sortKey]);
 
   
-  const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.label || 'Sort';
+  const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.[currentLanguage === 'fr' ? 'fr_label' : 'label'] || getTranslation(T.sort);
   
   const statusFilterLabel = selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length
-    ? 'All Statuses'
-    : `${selectedStatuses.length} Selected`;
+    ? getTranslation(T.allStatuses)
+    : `${selectedStatuses.length} ${getTranslation(T.selected)}`;
 
   const regionFilterLabel = selectedRegions.length === 0 || selectedRegions.length === ALL_REGIONS.length
-    ? 'All Regions'
-    : `${selectedRegions.length} Selected`;
+    ? getTranslation(T.allRegions)
+    : `${selectedRegions.length} ${getTranslation(T.selected)}`;
 
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between pb-4 border-b">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary">Risk Assessments Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary">{getTranslation(T.dashboardTitle)}</h1>
       </div>
 
       <Card className="p-4 sm:p-6 shadow-sm rounded-lg">
@@ -217,11 +232,11 @@ export default function DashboardPage() {
           <div className="relative lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search assessments..."
+              placeholder={getTranslation(T.searchPlaceholder)}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 text-sm"
-              aria-label="Search assessments"
+              aria-label={getTranslation(T.searchPlaceholder)}
             />
             {searchTerm && (
               <Button
@@ -229,7 +244,7 @@ export default function DashboardPage() {
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
                 onClick={() => setSearchTerm('')}
-                aria-label="Clear search"
+                aria-label={getTranslation(T.clearSearch)}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -238,16 +253,16 @@ export default function DashboardPage() {
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label="Filter by status">
+              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label={getTranslation(T.filterByStatus)}>
                  <div className="flex items-center gap-2">
                   <ListFilter className="h-4 w-4 text-muted-foreground" />
-                  <span>Filter by Status</span>
+                  <span>{getTranslation(T.filterByStatus)}</span>
                 </div>
                 {selectedStatuses.length > 0 && <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">{statusFilterLabel}</Badge>}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuLabel>{getTranslation(T.filterByStatus)}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {ALL_STATUSES.map(status => (
                 <DropdownMenuCheckboxItem
@@ -256,28 +271,28 @@ export default function DashboardPage() {
                   onCheckedChange={() => handleStatusChange(status)}
                   onSelect={(e) => e.preventDefault()} 
                 >
-                  {status}
+                  {status} {/* Status values are usually not translated or handled by i18n keys */}
                 </DropdownMenuCheckboxItem>
               ))}
                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setSelectedStatuses([])} disabled={selectedStatuses.length === 0}>
-                  Clear Status Filters
+                  {getTranslation(T.clearStatusFilters)}
                 </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label="Filter by region">
+              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label={getTranslation(T.filterByRegion)}>
                  <div className="flex items-center gap-2">
                   <Globe className="h-4 w-4 text-muted-foreground" />
-                  <span>Filter by Region</span>
+                  <span>{getTranslation(T.filterByRegion)}</span>
                 </div>
                 {selectedRegions.length > 0 && <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">{regionFilterLabel}</Badge>}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-64">
-              <DropdownMenuLabel>Filter by Region</DropdownMenuLabel>
+              <DropdownMenuLabel>{getTranslation(T.filterByRegion)}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {ALL_REGIONS.map(region => (
                 <DropdownMenuCheckboxItem
@@ -286,32 +301,32 @@ export default function DashboardPage() {
                   onCheckedChange={() => handleRegionChange(region)}
                   onSelect={(e) => e.preventDefault()}
                 >
-                  {region}
+                  {region} {/* Region values are usually not translated or handled by i18n keys */}
                 </DropdownMenuCheckboxItem>
               ))}
                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setSelectedRegions([])} disabled={selectedRegions.length === 0}>
-                  Clear Region Filters
+                   {getTranslation(T.clearRegionFilters)}
                 </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label="Sort assessments">
+              <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label={getTranslation(T.sortBy)}>
                 <div className="flex items-center gap-2">
                   <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                   <span>{currentSortLabel}</span>
                 </div>
-                <span className="text-xs text-muted-foreground">{sortDirection === 'asc' ? 'Asc' : 'Desc'}</span>
+                <span className="text-xs text-muted-foreground">{sortDirection === 'asc' ? getTranslation(T.asc) : getTranslation(T.desc)}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuLabel>{getTranslation(T.sortBy)}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {sortOptions.map(opt => (
                 <DropdownMenuItem key={opt.value} onClick={() => handleSort(opt.value)}>
-                  {opt.label}
+                  {currentLanguage === 'fr' ? opt.fr_label : opt.label}
                   {sortKey === opt.value && <ArrowUpDown className="ml-auto h-4 w-4 opacity-50" />}
                 </DropdownMenuItem>
               ))}
@@ -341,9 +356,9 @@ export default function DashboardPage() {
       ) : (
         <Card className="p-10 text-center shadow-sm rounded-lg">
           <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">No Assessments Found</h2>
+          <h2 className="text-xl font-semibold mb-2">{getTranslation(T.noAssessmentsFound)}</h2>
           <p className="text-muted-foreground">
-            No risk assessments match your current filters. Try adjusting your search or filter criteria, or create a new assessment.
+            {getTranslation(T.noMatchFilters)}
           </p>
         </Card>
       )}

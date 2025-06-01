@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useToast } from "@/hooks/use-toast";
 import { LogIn, Users } from "lucide-react";
 import { mockUsers } from '@/lib/mockUsers';
+import { useLanguage } from '@/contexts/LanguageContext'; // Added
 
 const loginSchema = z.object({
   userId: z.string().min(1, "User selection is required."),
@@ -30,11 +31,28 @@ export default function LoginPage() {
   const router = useRouter();
   const { login, currentUser } = useUser();
   const { toast } = useToast();
+  const { getTranslation } = useLanguage(); // Added
 
-  // Redirect if user is already logged in
+  const T = {
+    loginTitle: { en: "Login", fr: "Connexion" },
+    loginDescription: { en: "Select your user profile and enter the password.", fr: "Sélectionnez votre profil utilisateur et entrez le mot de passe." },
+    hint: { en: '(Hint: password is "coastguard2025" for all mock users)', fr: '(Indice : le mot de passe est "coastguard2025" pour tous les utilisateurs fictifs)' },
+    userProfileLabel: { en: "User Profile", fr: "Profil Utilisateur" },
+    userProfilePlaceholder: { en: "Select a user profile...", fr: "Sélectionnez un profil utilisateur..." },
+    availableUsers: { en: "Available Users", fr: "Utilisateurs disponibles" },
+    passwordLabel: { en: "Password", fr: "Mot de passe" },
+    loginButton: { en: "Login", fr: "Connexion" },
+    loggingIn: { en: "Logging in...", fr: "Connexion en cours..." },
+    redirecting: { en: "Redirecting...", fr: "Redirection en cours..." },
+    loginSuccessTitle: { en: "Login Successful", fr: "Connexion réussie" },
+    loginSuccessDesc: { en: "Welcome back, {userName}!", fr: "Bon retour, {userName}!" },
+    loginFailedTitle: { en: "Login Failed", fr: "Échec de la connexion" },
+    loginFailedDesc: { en: "Invalid User ID or Password.", fr: "ID utilisateur ou mot de passe invalide." },
+  };
+
   useEffect(() => {
     if (currentUser && currentUser.id !== 'user-unauth') {
-      router.replace('/'); // Redirect to dashboard or home
+      router.replace('/'); 
     }
   }, [currentUser, router]);
 
@@ -47,31 +65,26 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    // The login function in UserContext will update currentUser if successful
     const success = await login(data.userId, data.password);
     if (success) {
-      // We need to get the updated user's name for the toast.
-      // Since context update might be async, it's safer to find user again or delay toast.
-      // For simplicity here, we'll assume login updates currentUser synchronously for the toast.
       const loggedInUser = mockUsers.find(u => u.id === data.userId);
       toast({
-        title: "Login Successful",
-        description: `Welcome back, ${loggedInUser?.name || 'User'}!`, 
+        title: getTranslation(T.loginSuccessTitle),
+        description: getTranslation(T.loginSuccessDesc).replace('{userName}', loggedInUser?.name || 'User'), 
       });
-      router.push("/"); // Redirect to dashboard
+      router.push("/"); 
     } else {
       toast({
-        title: "Login Failed",
-        description: "Invalid User ID or Password.",
+        title: getTranslation(T.loginFailedTitle),
+        description: getTranslation(T.loginFailedDesc),
         variant: "destructive",
       });
       form.resetField("password");
     }
   };
   
-  // Do not render the form if the user is already authenticated and redirection is in progress
   if (currentUser && currentUser.id !== 'user-unauth') {
-    return <div className="flex justify-center items-center h-[calc(100vh-200px)]">Redirecting...</div>;
+    return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{getTranslation(T.redirecting)}</div>;
   }
 
   return (
@@ -79,11 +92,12 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2">
-            <LogIn className="h-6 w-6 text-primary" /> Login
+            <LogIn className="h-6 w-6 text-primary" /> {getTranslation(T.loginTitle)}
           </CardTitle>
           <CardDescription>
-            Select your user profile and enter the password.
-            (Hint: password is "coastguard2025" for all mock users)
+            {getTranslation(T.loginDescription)}
+            <br />
+            {getTranslation(T.hint)}
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -94,16 +108,16 @@ export default function LoginPage() {
                 name="userId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>User Profile</FormLabel>
+                    <FormLabel>{getTranslation(T.userProfileLabel)}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a user profile..." />
+                          <SelectValue placeholder={getTranslation(T.userProfilePlaceholder)} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectLabel className="flex items-center gap-2"><Users className="h-4 w-4"/>Available Users</SelectLabel>
+                          <SelectLabel className="flex items-center gap-2"><Users className="h-4 w-4"/>{getTranslation(T.availableUsers)}</SelectLabel>
                           {availableLoginUsers.map(user => (
                             <SelectItem key={user.id} value={user.id}>
                               {user.name} ({user.role})
@@ -121,7 +135,7 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>{getTranslation(T.passwordLabel)}</FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
@@ -132,7 +146,7 @@ export default function LoginPage() {
             </CardContent>
             <CardFooter>
               <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Logging in..." : "Login"}
+                {form.formState.isSubmitting ? getTranslation(T.loggingIn) : getTranslation(T.loginButton)}
               </Button>
             </CardFooter>
           </form>

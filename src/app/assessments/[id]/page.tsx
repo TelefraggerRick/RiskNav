@@ -22,12 +22,12 @@ import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-sc
 import { cn } from "@/lib/utils";
 import { useUser } from '@/contexts/UserContext';
 import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
+import { useLanguage } from '@/contexts/LanguageContext'; // Added
 
 const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
-// Helper function to get all assessments (mock + localStorage)
 const getAllAssessments = (): RiskAssessment[] => {
   const storedAssessmentsRaw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEY) : null;
   const storedAssessments: RiskAssessment[] = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
@@ -36,20 +36,18 @@ const getAllAssessments = (): RiskAssessment[] => {
   storedAssessments.forEach(storedAssessment => {
     const index = combinedAssessments.findIndex(mock => mock.id === storedAssessment.id);
     if (index !== -1) {
-      combinedAssessments[index] = storedAssessment; // Replace mock with stored if ID matches
+      combinedAssessments[index] = storedAssessment; 
     } else {
-      combinedAssessments.push(storedAssessment); // Add new assessment from storage
+      combinedAssessments.push(storedAssessment); 
     }
   });
   return combinedAssessments;
 };
 
-// Helper function to get a single assessment by ID
 const getAssessmentById = (id: string): RiskAssessment | undefined => {
   return getAllAssessments().find(assessment => assessment.id === id);
 };
 
-// Helper function to save an updated assessment
 const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
   if (typeof window === 'undefined') return;
   let assessments = getAllAssessments();
@@ -57,7 +55,7 @@ const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
   if (index !== -1) {
     assessments[index] = updatedAssessment;
   } else {
-    assessments.push(updatedAssessment); // Should not happen for updates, but good fallback
+    assessments.push(updatedAssessment); 
   }
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
 };
@@ -67,9 +65,6 @@ const handleDownloadAttachment = (attachment: Attachment) => {
   if (attachment.url && attachment.url !== '#') {
      window.open(attachment.url, '_blank');
   } else if (attachment.file) {
-     // This part is for files selected in the form but not yet "uploaded"
-     // For a real app, 'file' would be uploaded and get a URL
-     // For now, we can simulate download if it's a local File object
      const tempUrl = URL.createObjectURL(attachment.file);
      const a = document.createElement('a');
      a.href = tempUrl;
@@ -109,12 +104,103 @@ export default function AssessmentDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { currentUser } = useUser();
+  const { getTranslation } = useLanguage(); // Added
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+
+  // Translations
+  const T = {
+    backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
+    imo: { en: "IMO", fr: "IMO" },
+    lastModified: { en: "Last Modified", fr: "Dernière modification" },
+    at: { en: "at", fr: "à" },
+    vesselOverview: { en: "Vessel & Assessment Overview", fr: "Aperçu du navire et de l'évaluation" },
+    submittedBy: { en: "Submitted By", fr: "Soumis par" },
+    submissionDate: { en: "Submission Date", fr: "Date de soumission" },
+    imoNumber: { en: "IMO Number", fr: "Numéro IMO" },
+    department: { en: "Department", fr: "Département" },
+    region: { en: "Region", fr: "Région" },
+    voyageDetails: { en: "Voyage Details", fr: "Détails du voyage" },
+    reasonForRequest: { en: "Reason for Request", fr: "Raison de la demande" },
+    personnelShortages: { en: "Personnel Shortages & Impact", fr: "Pénuries de personnel et impact" },
+    proposedDeviations: { en: "Proposed Deviations/Mitigations", fr: "Dérogations/Mesures d'atténuation proposées" },
+    exemptionIndividualAssessment: { en: "Exemption & Individual Assessment", fr: "Exemption et évaluation individuelle" },
+    coSupportExemption: { en: "CO & Dept. Head Support Exemption", fr: "Soutien de l'exemption par le commandant et le chef de département" },
+    deptHeadConfident: { en: "Dept. Head Confident in Individual", fr: "Chef de département confiant envers l'individu" },
+    reasonForConfidence: { en: "Reason for Dept. Head Confidence", fr: "Raison de la confiance du chef de département" },
+    familiarizationProvided: { en: "Employee Familiarization Provided", fr: "Familiarisation de l'employé fournie" },
+    workedInDeptLast12Months: { en: "Worked in Dept. (Last 12 Months)", fr: "A travaillé dans le département (12 derniers mois)" },
+    positionAndDuration: { en: "Position and Duration", fr: "Poste et durée" },
+    similarExperience: { en: "Similar Responsibility Experience", fr: "Expérience de responsabilité similaire" },
+    detailsSimilarResponsibility: { en: "Details of Similar Responsibility", fr: "Détails de la responsabilité similaire" },
+    hasRequiredSeaService: { en: "Has Required Sea Service", fr: "Possède le service en mer requis" },
+    workingTowardsCert: { en: "Working Towards Certification", fr: "Travaille à l'obtention de la certification" },
+    certProgressSummary: { en: "Certification Progress Summary", fr: "Résumé des progrès de la certification" },
+    operationalConsiderations: { en: "Operational Considerations (Crew & Voyage)", fr: "Considérations opérationnelles (Équipage et voyage)" },
+    crewTeamConsiderations: { en: "Crew/Team Considerations", fr: "Considérations relatives à l'équipage/l'équipe" },
+    requestCausesVacancy: { en: "Request Causes Vacancy Elsewhere", fr: "La demande cause un poste vacant ailleurs" },
+    crewSufficientForSafety: { en: "Crew Composition Sufficient for Safety", fr: "Composition de l'équipage suffisante pour la sécurité" },
+    detailedCrewCompetency: { en: "Detailed Crew Competency Assessment", fr: "Évaluation détaillée des compétences de l'équipage" },
+    crewContinuityProfile: { en: "Crew Continuity as per Profile", fr: "Continuité de l'équipage selon le profil" },
+    crewContinuityDetails: { en: "Crew Continuity Details", fr: "Détails de la continuité de l'équipage" },
+    voyageConsiderations: { en: "Voyage Considerations", fr: "Considérations relatives au voyage" },
+    specialVoyageConsiderations: { en: "Special Voyage Considerations", fr: "Considérations spéciales relatives au voyage" },
+    programReduction: { en: "Reduction in Vessel Program Requirements", fr: "Réduction des exigences du programme du navire" },
+    rocNotified: { en: "ROC/JRCC Notified of Limitations", fr: "CRO/JRCC informé des limitations" },
+    attachments: { en: "Attachments", fr: "Pièces jointes" },
+    download: { en: "Download", fr: "Télécharger" },
+    noAttachments: { en: "No attachments for this assessment.", fr: "Aucune pièce jointe pour cette évaluation." },
+    aiInsights: { en: "AI Insights", fr: "Perspectives de l'IA" },
+    generateSummary: { en: "Generate Summary", fr: "Générer un résumé" },
+    summaryGenerated: { en: "Summary Generated", fr: "Résumé généré" },
+    generating: { en: "Generating...", fr: "Génération en cours..." },
+    assessRiskMitigations: { en: "Assess Risk & Mitigations", fr: "Évaluer les risques et les mesures d'atténuation" },
+    analysisComplete: { en: "Analysis Complete", fr: "Analyse terminée" },
+    analyzing: { en: "Analyzing...", fr: "Analyse en cours..." },
+    aiGeneratedSummary: { en: "AI Generated Summary", fr: "Résumé généré par l'IA" },
+    aiRiskScore: { en: "AI Risk Score", fr: "Score de risque IA" },
+    suggestedMitigations: { en: "Suggested Mitigations:", fr: "Mesures d'atténuation suggérées :" },
+    regulatoryConsiderations: { en: "Regulatory Considerations:", fr: "Considérations réglementaires :" },
+    runAiTools: { en: "Run AI tools to generate summaries, risk scores, and suggested mitigations.", fr: "Exécutez les outils d'IA pour générer des résumés, des scores de risque et des mesures d'atténuation suggérées." },
+    approvalWorkflow: { en: "Approval Workflow", fr: "Flux d'approbation" },
+    by: { en: "By:", fr: "Par :" },
+    date: { en: "Date:", fr: "Date :" },
+    notes: { en: "Notes:", fr: "Notes :" },
+    pendingAction: { en: "Pending Action", fr: "Action en attente" },
+    queued: { en: "Queued", fr: "En attente" },
+    actionsFor: { en: "Actions for {level}:", fr: "Actions pour {level} :" },
+    approve: { en: "Approve", fr: "Approuver" },
+    reject: { en: "Reject", fr: "Rejeter" },
+    requestInformation: { en: "Request Information", fr: "Demander des informations" },
+    actionRequiredByAnotherRole: { en: "Action Required by Another Role", fr: "Action requise par un autre rôle" },
+    actionRequiredDesc: { en: "Your current role ({currentUserRole}) does not match the required role for this action ({requiredRole}).", fr: "Votre rôle actuel ({currentUserRole}) ne correspond pas au rôle requis pour cette action ({requiredRole})." },
+    assessmentFullyApproved: { en: "Assessment Fully Approved", fr: "Évaluation entièrement approuvée" },
+    assessmentFullyApprovedDesc: { en: "This risk assessment has been approved by all required levels.", fr: "Cette évaluation des risques a été approuvée par tous les niveaux requis." },
+    assessmentRejected: { en: "Assessment Rejected", fr: "Évaluation rejetée" },
+    assessmentRejectedDesc: { en: "This risk assessment was rejected at the {level} stage. See details in the workflow steps above.", fr: "Cette évaluation des risques a été rejetée à l'étape {level}. Voir les détails dans les étapes du flux de travail ci-dessus." },
+    informationRequested: { en: "Information Requested", fr: "Informations demandées" },
+    informationRequestedDesc: { en: "Further information was requested at the {level} stage. See notes in the relevant step.", fr: "Des informations supplémentaires ont été demandées à l'étape {level}. Voir les notes dans l'étape correspondante." },
+    awaitingInitialReview: { en: "This assessment is awaiting initial review.", fr: "Cette évaluation est en attente d'examen initial." },
+    loadingAssessment: { en: "Loading Assessment Details...", fr: "Chargement des détails de l'évaluation..." },
+    assessmentNotFound: { en: "Assessment Not Found", fr: "Évaluation non trouvée" },
+    assessmentNotFoundDesc: { en: "The requested risk assessment could not be found.", fr: "L'évaluation des risques demandée n'a pas pu être trouvée." },
+    returnToDashboard: { en: "Return to Dashboard", fr: "Retour au tableau de bord" },
+    error: { en: "Error", fr: "Erreur" },
+    assessmentNotFoundToast: { en: "Assessment not found.", fr: "Évaluation non trouvée." },
+    aiSummaryGenerated: { en: "AI Summary Generated", fr: "Résumé IA généré" },
+    aiSummaryAdded: { en: "Summary has been added.", fr: "Le résumé a été ajouté." },
+    aiError: { en: "AI Error", fr: "Erreur IA" },
+    failedToGenerateSummary: { en: "Failed to generate summary.", fr: "Échec de la génération du résumé." },
+    aiRiskScoreGenerated: { en: "AI Risk Score & Recommendations Generated", fr: "Score de risque IA et recommandations générés" },
+    failedToGenerateRiskScore: { en: "Failed to generate risk score and recommendations.", fr: "Échec de la génération du score de risque et des recommandations." },
+    assessmentActionToastTitle: { en: "Assessment {decision}", fr: "Évaluation {decision}" }, // {decision} will be Approved, Rejected, etc.
+    assessmentActionToastDesc: { en: "The assessment has been {decision} with your notes.", fr: "L'évaluation a été {decision} avec vos notes." },
+    na: { en: "N/A", fr: "S.O." },
+  };
 
 
   const fetchAssessment = useCallback(() => {
@@ -129,12 +215,12 @@ export default function AssessmentDetailPage() {
         };
         setAssessment(populatedAssessment);
       } else {
-        toast({ title: "Error", description: "Assessment not found.", variant: "destructive" });
+        toast({ title: getTranslation(T.error), description: getTranslation(T.assessmentNotFoundToast), variant: "destructive" });
         router.push('/');
       }
       setIsLoading(false);
     }
-  }, [params.id, router, toast]);
+  }, [params.id, router, toast, getTranslation, T]);
 
   useEffect(() => {
     fetchAssessment();
@@ -154,10 +240,10 @@ export default function AssessmentDetailPage() {
       const updatedAssessment = { ...assessment, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString(), lastModifiedTimestamp: Date.now() };
       setAssessment(updatedAssessment);
       saveAssessmentUpdate(updatedAssessment);
-      toast({ title: "AI Summary Generated", description: "Summary has been added." });
+      toast({ title: getTranslation(T.aiSummaryGenerated), description: getTranslation(T.aiSummaryAdded) });
     } catch (error) {
       console.error("AI Summary Error:", error);
-      toast({ title: "AI Error", description: "Failed to generate summary.", variant: "destructive" });
+      toast({ title: getTranslation(T.aiError), description: getTranslation(T.failedToGenerateSummary), variant: "destructive" });
     }
     setIsAiLoading(prev => ({...prev, summary: false}));
   };
@@ -171,7 +257,7 @@ export default function AssessmentDetailPage() {
         imoNumber: assessment.imoNumber,
         personnelShortages: assessment.personnelShortages,
         operationalDeviations: assessment.proposedOperationalDeviations,
-        attachedDocuments: assessment.attachments.map(a => a.url || a.name), // Prefer URL if available
+        attachedDocuments: assessment.attachments.map(a => a.url || a.name), 
       });
       const updatedAssessment = { 
         ...assessment, 
@@ -183,10 +269,10 @@ export default function AssessmentDetailPage() {
       };
       setAssessment(updatedAssessment);
       saveAssessmentUpdate(updatedAssessment);
-      toast({ title: "AI Risk Score & Recommendations Generated" });
+      toast({ title: getTranslation(T.aiRiskScoreGenerated) });
     } catch (error) {
       console.error("AI Risk Score Error:", error);
-      toast({ title: "AI Error", description: "Failed to generate risk score and recommendations.", variant: "destructive" });
+      toast({ title: getTranslation(T.aiError), description: getTranslation(T.failedToGenerateRiskScore), variant: "destructive" });
     }
     setIsAiLoading(prev => ({...prev, riskScore: false}));
   };
@@ -197,7 +283,6 @@ export default function AssessmentDetailPage() {
     let currentLevelToAct: ApprovalLevel | null = null;
     let isHalted = false;
     let overallStatus: RiskAssessmentStatus = assessment.status;
-
 
     for (const level of approvalLevelsOrder) {
       const step = assessment.approvalSteps.find(s => s.level === level);
@@ -270,21 +355,20 @@ export default function AssessmentDetailPage() {
     saveAssessmentUpdate(updatedAssessment);
     
     toast({
-      title: `Assessment ${currentDecision}`,
-      description: `The assessment has been ${currentDecision.toLowerCase()} with your notes.`,
+      title: getTranslation(T.assessmentActionToastTitle).replace('{decision}', currentDecision),
+      description: getTranslation(T.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
     });
     
     setIsSubmittingApproval(false);
     setIsApprovalDialogOpen(false);
     setCurrentDecision(undefined);
-    // Re-fetch or re-evaluate current step info if necessary, but local state update should cover it.
   };
 
 
   if (isLoading) {
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
         <BrainCircuit className="h-16 w-16 animate-pulse text-primary" /> 
-        <p className="text-xl text-muted-foreground">Loading Assessment Details...</p>
+        <p className="text-xl text-muted-foreground">{getTranslation(T.loadingAssessment)}</p>
     </div>;
   }
 
@@ -292,9 +376,9 @@ export default function AssessmentDetailPage() {
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto text-center">
         <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
-        <AlertTitle className="text-xl">Assessment Not Found</AlertTitle>
-        <AlertDescription>The requested risk assessment could not be found.</AlertDescription>
-         <Button onClick={() => router.push('/')} variant="link" className="mt-4">Return to Dashboard</Button>
+        <AlertTitle className="text-xl">{getTranslation(T.assessmentNotFound)}</AlertTitle>
+        <AlertDescription>{getTranslation(T.assessmentNotFoundDesc)}</AlertDescription>
+         <Button onClick={() => router.push('/')} variant="link" className="mt-4">{getTranslation(T.returnToDashboard)}</Button>
       </Alert>
     );
   }
@@ -346,7 +430,7 @@ export default function AssessmentDetailPage() {
     <div className="space-y-6 pb-12">
       <div className="flex items-center justify-between">
         <Button variant="outline" onClick={() => router.push('/')} size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+            <ArrowLeft className="mr-2 h-4 w-4" /> {getTranslation(T.backToDashboard)}
         </Button>
       </div>
 
@@ -360,17 +444,17 @@ export default function AssessmentDetailPage() {
               <CardDescription className="text-sm mt-1">
                 {assessment.referenceNumber}
                 {assessment.imoNumber && (
-                    <span className="ml-2 pl-2 border-l border-muted-foreground/50">IMO: {assessment.imoNumber}</span>
+                    <span className="ml-2 pl-2 border-l border-muted-foreground/50">{getTranslation(T.imo)}: {assessment.imoNumber}</span>
                 )}
               </CardDescription>
             </div>
             <div className="flex flex-col items-start md:items-end gap-2">
                  <Badge className={`text-base px-4 py-2 rounded-full font-medium ${currentStatusConfig.badgeClass}`}>
                     <StatusIcon className="h-5 w-5 mr-2" />
-                    {assessment.status}
+                    {assessment.status} {/* Status names are usually not translated */}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
-                    Last Modified: {format(parseISO(assessment.lastModified), "MMM d, yyyy 'at' h:mm a")}
+                    {getTranslation(T.lastModified)}: {format(parseISO(assessment.lastModified), `MMM d, yyyy '${getTranslation(T.at)}' h:mm a`)}
                 </p>
             </div>
           </div>
@@ -378,60 +462,60 @@ export default function AssessmentDetailPage() {
         <CardContent className="p-6 space-y-8">
           
           <section>
-            <SectionTitle icon={Sailboat} title="Vessel & Assessment Overview" />
+            <SectionTitle icon={Sailboat} title={getTranslation(T.vesselOverview)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              <DetailItem label="Submitted By" value={assessment.submittedBy} />
-              <DetailItem label="Submission Date" value={format(parseISO(assessment.submissionDate), "PPP p")} />
-              {assessment.imoNumber && <DetailItem label="IMO Number" value={assessment.imoNumber} icon={Fingerprint} />}
-              <DetailItem label="Department" value={assessment.department} />
-              <DetailItem label="Region" value={assessment.region} />
-              <DetailItem label="Voyage Details" value={assessment.voyageDetails} isPreformatted fullWidth/>
-              <DetailItem label="Reason for Request" value={assessment.reasonForRequest} isPreformatted fullWidth/>
-              <DetailItem label="Personnel Shortages & Impact" value={assessment.personnelShortages} isPreformatted fullWidth/>
-              <DetailItem label="Proposed Deviations/Mitigations" value={assessment.proposedOperationalDeviations} isPreformatted fullWidth/>
+              <DetailItem label={getTranslation(T.submittedBy)} value={assessment.submittedBy} />
+              <DetailItem label={getTranslation(T.submissionDate)} value={format(parseISO(assessment.submissionDate), "PPP p")} />
+              {assessment.imoNumber && <DetailItem label={getTranslation(T.imoNumber)} value={assessment.imoNumber} icon={Fingerprint} />}
+              <DetailItem label={getTranslation(T.department)} value={assessment.department} />
+              <DetailItem label={getTranslation(T.region)} value={assessment.region} />
+              <DetailItem label={getTranslation(T.voyageDetails)} value={assessment.voyageDetails} isPreformatted fullWidth/>
+              <DetailItem label={getTranslation(T.reasonForRequest)} value={assessment.reasonForRequest} isPreformatted fullWidth/>
+              <DetailItem label={getTranslation(T.personnelShortages)} value={assessment.personnelShortages} isPreformatted fullWidth/>
+              <DetailItem label={getTranslation(T.proposedDeviations)} value={assessment.proposedOperationalDeviations} isPreformatted fullWidth/>
             </div>
           </section>
           <Separator />
           
           <section>
-            <SectionTitle icon={UserCog} title="Exemption & Individual Assessment" />
+            <SectionTitle icon={UserCog} title={getTranslation(T.exemptionIndividualAssessment)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <DetailItem label="CO & Dept. Head Support Exemption" value={<><YesNoIcon value={assessment.coDeptHeadSupportExemption} /> {assessment.coDeptHeadSupportExemption || 'N/A'}</>} />
-                <DetailItem label="Dept. Head Confident in Individual" value={<><YesNoIcon value={assessment.deptHeadConfidentInIndividual} /> {assessment.deptHeadConfidentInIndividual || 'N/A'}</>} />
-                {assessment.deptHeadConfidentInIndividual === 'Yes' && <DetailItem label="Reason for Dept. Head Confidence" value={assessment.deptHeadConfidenceReason} isPreformatted fullWidth />}
-                <DetailItem label="Employee Familiarization Provided" value={<><YesNoIcon value={assessment.employeeFamiliarizationProvided} /> {assessment.employeeFamiliarizationProvided || 'N/A'}</>} />
-                <DetailItem label="Worked in Dept. (Last 12 Months)" value={<><YesNoIcon value={assessment.workedInDepartmentLast12Months} /> {assessment.workedInDepartmentLast12Months || 'N/A'}</>} />
-                {assessment.workedInDepartmentLast12Months === 'Yes' && <DetailItem label="Position and Duration" value={assessment.workedInDepartmentDetails} isPreformatted fullWidth />}
-                <DetailItem label="Similar Responsibility Experience" value={<><YesNoIcon value={assessment.similarResponsibilityExperience} /> {assessment.similarResponsibilityExperience || 'N/A'}</>} />
-                {assessment.similarResponsibilityExperience === 'Yes' && <DetailItem label="Details of Similar Responsibility" value={assessment.similarResponsibilityDetails} isPreformatted fullWidth />}
-                <DetailItem label="Has Required Sea Service" value={<><YesNoIcon value={assessment.individualHasRequiredSeaService} /> {assessment.individualHasRequiredSeaService || 'N/A'}</>} />
-                <DetailItem label="Working Towards Certification" value={<><YesNoIcon value={assessment.individualWorkingTowardsCertification} /> {assessment.individualWorkingTowardsCertification || 'N/A'}</>} />
-                {assessment.individualWorkingTowardsCertification === 'Yes' && <DetailItem label="Certification Progress Summary" value={assessment.certificationProgressSummary} isPreformatted fullWidth />}
+                <DetailItem label={getTranslation(T.coSupportExemption)} value={<><YesNoIcon value={assessment.coDeptHeadSupportExemption} /> {assessment.coDeptHeadSupportExemption || getTranslation(T.na)}</>} />
+                <DetailItem label={getTranslation(T.deptHeadConfident)} value={<><YesNoIcon value={assessment.deptHeadConfidentInIndividual} /> {assessment.deptHeadConfidentInIndividual || getTranslation(T.na)}</>} />
+                {assessment.deptHeadConfidentInIndividual === 'Yes' && <DetailItem label={getTranslation(T.reasonForConfidence)} value={assessment.deptHeadConfidenceReason} isPreformatted fullWidth />}
+                <DetailItem label={getTranslation(T.familiarizationProvided)} value={<><YesNoIcon value={assessment.employeeFamiliarizationProvided} /> {assessment.employeeFamiliarizationProvided || getTranslation(T.na)}</>} />
+                <DetailItem label={getTranslation(T.workedInDeptLast12Months)} value={<><YesNoIcon value={assessment.workedInDepartmentLast12Months} /> {assessment.workedInDepartmentLast12Months || getTranslation(T.na)}</>} />
+                {assessment.workedInDepartmentLast12Months === 'Yes' && <DetailItem label={getTranslation(T.positionAndDuration)} value={assessment.workedInDepartmentDetails} isPreformatted fullWidth />}
+                <DetailItem label={getTranslation(T.similarExperience)} value={<><YesNoIcon value={assessment.similarResponsibilityExperience} /> {assessment.similarResponsibilityExperience || getTranslation(T.na)}</>} />
+                {assessment.similarResponsibilityExperience === 'Yes' && <DetailItem label={getTranslation(T.detailsSimilarResponsibility)} value={assessment.similarResponsibilityDetails} isPreformatted fullWidth />}
+                <DetailItem label={getTranslation(T.hasRequiredSeaService)} value={<><YesNoIcon value={assessment.individualHasRequiredSeaService} /> {assessment.individualHasRequiredSeaService || getTranslation(T.na)}</>} />
+                <DetailItem label={getTranslation(T.workingTowardsCert)} value={<><YesNoIcon value={assessment.individualWorkingTowardsCertification} /> {assessment.individualWorkingTowardsCertification || getTranslation(T.na)}</>} />
+                {assessment.individualWorkingTowardsCertification === 'Yes' && <DetailItem label={getTranslation(T.certProgressSummary)} value={assessment.certificationProgressSummary} isPreformatted fullWidth />}
             </div>
           </section>
           <Separator />
 
           <section>
-            <SectionTitle icon={ClipboardList} title="Operational Considerations (Crew & Voyage)" />
-             <h4 className="text-md font-medium mb-2 text-muted-foreground">Crew/Team Considerations</h4>
+            <SectionTitle icon={ClipboardList} title={getTranslation(T.operationalConsiderations)} />
+             <h4 className="text-md font-medium mb-2 text-muted-foreground">{getTranslation(T.crewTeamConsiderations)}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-6">
-                <DetailItem label="Request Causes Vacancy Elsewhere" value={<><YesNoIcon value={assessment.requestCausesVacancyElsewhere} /> {assessment.requestCausesVacancyElsewhere || 'N/A'}</>} />
-                <DetailItem label="Crew Composition Sufficient for Safety" value={<><YesNoIcon value={assessment.crewCompositionSufficientForSafety} /> {assessment.crewCompositionSufficientForSafety || 'N/A'}</>} />
-                <DetailItem label="Detailed Crew Competency Assessment" value={assessment.detailedCrewCompetencyAssessment} isPreformatted fullWidth />
-                <DetailItem label="Crew Continuity as per Profile" value={<><YesNoIcon value={assessment.crewContinuityAsPerProfile} /> {assessment.crewContinuityAsPerProfile || 'N/A'}</>} />
-                {assessment.crewContinuityAsPerProfile === 'No' && <DetailItem label="Crew Continuity Details" value={assessment.crewContinuityDetails} isPreformatted fullWidth />}
+                <DetailItem label={getTranslation(T.requestCausesVacancy)} value={<><YesNoIcon value={assessment.requestCausesVacancyElsewhere} /> {assessment.requestCausesVacancyElsewhere || getTranslation(T.na)}</>} />
+                <DetailItem label={getTranslation(T.crewSufficientForSafety)} value={<><YesNoIcon value={assessment.crewCompositionSufficientForSafety} /> {assessment.crewCompositionSufficientForSafety || getTranslation(T.na)}</>} />
+                <DetailItem label={getTranslation(T.detailedCrewCompetency)} value={assessment.detailedCrewCompetencyAssessment} isPreformatted fullWidth />
+                <DetailItem label={getTranslation(T.crewContinuityProfile)} value={<><YesNoIcon value={assessment.crewContinuityAsPerProfile} /> {assessment.crewContinuityAsPerProfile || getTranslation(T.na)}</>} />
+                {assessment.crewContinuityAsPerProfile === 'No' && <DetailItem label={getTranslation(T.crewContinuityDetails)} value={assessment.crewContinuityDetails} isPreformatted fullWidth />}
             </div>
-            <h4 className="text-md font-medium mb-2 text-muted-foreground">Voyage Considerations</h4>
+            <h4 className="text-md font-medium mb-2 text-muted-foreground">{getTranslation(T.voyageConsiderations)}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <DetailItem label="Special Voyage Considerations" value={assessment.specialVoyageConsiderations} isPreformatted fullWidth />
-                <DetailItem label="Reduction in Vessel Program Requirements" value={<><YesNoIcon value={assessment.reductionInVesselProgramRequirements} /> {assessment.reductionInVesselProgramRequirements || 'N/A'}</>} />
-                {assessment.reductionInVesselProgramRequirements === 'Yes' && <DetailItem label="ROC/JRCC Notified of Limitations" value={<><YesNoIcon value={assessment.rocNotificationOfLimitations} /> {assessment.rocNotificationOfLimitations || 'N/A'}</>} />}
+                <DetailItem label={getTranslation(T.specialVoyageConsiderations)} value={assessment.specialVoyageConsiderations} isPreformatted fullWidth />
+                <DetailItem label={getTranslation(T.programReduction)} value={<><YesNoIcon value={assessment.reductionInVesselProgramRequirements} /> {assessment.reductionInVesselProgramRequirements || getTranslation(T.na)}</>} />
+                {assessment.reductionInVesselProgramRequirements === 'Yes' && <DetailItem label={getTranslation(T.rocNotified)} value={<><YesNoIcon value={assessment.rocNotificationOfLimitations} /> {assessment.rocNotificationOfLimitations || getTranslation(T.na)}</>} />}
             </div>
           </section>
           <Separator />
 
           <section>
-            <SectionTitle icon={FileText} title="Attachments" />
+            <SectionTitle icon={FileText} title={getTranslation(T.attachments)} />
             {assessment.attachments.length > 0 ? (
               <ul className="space-y-3">
                 {assessment.attachments.map(att => (
@@ -446,7 +530,7 @@ export default function AssessmentDetailPage() {
                       </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => handleDownloadAttachment(att)}>
-                      <Download className="h-4 w-4 mr-2" /> Download
+                      <Download className="h-4 w-4 mr-2" /> {getTranslation(T.download)}
                     </Button>
                   </li>
                 ))}
@@ -454,7 +538,7 @@ export default function AssessmentDetailPage() {
             ) : (
               <Alert variant="default" className="border-dashed">
                 <Info className="h-4 w-4" />
-                <AlertDescription>No attachments for this assessment.</AlertDescription>
+                <AlertDescription>{getTranslation(T.noAttachments)}</AlertDescription>
               </Alert>
             )}
           </section>
@@ -462,13 +546,13 @@ export default function AssessmentDetailPage() {
 
           <section>
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
-              <SectionTitle icon={Bot} title="AI Insights" className="mb-0"/>
+              <SectionTitle icon={Bot} title={getTranslation(T.aiInsights)} className="mb-0"/>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
-                  {isAiLoading.summary ? "Generating..." : (assessment.aiGeneratedSummary ? "Summary Generated" : "Generate Summary")}
+                  {isAiLoading.summary ? getTranslation(T.generating) : (assessment.aiGeneratedSummary ? getTranslation(T.summaryGenerated) : getTranslation(T.generateSummary))}
                 </Button>
                 <Button onClick={runAiRiskScoreAndRecommendations} disabled={isAiLoading.riskScore || !!assessment.aiRiskScore} variant="outline" size="sm">
-                  {isAiLoading.riskScore ? "Analyzing..." : (assessment.aiRiskScore ? "Analysis Complete" : "Assess Risk & Mitigations")}
+                  {isAiLoading.riskScore ? getTranslation(T.analyzing) : (assessment.aiRiskScore ? getTranslation(T.analysisComplete) : getTranslation(T.assessRiskMitigations))}
                 </Button>
               </div>
             </div>
@@ -476,7 +560,7 @@ export default function AssessmentDetailPage() {
 
             {assessment.aiGeneratedSummary && (
               <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
-                <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">AI Generated Summary</AlertTitle>
+                <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">{getTranslation(T.aiGeneratedSummary)}</AlertTitle>
                 <AlertDescription className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap">{assessment.aiGeneratedSummary}</AlertDescription>
               </Alert>
             )}
@@ -484,19 +568,19 @@ export default function AssessmentDetailPage() {
             {assessment.aiRiskScore !== undefined && (
               <Card className="my-4 p-4 bg-muted/30">
                 <CardHeader className="p-0 pb-2">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> AI Risk Score: {assessment.aiRiskScore}/100</CardTitle>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass}`} />
                     {assessment.aiSuggestedMitigations && (
                         <div className="mt-2">
-                            <h4 className="font-semibold text-sm">Suggested Mitigations:</h4>
+                            <h4 className="font-semibold text-sm">{getTranslation(T.suggestedMitigations)}</h4>
                             <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiSuggestedMitigations}</p>
                         </div>
                     )}
                     {assessment.aiRegulatoryConsiderations && (
                         <div className="mt-3 pt-3 border-t">
-                            <h4 className="font-semibold text-sm">Regulatory Considerations:</h4>
+                            <h4 className="font-semibold text-sm">{getTranslation(T.regulatoryConsiderations)}</h4>
                             <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiRegulatoryConsiderations}</p>
                         </div>
                     )}
@@ -506,14 +590,14 @@ export default function AssessmentDetailPage() {
             {!assessment.aiRiskScore && !assessment.aiGeneratedSummary && !isAiLoading.summary && !isAiLoading.riskScore &&
               <Alert variant="default" className="border-dashed">
                 <Info className="h-4 w-4" />
-                <AlertDescription>Run AI tools to generate summaries, risk scores, and suggested mitigations.</AlertDescription>
+                <AlertDescription>{getTranslation(T.runAiTools)}</AlertDescription>
               </Alert>
             }
           </section>
           <Separator />
 
           <section>
-            <SectionTitle icon={Users} title="Approval Workflow" />
+            <SectionTitle icon={Users} title={getTranslation(T.approvalWorkflow)} />
             <div className="space-y-4">
               {assessment.approvalSteps.map((step, index) => {
                 const StepIcon = getStepStatusIcon(step.decision);
@@ -528,7 +612,7 @@ export default function AssessmentDetailPage() {
                         <CardTitle className={`text-md font-semibold flex items-center justify-between ${stepColor}`}>
                           <span className="flex items-center gap-2">
                             <StepIcon className="h-5 w-5" />
-                            {step.level}
+                            {step.level} {/* Approval levels usually not translated */}
                           </span>
                           {step.decision ? (
                             <Badge
@@ -542,19 +626,19 @@ export default function AssessmentDetailPage() {
                                 '' 
                               }`}
                             >
-                              {step.decision}
+                              {step.decision} {/* Decisions usually not translated */}
                             </Badge>
                           ) : ( step.level === currentLevelToAct && !isHalted ? 
-                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">Pending Action</Badge> 
-                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm">Queued</Badge>
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">{getTranslation(T.pendingAction)}</Badge> 
+                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm">{getTranslation(T.queued)}</Badge>
                           )}
                         </CardTitle>
                       </CardHeader>
                       {step.decision && (
                         <CardContent className="text-sm space-y-1 pt-2 p-0">
-                          {step.userName && <p><strong>By:</strong> {step.userName}</p>}
-                          {step.date && <p><strong>Date:</strong> {format(parseISO(step.date), "PPP p")}</p>}
-                          {step.notes && <p className="mt-1"><strong>Notes:</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
+                          {step.userName && <p><strong>{getTranslation(T.by)}</strong> {step.userName}</p>}
+                          {step.date && <p><strong>{getTranslation(T.date)}</strong> {format(parseISO(step.date), "PPP p")}</p>}
+                          {step.notes && <p className="mt-1"><strong>{getTranslation(T.notes)}</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
                         </CardContent>
                       )}
                     </Card>
@@ -570,25 +654,25 @@ export default function AssessmentDetailPage() {
 
             {currentLevelToAct && !isHalted && (
                 <div className="mt-6 pt-4 border-t">
-                    <h4 className="text-md font-semibold mb-3">Actions for {currentLevelToAct}:</h4>
+                    <h4 className="text-md font-semibold mb-3">{getTranslation(T.actionsFor).replace('{level}', currentLevelToAct)}</h4>
                     {userCanActOnCurrentStep ? (
                       <div className="flex flex-wrap gap-3">
                           <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleOpenApprovalDialog('Approved')} disabled={isSubmittingApproval}>
-                              <ThumbsUp className="mr-2 h-4 w-4"/> Approve
+                              <ThumbsUp className="mr-2 h-4 w-4"/> {getTranslation(T.approve)}
                           </Button>
                           <Button variant="destructive" onClick={() => handleOpenApprovalDialog('Rejected')} disabled={isSubmittingApproval}>
-                              <ThumbsDown className="mr-2 h-4 w-4"/> Reject
+                              <ThumbsDown className="mr-2 h-4 w-4"/> {getTranslation(T.reject)}
                           </Button>
                           <Button variant="outline" onClick={() => handleOpenApprovalDialog('Needs Information')} disabled={isSubmittingApproval}>
-                              <MessageSquare className="mr-2 h-4 w-4"/> Request Information
+                              <MessageSquare className="mr-2 h-4 w-4"/> {getTranslation(T.requestInformation)}
                           </Button>
                       </div>
                     ) : (
                        <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
                           <Lock className="h-4 w-4 text-blue-600" />
-                          <AlertTitle className="text-blue-700 dark:text-blue-300">Action Required by Another Role</AlertTitle>
+                          <AlertTitle className="text-blue-700 dark:text-blue-300">{getTranslation(T.actionRequiredByAnotherRole)}</AlertTitle>
                           <AlertDescription className="text-blue-600 dark:text-blue-400">
-                            Your current role ({currentUser.role}) does not match the required role for this action ({currentLevelToAct}).
+                            {getTranslation(T.actionRequiredDesc).replace('{currentUserRole}', currentUser.role).replace('{requiredRole}', currentLevelToAct)}
                           </AlertDescription>
                         </Alert>
                     )}
@@ -597,28 +681,28 @@ export default function AssessmentDetailPage() {
             {assessment.status === 'Approved' && (
                 <Alert variant="default" className="mt-6 bg-green-50 border-green-200">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <AlertTitle className="text-green-700 font-semibold">Assessment Fully Approved</AlertTitle>
-                  <AlertDescription className="text-green-600">This risk assessment has been approved by all required levels.</AlertDescription>
+                  <AlertTitle className="text-green-700 font-semibold">{getTranslation(T.assessmentFullyApproved)}</AlertTitle>
+                  <AlertDescription className="text-green-600">{getTranslation(T.assessmentFullyApprovedDesc)}</AlertDescription>
                 </Alert>
             )}
             {(assessment.status === 'Rejected' && isHalted) && ( 
                  <Alert variant="destructive" className="mt-6">
                   <XCircle className="h-5 w-5" />
-                  <AlertTitle className="font-semibold">Assessment Rejected</AlertTitle
-                  ><AlertDescription>This risk assessment was rejected at the {currentLevelToAct} stage. See details in the workflow steps above.</AlertDescription>
+                  <AlertTitle className="font-semibold">{getTranslation(T.assessmentRejected)}</AlertTitle>
+                  <AlertDescription>{getTranslation(T.assessmentRejectedDesc).replace('{level}', String(currentLevelToAct))}</AlertDescription>
                 </Alert>
             )}
              {(assessment.status === 'Needs Information' && isHalted) && (
                  <Alert variant="default" className="mt-6 bg-orange-50 border-orange-200">
                   <FileWarning className="h-5 w-5 text-orange-600" />
-                  <AlertTitle className="text-orange-700 font-semibold">Information Requested</AlertTitle>
-                  <AlertDescription className="text-orange-600">Further information was requested at the {currentLevelToAct} stage. See notes in the relevant step.</AlertDescription>
+                  <AlertTitle className="text-orange-700 font-semibold">{getTranslation(T.informationRequested)}</AlertTitle>
+                  <AlertDescription className="text-orange-600">{getTranslation(T.informationRequestedDesc).replace('{level}', String(currentLevelToAct))}</AlertDescription>
                 </Alert>
             )}
              {!currentLevelToAct && !['Approved', 'Rejected', 'Needs Information'].includes(assessment.status) && assessment.approvalSteps.every(s => !s.decision) && (
                  <Alert variant="default" className="mt-6 border-dashed">
                     <Users className="h-4 w-4" />
-                    <AlertDescription>This assessment is awaiting initial review.</AlertDescription>
+                    <AlertDescription>{getTranslation(T.awaitingInitialReview)}</AlertDescription>
                 </Alert>
             )}
 
@@ -635,4 +719,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-

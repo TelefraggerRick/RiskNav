@@ -4,8 +4,9 @@ import type { RiskAssessment, RiskAssessmentStatus } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Edit, Building, UserCheck, UserCircle as UserIcon, FileWarning, Globe } from 'lucide-react'; // Added Globe
+import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Edit, Building, UserCheck, UserCircle as UserIcon, FileWarning, Globe } from 'lucide-react'; 
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { useLanguage } from '@/contexts/LanguageContext'; // Added
 
 interface RiskAssessmentCardProps {
   assessment: RiskAssessment;
@@ -25,6 +26,13 @@ const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badg
 export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardProps) {
   const config = statusConfig[assessment.status] || { icon: Info, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300' };
   const StatusIcon = config.icon;
+  const { getTranslation } = useLanguage(); // Added
+
+  const T = {
+    reason: { en: "Reason:", fr: "Raison :" },
+    proposedDeviations: { en: "Proposed Deviations:", fr: "Dérogations proposées :" },
+    viewDetails: { en: "View Details", fr: "Voir les détails" },
+  };
 
   return (
     <Card className="flex flex-col h-full shadow-md hover:shadow-lg transition-shadow duration-300 rounded-lg overflow-hidden">
@@ -38,7 +46,7 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
             className={`text-xs px-2 py-1 whitespace-nowrap rounded-md font-medium ${config.badgeClass}`}
           >
             <StatusIcon className="h-3 w-3 mr-1" />
-            {assessment.status}
+            {assessment.status} {/* Status names not translated */}
           </Badge>
         </div>
         <CardDescription className="text-xs text-muted-foreground pt-1 flex items-center gap-1">
@@ -47,20 +55,20 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
             <>
               <span className="mx-1">·</span>
               <Globe className="h-3 w-3 inline-block mr-0.5" />
-              {assessment.region}
+              {assessment.region} {/* Region names not translated */}
             </>
           )}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow space-y-2 text-sm py-3">
         <div className="space-y-1">
-            <p className="font-medium">Reason:</p>
+            <p className="font-medium">{getTranslation(T.reason)}</p>
             <p className="line-clamp-2 text-muted-foreground" title={assessment.reasonForRequest}>
             {assessment.reasonForRequest}
             </p>
         </div>
          <div className="space-y-1">
-            <p className="font-medium">Proposed Deviations:</p>
+            <p className="font-medium">{getTranslation(T.proposedDeviations)}</p>
             <p className="line-clamp-2 text-muted-foreground" title={assessment.proposedOperationalDeviations}>
             {assessment.proposedOperationalDeviations}
             </p>
@@ -74,7 +82,7 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
             </div>
             <Link href={`/assessments/${assessment.id}`} passHref>
               <Button variant="outline" size="sm">
-                View Details
+                {getTranslation(T.viewDetails)}
               </Button>
             </Link>
         </div>

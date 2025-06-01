@@ -12,12 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint } from "lucide-react"; // Added Fingerprint for IMO
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint } from "lucide-react";
 import React, { useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { VesselDepartment, VesselRegion } from "@/lib/types";
-
+import { useLanguage } from '@/contexts/LanguageContext'; // Added
 
 interface RiskAssessmentFormProps {
   onSubmit: (data: RiskAssessmentFormData) => Promise<void>;
@@ -72,11 +72,89 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
   });
 
   const { toast } = useToast();
+  const { getTranslation } = useLanguage(); // Added
+
+  // Translations Object
+  const T = {
+    vesselAndOverview: { en: "Vessel & Assessment Overview", fr: "Aperçu du navire et de l'évaluation" },
+    vesselAndOverviewDesc: { en: "Provide core details about the vessel and the reason for this assessment.", fr: "Fournissez les détails essentiels concernant le navire et la raison de cette évaluation." },
+    vesselNameLabel: { en: "Vessel Name *", fr: "Nom du navire *" },
+    vesselNamePlaceholder: { en: "e.g., CCGS Amundsen", fr: "ex : NGCC Amundsen" },
+    imoLabel: { en: "Vessel IMO Number (Optional)", fr: "Numéro IMO du navire (Facultatif)" },
+    imoPlaceholder: { en: "e.g., 1234567", fr: "ex : 1234567" },
+    imoDescription: { en: "Enter the 7-digit IMO number if available.", fr: "Entrez le numéro IMO à 7 chiffres s'il est disponible." },
+    departmentLabel: { en: "Department *", fr: "Département *" },
+    departmentPlaceholder: { en: "Select department...", fr: "Sélectionnez le département..." },
+    departments: { en: "Departments", fr: "Départements" },
+    regionLabel: { en: "Region *", fr: "Région *" },
+    regionPlaceholder: { en: "Select region...", fr: "Sélectionnez la région..." },
+    regions: { en: "Regions", fr: "Régions" },
+    voyageDetailsLabel: { en: "Voyage Details *", fr: "Détails du voyage *" },
+    voyageDetailsPlaceholder: { en: "e.g., Route, dates, purpose of voyage", fr: "ex : Route, dates, but du voyage" },
+    reasonForRequestLabel: { en: "Reason for Risk Assessment *", fr: "Raison de l'évaluation des risques *" },
+    reasonForRequestPlaceholder: { en: "e.g., Sailing short-handed due to X, Officer Y without proper certification for Z", fr: "ex : Navigation à effectif réduit en raison de X, Officier Y sans certification appropriée pour Z" },
+    personnelShortagesLabel: { en: "Personnel Shortages & Impact *", fr: "Pénuries de personnel et impact *" },
+    personnelShortagesPlaceholder: { en: "Describe specific shortages, roles affected, and potential impact on operations.", fr: "Décrivez les pénuries spécifiques, les rôles affectés et l'impact potentiel sur les opérations." },
+    proposedDeviationsLabel: { en: "Proposed Operational Deviations / Mitigations *", fr: "Dérogations opérationnelles / Mesures d'atténuation proposées *" },
+    proposedDeviationsPlaceholder: { en: "Describe changes to standard procedures or mitigating actions proposed to manage the risk.", fr: "Décrivez les modifications aux procédures standard ou les mesures d'atténuation proposées pour gérer le risque." },
+    exemptionAndIndividualAssessment: { en: "Exemption & Individual Assessment", fr: "Exemption et évaluation individuelle" },
+    exemptionAndIndividualAssessmentDesc: { en: "Details regarding the specific exemption and the individual(s) involved.", fr: "Détails concernant l'exemption spécifique et la ou les personnes impliquées." },
+    coSupportExemptionLabel: { en: "Does the Commanding Officer AND Department Head support this exemption? *", fr: "Le commandant ET le chef de département appuient-ils cette exemption? *" },
+    deptHeadConfidentLabel: { en: "Is the Department Head confident that the individual can fulfill the required duties? *", fr: "Le chef de département est-il confiant que la personne peut remplir les fonctions requises? *" },
+    deptHeadConfidenceReasonLabel: { en: "If yes, why is the Department Head confident? *", fr: "Si oui, pourquoi le chef de département est-il confiant? *" },
+    deptHeadConfidenceReasonPlaceholder: { en: "Explain the reasons for confidence...", fr: "Expliquez les raisons de cette confiance..." },
+    familiarizationProvidedLabel: { en: "Will the employee be given familiarization as per FSM and crewing profile? *", fr: "L'employé recevra-t-il une familiarisation conformément au MSF et au profil d'équipage? *" },
+    workedInDeptLast12MonthsLabel: { en: "Has the individual worked in the required department during the past 12 months? *", fr: "La personne a-t-elle travaillé dans le département requis au cours des 12 derniers mois? *" },
+    workedInDeptDetailsLabel: { en: "If Yes, please indicate position and duration. *", fr: "Si oui, veuillez indiquer le poste et la durée. *" },
+    workedInDeptDetailsPlaceholder: { en: "e.g., Able Seaman, Jan 2023 - Dec 2023", fr: "ex : Matelot de 1re classe, janv. 2023 - déc. 2023" },
+    similarExperienceLabel: { en: "Has the individual worked in positions of similar responsibility before? *", fr: "La personne a-t-elle déjà occupé des postes à responsabilité similaire? *" },
+    similarExperienceDetailsLabel: { en: "If Yes, please provide details of similar responsibility. *", fr: "Si oui, veuillez fournir des détails sur la responsabilité similaire. *" },
+    similarExperienceDetailsPlaceholder: { en: "Describe previous similar roles and responsibilities...", fr: "Décrivez les rôles et responsabilités similaires antérieurs..." },
+    requiredSeaServiceLabel: { en: "Does the individual have the required sea service to apply for the required certificate or rating? *", fr: "La personne possède-t-elle le service en mer requis pour demander le brevet ou le visa requis? *" },
+    workingTowardsCertLabel: { en: "Is the individual currently working towards the required certification? *", fr: "La personne travaille-t-elle actuellement à l'obtention de la certification requise? *" },
+    certificationProgressSummaryLabel: { en: "If Yes, provide a summary of progress. *", fr: "Si oui, fournissez un résumé des progrès. *" },
+    certificationProgressSummaryDesc: { en: "Include exams, courses completed, and progress since last exemption (if applicable).", fr: "Incluez les examens, les cours suivis et les progrès depuis la dernière exemption (le cas échéant)." },
+    certificationProgressSummaryPlaceholder: { en: "Summary of certification progress...", fr: "Résumé des progrès de la certification..." },
+    operationalConsiderations: { en: "Operational Considerations (Crew & Voyage)", fr: "Considérations opérationnelles (Équipage et voyage)" },
+    operationalConsiderationsDesc: { en: "Address crew composition, competency, and specific voyage-related factors.", fr: "Abordez la composition de l'équipage, la compétence et les facteurs spécifiques liés au voyage." },
+    crewTeamConsiderations: { en: "Crew/Team Considerations", fr: "Considérations relatives à l'équipage/l'équipe" },
+    requestCausesVacancyLabel: { en: "Does this request cause a vacancy elsewhere within the department? *", fr: "Cette demande crée-t-elle un poste vacant ailleurs dans le département? *" },
+    crewCompositionSufficientLabel: { en: "Is the crew composition sufficient to effectively support safe and secure operations and protect the environment? *", fr: "La composition de l'équipage est-elle suffisante pour soutenir efficacement des opérations sûres et sécurisées et protéger l'environnement? *" },
+    crewCompetencyAssessmentLabel: { en: "Are all other minimum certification requirements met, or are there other exemptions? Do any members help fill competency gaps with higher-than-required certifications? *", fr: "Toutes les autres exigences minimales de certification sont-elles respectées, ou existe-t-il d'autres exemptions? Certains membres aident-ils à combler les lacunes en matière de compétences avec des certifications supérieures à celles requises? *" },
+    crewCompetencyAssessmentPlaceholder: { en: "Provide a detailed assessment...", fr: "Fournissez une évaluation détaillée..." },
+    crewContinuityProfileLabel: { en: "Will the continuity of crew requirements be met as indicated in the vessel's Crewing Profile? *", fr: "Les exigences relatives à la continuité de l'équipage seront-elles respectées comme indiqué dans le profil d'équipage du navire? *" },
+    crewContinuityDetailsLabel: { en: "If not, please provide details on crew continuity. *", fr: "Sinon, veuillez fournir des détails sur la continuité de l'équipage. *" },
+    crewContinuityDetailsPlaceholder: { en: "Explain how crew continuity will be managed or the discrepancies...", fr: "Expliquez comment la continuité de l'équipage sera gérée ou les écarts..." },
+    voyageConsiderations: { en: "Voyage Considerations", fr: "Considérations relatives au voyage" },
+    specialVoyageConsiderationsLabel: { en: "Are there special voyage considerations that impact this exemption? *", fr: "Y a-t-il des considérations particulières relatives au voyage qui ont un impact sur cette exemption? *" },
+    specialVoyageConsiderationsDesc: { en: "(E.g., duration and time of transit, type of waters, weather conditions, etc.)", fr: "(Par ex., durée et heure du transit, type d'eaux, conditions météorologiques, etc.)" },
+    specialVoyageConsiderationsPlaceholder: { en: "Detail any special voyage considerations...", fr: "Détaillez toutes les considérations particulières relatives au voyage..." },
+    programReductionLabel: { en: "Is there any reduction in vessel program requirements that may help reduce the risk? *", fr: "Y a-t-il une réduction des exigences du programme du navire qui pourrait aider à réduire le risque? *" },
+    programReductionDesc: { en: "(E.g., No ATON requirements, transit only to refit, etc.)", fr: "(Par ex., aucune exigence SNA, transit uniquement pour remise en état, etc.)" },
+    rocNotificationLabel: { en: "If program reduction is planned, has the Regional Operations Center (ROC)/JRCC/MRSC been made aware? *", fr: "Si une réduction du programme est prévue, le Centre régional des opérations (CRO)/JRCC/SCRM en a-t-il été informé? *" },
+    yes: { en: "Yes", fr: "Oui" },
+    no: { en: "No", fr: "Non" },
+    supportingDocuments: { en: "Supporting Documents", fr: "Documents à l'appui" },
+    supportingDocumentsDesc: { en: `Attach relevant files (max 5, up to ${MAX_FILE_SIZE_MB}MB each). Allowed: PDF, DOC, DOCX, JPG, PNG, TXT.`, fr: `Joignez les fichiers pertinents (max. 5, jusqu'à ${MAX_FILE_SIZE_MB} Mo chacun). Permis : PDF, DOC, DOCX, JPG, PNG, TXT.` },
+    selectFiles: { en: "Select Files", fr: "Sélectionner des fichiers" },
+    filesSelected: { en: "{count} / 5 files selected", fr: "{count} / 5 fichiers sélectionnés" },
+    selectedFiles: { en: "Selected Files:", fr: "Fichiers sélectionnés :" },
+    removeFile: { en: "Remove {fileName}", fr: "Supprimer {fileName}" },
+    noFilesAttached: { en: "No files attached yet. Upload supporting documents as needed.", fr: "Aucun fichier joint pour le moment. Téléchargez les documents à l'appui au besoin." },
+    resetForm: { en: "Reset Form", fr: "Réinitialiser le formulaire" },
+    submitAssessment: { en: "Submit Assessment", fr: "Soumettre l'évaluation" },
+    updateAssessment: { en: "Update Assessment", fr: "Mettre à jour l'évaluation" },
+    processing: { en: "Processing...", fr: "Traitement en cours..." },
+    fileLimitReached: { en: "File Limit Reached", fr: "Limite de fichiers atteinte" },
+    fileLimitReachedDesc: { en: "You can upload a maximum of 5 files.", fr: "Vous pouvez téléverser un maximum de 5 fichiers." },
+    fileUploadIssues: { en: "File Upload Issues", fr: "Problèmes de téléversement de fichiers" },
+  };
+
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const currentFilesCount = form.getValues("attachments")?.length || 0;
     if (currentFilesCount >= 5) {
-      toast({ title: "File Limit Reached", description: "You can upload a maximum of 5 files.", variant: "destructive" });
+      toast({ title: getTranslation(T.fileLimitReached), description: getTranslation(T.fileLimitReachedDesc), variant: "destructive" });
       if (event.target) event.target.value = ""; 
       return;
     }
@@ -105,14 +183,14 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       
       if (errors.length > 0) {
         toast({
-          title: "File Upload Issues",
+          title: getTranslation(T.fileUploadIssues),
           description: ( <ul className="list-disc pl-5"> {errors.map((e, i) => <li key={i}>{e}</li>)} </ul> ),
           variant: "destructive",
         });
       }
     }
     if (event.target) event.target.value = ""; 
-  }, [append, toast, form]);
+  }, [append, toast, form, getTranslation, T]);
 
   const watchDeptHeadConfident = form.watch("deptHeadConfidentInIndividual");
   const watchWorkedInDept = form.watch("workedInDepartmentLast12Months");
@@ -126,27 +204,27 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <Card className="shadow-lg rounded-lg overflow-hidden">
           <CardHeader className="bg-muted/30">
-            <CardTitle className="text-xl flex items-center gap-2"><Sailboat className="h-6 w-6 text-primary"/>Vessel & Assessment Overview</CardTitle>
-            <CardDescription>Provide core details about the vessel and the reason for this assessment.</CardDescription>
+            <CardTitle className="text-xl flex items-center gap-2"><Sailboat className="h-6 w-6 text-primary"/>{getTranslation(T.vesselAndOverview)}</CardTitle>
+            <CardDescription>{getTranslation(T.vesselAndOverviewDesc)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>Vessel Name *</FormLabel> <FormControl><Input placeholder="e.g., CCGS Amundsen" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> Vessel IMO Number (Optional)</FormLabel> <FormControl><Input placeholder="e.g., 1234567" {...field} /></FormControl> <FormDescription>Enter the 7-digit IMO number if available.</FormDescription> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.vesselNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T.vesselNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> {getTranslation(T.imoLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T.imoPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T.imoDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
             <FormField
               control={form.control}
               name="department"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Department *</FormLabel>
+                  <FormLabel>{getTranslation(T.departmentLabel)}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                         <SelectValue placeholder="Select department..." />
+                         <SelectValue placeholder={getTranslation(T.departmentPlaceholder)} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Departments</SelectLabel>
+                        <SelectLabel>{getTranslation(T.departments)}</SelectLabel>
                         {departmentOptions.map(option => (
                           <SelectItem key={option} value={option}>{option}</SelectItem>
                         ))}
@@ -162,16 +240,16 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
               name="region"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Region *</FormLabel>
+                  <FormLabel>{getTranslation(T.regionLabel)}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                         <SelectValue placeholder="Select region..." />
+                         <SelectValue placeholder={getTranslation(T.regionPlaceholder)} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectGroup>
-                        <SelectLabel>Regions</SelectLabel>
+                        <SelectLabel>{getTranslation(T.regions)}</SelectLabel>
                         {regionOptions.map(option => (
                           <SelectItem key={option} value={option}>{option}</SelectItem>
                         ))}
@@ -182,165 +260,165 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                 </FormItem>
               )}
             />
-            <FormField control={form.control} name="voyageDetails" render={({ field }) => ( <FormItem> <FormLabel>Voyage Details *</FormLabel> <FormControl><Textarea placeholder="e.g., Route, dates, purpose of voyage" {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="reasonForRequest" render={({ field }) => ( <FormItem> <FormLabel>Reason for Risk Assessment *</FormLabel> <FormControl><Textarea placeholder="e.g., Sailing short-handed due to X, Officer Y without proper certification for Z" {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="personnelShortages" render={({ field }) => ( <FormItem> <FormLabel>Personnel Shortages & Impact *</FormLabel> <FormControl><Textarea placeholder="Describe specific shortages, roles affected, and potential impact on operations." {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="proposedOperationalDeviations" render={({ field }) => ( <FormItem> <FormLabel>Proposed Operational Deviations / Mitigations *</FormLabel> <FormControl><Textarea placeholder="Describe changes to standard procedures or mitigating actions proposed to manage the risk." {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="voyageDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.voyageDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.voyageDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="reasonForRequest" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.reasonForRequestLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.reasonForRequestPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="personnelShortages" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.personnelShortagesLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.personnelShortagesPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="proposedOperationalDeviations" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.proposedDeviationsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.proposedDeviationsPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
           </CardContent>
         </Card>
 
         <Card className="shadow-lg rounded-lg overflow-hidden">
             <CardHeader className="bg-muted/30">
-                <CardTitle className="text-xl flex items-center gap-2"><UserCheck className="h-6 w-6 text-primary" />Exemption & Individual Assessment</CardTitle>
-                <CardDescription>Details regarding the specific exemption and the individual(s) involved.</CardDescription>
+                <CardTitle className="text-xl flex items-center gap-2"><UserCheck className="h-6 w-6 text-primary" />{getTranslation(T.exemptionAndIndividualAssessment)}</CardTitle>
+                <CardDescription>{getTranslation(T.exemptionAndIndividualAssessmentDesc)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
                 <FormField control={form.control} name="coDeptHeadSupportExemption" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Does the Commanding Officer AND Department Head support this exemption? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.coSupportExemptionLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="deptHeadConfidentInIndividual" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Is the Department Head confident that the individual can fulfill the required duties? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.deptHeadConfidentLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchDeptHeadConfident === 'Yes' && (
-                    <FormField control={form.control} name="deptHeadConfidenceReason" render={({ field }) => ( <FormItem> <FormLabel>If yes, why is the Department Head confident? *</FormLabel> <FormControl><Textarea placeholder="Explain the reasons for confidence..." {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="deptHeadConfidenceReason" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.deptHeadConfidenceReasonLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.deptHeadConfidenceReasonPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
                 <FormField control={form.control} name="employeeFamiliarizationProvided" render={({ field }) => (
-                     <FormItem className="space-y-3"> <FormLabel>Will the employee be given familiarization as per FSM and crewing profile? *</FormLabel>
+                     <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.familiarizationProvidedLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="workedInDepartmentLast12Months" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Has the individual worked in the required department during the past 12 months? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.workedInDeptLast12MonthsLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchWorkedInDept === 'Yes' && (
-                     <FormField control={form.control} name="workedInDepartmentDetails" render={({ field }) => ( <FormItem> <FormLabel>If Yes, please indicate position and duration. *</FormLabel> <FormControl><Textarea placeholder="e.g., Able Seaman, Jan 2023 - Dec 2023" {...field} rows={2} /></FormControl> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="workedInDepartmentDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.workedInDeptDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.workedInDeptDetailsPlaceholder)} {...field} rows={2} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
                  <FormField control={form.control} name="similarResponsibilityExperience" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Has the individual worked in positions of similar responsibility before? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.similarExperienceLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchSimilarExperience === 'Yes' && (
-                     <FormField control={form.control} name="similarResponsibilityDetails" render={({ field }) => ( <FormItem> <FormLabel>If Yes, please provide details of similar responsibility. *</FormLabel> <FormControl><Textarea placeholder="Describe previous similar roles and responsibilities..." {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="similarResponsibilityDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.similarExperienceDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.similarExperienceDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
                 <FormField control={form.control} name="individualHasRequiredSeaService" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Does the individual have the required sea service to apply for the required certificate or rating? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.requiredSeaServiceLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                  <FormField control={form.control} name="individualWorkingTowardsCertification" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Is the individual currently working towards the required certification? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.workingTowardsCertLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchWorkingTowardsCert === 'Yes' && (
-                     <FormField control={form.control} name="certificationProgressSummary" render={({ field }) => ( <FormItem> <FormLabel>If Yes, provide a summary of progress. *</FormLabel> <FormDescription>Include exams, courses completed, and progress since last exemption (if applicable).</FormDescription> <FormControl><Textarea placeholder="Summary of certification progress..." {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="certificationProgressSummary" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.certificationProgressSummaryLabel)}</FormLabel> <FormDescription>{getTranslation(T.certificationProgressSummaryDesc)}</FormDescription> <FormControl><Textarea placeholder={getTranslation(T.certificationProgressSummaryPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
             </CardContent>
         </Card>
 
         <Card className="shadow-lg rounded-lg overflow-hidden">
             <CardHeader className="bg-muted/30">
-                <CardTitle className="text-xl flex items-center gap-2"><AlertCircle className="h-6 w-6 text-primary"/>Operational Considerations (Crew & Voyage)</CardTitle>
-                <CardDescription>Address crew composition, competency, and specific voyage-related factors.</CardDescription>
+                <CardTitle className="text-xl flex items-center gap-2"><AlertCircle className="h-6 w-6 text-primary"/>{getTranslation(T.operationalConsiderations)}</CardTitle>
+                <CardDescription>{getTranslation(T.operationalConsiderationsDesc)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-                <h3 className="text-lg font-semibold text-foreground border-b pb-2">Crew/Team Considerations</h3>
+                <h3 className="text-lg font-semibold text-foreground border-b pb-2">{getTranslation(T.crewTeamConsiderations)}</h3>
                 <FormField control={form.control} name="requestCausesVacancyElsewhere" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Does this request cause a vacancy elsewhere within the department? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.requestCausesVacancyLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="crewCompositionSufficientForSafety" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Is the crew composition sufficient to effectively support safe and secure operations and protect the environment? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.crewCompositionSufficientLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
-                <FormField control={form.control} name="detailedCrewCompetencyAssessment" render={({ field }) => ( <FormItem> <FormLabel>Are all other minimum certification requirements met, or are there other exemptions? Do any members help fill competency gaps with higher-than-required certifications? *</FormLabel> <FormControl><Textarea placeholder="Provide a detailed assessment..." {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="detailedCrewCompetencyAssessment" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.crewCompetencyAssessmentLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.crewCompetencyAssessmentPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="crewContinuityAsPerProfile" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Will the continuity of crew requirements be met as indicated in the vessel's Crewing Profile? *</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.crewContinuityProfileLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchCrewContinuity === 'No' && (
-                    <FormField control={form.control} name="crewContinuityDetails" render={({ field }) => ( <FormItem> <FormLabel>If not, please provide details on crew continuity. *</FormLabel> <FormControl><Textarea placeholder="Explain how crew continuity will be managed or the discrepancies..." {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="crewContinuityDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.crewContinuityDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.crewContinuityDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
 
-                <h3 className="text-lg font-semibold text-foreground border-b pb-2 mt-8">Voyage Considerations</h3>
-                <FormField control={form.control} name="specialVoyageConsiderations" render={({ field }) => ( <FormItem> <FormLabel>Are there special voyage considerations that impact this exemption? *</FormLabel><FormDescription>(E.g., duration and time of transit, type of waters, weather conditions, etc.)</FormDescription> <FormControl><Textarea placeholder="Detail any special voyage considerations..." {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                <h3 className="text-lg font-semibold text-foreground border-b pb-2 mt-8">{getTranslation(T.voyageConsiderations)}</h3>
+                <FormField control={form.control} name="specialVoyageConsiderations" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.specialVoyageConsiderationsLabel)}</FormLabel><FormDescription>{getTranslation(T.specialVoyageConsiderationsDesc)}</FormDescription> <FormControl><Textarea placeholder={getTranslation(T.specialVoyageConsiderationsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="reductionInVesselProgramRequirements" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>Is there any reduction in vessel program requirements that may help reduce the risk? *</FormLabel><FormDescription>(E.g., No ATON requirements, transit only to refit, etc.)</FormDescription>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.programReductionLabel)}</FormLabel><FormDescription>{getTranslation(T.programReductionDesc)}</FormDescription>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchProgramReduction === 'Yes' && (
                     <FormField control={form.control} name="rocNotificationOfLimitations" render={({ field }) => (
-                        <FormItem className="space-y-3"> <FormLabel>If program reduction is planned, has the Regional Operations Center (ROC)/JRCC/MRSC been made aware? *</FormLabel>
+                        <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.rocNotificationLabel)}</FormLabel>
                             <FormControl>
                                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">Yes</FormLabel> </FormItem>
-                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">No</FormLabel> </FormItem>
+                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
+                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
                                 </RadioGroup>
                             </FormControl> <FormMessage />
                         </FormItem>
@@ -351,8 +429,8 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
 
         <Card className="shadow-lg rounded-lg overflow-hidden">
           <CardHeader className="bg-muted/30">
-            <CardTitle className="text-xl flex items-center gap-2"><UploadCloud className="h-6 w-6 text-primary"/>Supporting Documents</CardTitle>
-            <CardDescription>Attach relevant files (max 5, up to {MAX_FILE_SIZE_MB}MB each). Allowed: PDF, DOC, DOCX, JPG, PNG, TXT.</CardDescription>
+            <CardTitle className="text-xl flex items-center gap-2"><UploadCloud className="h-6 w-6 text-primary"/>{getTranslation(T.supportingDocuments)}</CardTitle>
+            <CardDescription>{getTranslation(T.supportingDocumentsDesc)}</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <FormField
@@ -364,11 +442,11 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                        <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
                         <label htmlFor="file-upload" className="cursor-pointer flex items-center justify-center gap-2">
-                          <UploadCloud className="h-4 w-4" /> Select Files
+                          <UploadCloud className="h-4 w-4" /> {getTranslation(T.selectFiles)}
                         </label>
                       </Button>
                       <Input id="file-upload" type="file" multiple onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(",")} />
-                      <span className="text-sm text-muted-foreground">{fields.length} / 5 files selected</span>
+                      <span className="text-sm text-muted-foreground">{getTranslation(T.filesSelected).replace('{count}', String(fields.length))}</span>
                     </div>
                   </FormControl>
                   <FormMessage /> 
@@ -378,7 +456,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
             
             {fields.length > 0 && (
               <div className="mt-6 space-y-3">
-                <h4 className="text-md font-medium">Selected Files:</h4>
+                <h4 className="text-md font-medium">{getTranslation(T.selectedFiles)}</h4>
                 <ul className="divide-y divide-border rounded-md border bg-background/50">
                   {fields.map((item, index) => (
                     <li key={item.id} className="flex items-center justify-between p-3 hover:bg-muted/20">
@@ -389,7 +467,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                           {item.size && <span className="text-xs text-muted-foreground">({(item.size / 1024).toFixed(1)} KB) - {item.type}</span>}
                         </div>
                       </div>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={`Remove ${item.name}`}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={getTranslation(T.removeFile).replace('{fileName}', item.name)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </li>
@@ -401,7 +479,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                 <Alert className="mt-6 border-dashed bg-background/50">
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                    No files attached yet. Upload supporting documents as needed.
+                    {getTranslation(T.noFilesAttached)}
                     </AlertDescription>
                 </Alert>
             )}
@@ -410,14 +488,13 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
         
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isLoading}>
-                Reset Form
+                {getTranslation(T.resetForm)}
             </Button>
             <Button type="submit" disabled={isLoading || (!form.formState.isDirty && !initialData)}>
-                {isLoading ? "Processing..." : (initialData ? "Update Assessment" : "Submit Assessment")}
+                {isLoading ? getTranslation(T.processing) : (initialData ? getTranslation(T.updateAssessment) : getTranslation(T.submitAssessment))}
             </Button>
         </div>
       </form>
     </Form>
   );
 }
-
