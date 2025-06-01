@@ -12,31 +12,36 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2 } from "lucide-react";
-import React, { useCallback } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2, ChevronsUpDown, Check } from "lucide-react";
+import React, { useCallback, useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { VesselDepartment, VesselRegion } from "@/lib/types";
-import { useLanguage } from '@/contexts/LanguageContext'; 
+import { useLanguage } from '@/contexts/LanguageContext';
+import { ccgVesselList } from '@/lib/ccgVessels';
+import { cn } from "@/lib/utils";
+
 
 interface RiskAssessmentFormProps {
   onSubmit: (data: RiskAssessmentFormData) => Promise<void>;
-  initialData?: Partial<RiskAssessmentFormData>; 
+  initialData?: Partial<RiskAssessmentFormData>;
   isLoading?: boolean;
 }
 
 const MAX_FILE_SIZE_MB = 5;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+// const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // Already in schema
 const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'text/plain'];
 const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
 const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
 
-// Moved T object outside the component for stable reference
 const T_FORM = {
     vesselAndOverview: { en: "Vessel & Assessment Overview", fr: "Aperçu du navire et de l'évaluation" },
     vesselAndOverviewDesc: { en: "Provide core details about the vessel and the reason for this assessment.", fr: "Fournissez les détails essentiels concernant le navire et la raison de cette évaluation." },
     vesselNameLabel: { en: "Vessel Name *", fr: "Nom du navire *" },
-    vesselNamePlaceholder: { en: "e.g., CCGS Amundsen", fr: "ex : NGCC Amundsen" },
+    vesselNamePlaceholder: { en: "Select or search vessel...", fr: "Sélectionnez ou recherchez un navire..." },
+    vesselNameNoResults: { en: "No vessel found.", fr: "Aucun navire trouvé." },
     imoLabel: { en: "Vessel IMO Number (Optional)", fr: "Numéro IMO du navire (Facultatif)" },
     imoPlaceholder: { en: "e.g., 1234567", fr: "ex : 1234567" },
     imoDescription: { en: "Enter the 7-digit IMO number if available.", fr: "Entrez le numéro IMO à 7 chiffres s'il est disponible." },
@@ -113,7 +118,7 @@ const T_FORM = {
     fileLimitReached: { en: "File Limit Reached", fr: "Limite de fichiers atteinte" },
     fileLimitReachedDesc: { en: "You can upload a maximum of 5 files.", fr: "Vous pouvez téléverser un maximum de 5 fichiers." },
     fileUploadIssues: { en: "File Upload Issues", fr: "Problèmes de téléversement de fichiers" },
-  };
+};
 
 const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSubmit, initialData, isLoading = false }) => {
   const form = useForm<RiskAssessmentFormData>({
@@ -122,7 +127,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
       vesselName: "",
       imoNumber: "",
       department: undefined,
-      region: undefined, 
+      region: undefined,
       patrolStartDate: "",
       patrolEndDate: "",
       voyageDetails: "",
@@ -161,13 +166,14 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
   });
 
   const { toast } = useToast();
-  const { getTranslation } = useLanguage(); 
+  const { getTranslation } = useLanguage();
+  const [vesselPopoverOpen, setVesselPopoverOpen] = useState(false);
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const currentFilesCount = form.getValues("attachments")?.length || 0;
     if (currentFilesCount >= 5) {
       toast({ title: getTranslation(T_FORM.fileLimitReached), description: getTranslation(T_FORM.fileLimitReachedDesc), variant: "destructive" });
-      if (event.target) event.target.value = ""; 
+      if (event.target) event.target.value = "";
       return;
     }
 
@@ -181,7 +187,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
           if (!errors.includes("Maximum of 5 files reached.")) errors.push("Maximum of 5 files reached.");
           return;
         }
-        
+
         const validationResult = riskAssessmentFormSchema.shape.attachments.element.shape.file.safeParse(file);
         if (!validationResult.success) {
             validationResult.error.errors.forEach(err => {
@@ -192,7 +198,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
           filesAddedThisTurn++;
         }
       });
-      
+
       if (errors.length > 0) {
         toast({
           title: getTranslation(T_FORM.fileUploadIssues),
@@ -201,7 +207,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
         });
       }
     }
-    if (event.target) event.target.value = ""; 
+    if (event.target) event.target.value = "";
   }, [append, toast, form, getTranslation]);
 
   const watchDeptHeadConfident = form.watch("deptHeadConfidentInIndividual");
@@ -220,7 +226,67 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
             <CardDescription>{getTranslation(T_FORM.vesselAndOverviewDesc)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.vesselNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.vesselNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField
+              control={form.control}
+              name="vesselName"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>{getTranslation(T_FORM.vesselNameLabel)}</FormLabel>
+                  <Popover open={vesselPopoverOpen} onOpenChange={setVesselPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className={cn(
+                            "w-full justify-between",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value
+                            ? ccgVesselList.find(
+                                (vessel) => vessel.value === field.value
+                              )?.label
+                            : getTranslation(T_FORM.vesselNamePlaceholder)}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                      <Command>
+                        <CommandInput placeholder={getTranslation(T_FORM.vesselNamePlaceholder)} />
+                        <CommandList>
+                          <CommandEmpty>{getTranslation(T_FORM.vesselNameNoResults)}</CommandEmpty>
+                          <CommandGroup>
+                            {ccgVesselList.map((vessel) => (
+                              <CommandItem
+                                value={vessel.label}
+                                key={vessel.value}
+                                onSelect={() => {
+                                  form.setValue("vesselName", vessel.value);
+                                  setVesselPopoverOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    vessel.value === field.value
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                {vessel.label}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> {getTranslation(T_FORM.imoLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.imoPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T_FORM.imoDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
@@ -294,7 +360,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
                 <FormField control={form.control} name="employeeName" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><UserIcon className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.employeeNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.employeeNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="certificateHeld" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><Award className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.certificateHeldLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.certificateHeldPlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="requiredCertificate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><FileCheck2 className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.requiredCertificateLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.requiredCertificatePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                
+
                 <FormField control={form.control} name="coDeptHeadSupportExemption" render={({ field }) => (
                     <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.coSupportExemptionLabel)}</FormLabel>
                         <FormControl>
@@ -458,7 +524,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
             <FormField
               control={form.control}
               name="attachments"
-              render={() => ( 
+              render={() => (
                 <FormItem>
                   <FormControl>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -471,11 +537,11 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
                       <span className="text-sm text-muted-foreground">{getTranslation(T_FORM.filesSelected).replace('{count}', String(fields.length))}</span>
                     </div>
                   </FormControl>
-                  <FormMessage /> 
+                  <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             {fields.length > 0 && (
               <div className="mt-6 space-y-3">
                 <h4 className="text-md font-medium">{getTranslation(T_FORM.selectedFiles)}</h4>
@@ -507,7 +573,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
             )}
           </CardContent>
         </Card>
-        
+
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isLoading}>
                 {getTranslation(T_FORM.resetForm)}
