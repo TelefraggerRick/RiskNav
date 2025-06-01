@@ -117,6 +117,7 @@ export default function NewAssessmentPage() {
       referenceNumber: `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`, 
       vesselName: data.vesselName,
       imoNumber: data.imoNumber,
+      maritimeExemptionNumber: data.maritimeExemptionNumber, // New field
       department: data.department,
       region: data.region,
       patrolStartDate: data.patrolStartDate || undefined,

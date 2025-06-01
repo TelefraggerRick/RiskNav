@@ -25,6 +25,7 @@ export const attachmentSchema = z.object({
 export const riskAssessmentFormSchema = z.object({
   vesselName: z.string().min(3, "Vessel name must be at least 3 characters.").max(100),
   imoNumber: z.string().regex(/^[0-9]{7}$/, "IMO number must be 7 digits.").optional().or(z.literal('')),
+  maritimeExemptionNumber: z.string().regex(/^[a-zA-Z0-9\-/.]*$/, "Invalid characters in exemption number.").max(50, "Exemption number must be 50 characters or less.").optional().or(z.literal('')), // New field
   department: z.enum(['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'], {
     required_error: "Department selection is required.",
   }),

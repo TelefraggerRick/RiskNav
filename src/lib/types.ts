@@ -69,6 +69,7 @@ export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string;
   referenceNumber: string;
+  maritimeExemptionNumber?: string; // New field
   vesselName: string;
   imoNumber?: string; 
   department?: VesselDepartment;

@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, FileBadge
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -32,6 +32,7 @@ const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight',
 const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
   imo: { en: "IMO", fr: "IMO" },
+  maritimeExemptionNumber: { en: "Maritime Exemption #", fr: "N° d'exemption maritime" },
   lastModified: { en: "Last Modified", fr: "Dernière modification" },
   at: { en: "at", fr: "à" },
   vesselOverview: { en: "Vessel & Assessment Overview", fr: "Aperçu du navire et de l'évaluation" },
@@ -451,6 +452,9 @@ export default function AssessmentDetailPage() {
               </CardTitle>
               <CardDescription className="text-sm mt-1">
                 {assessment.referenceNumber}
+                {assessment.maritimeExemptionNumber && (
+                    <span className="ml-2 pl-2 border-l border-muted-foreground/50">{getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)}: {assessment.maritimeExemptionNumber}</span>
+                )}
                 {assessment.imoNumber && (
                     <span className="ml-2 pl-2 border-l border-muted-foreground/50">{getTranslation(T_DETAILS_PAGE.imo)}: {assessment.imoNumber}</span>
                 )}
@@ -475,6 +479,7 @@ export default function AssessmentDetailPage() {
               <DetailItem label={getTranslation(T_DETAILS_PAGE.submittedBy)} value={assessment.submittedBy} />
               <DetailItem label={getTranslation(T_DETAILS_PAGE.submissionDate)} value={format(parseISO(assessment.submissionDate), "PPP p")} />
               {assessment.imoNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.imoNumber)} value={assessment.imoNumber} icon={Fingerprint} />}
+              {assessment.maritimeExemptionNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)} value={assessment.maritimeExemptionNumber} icon={FileBadge} />}
               <DetailItem label={getTranslation(T_DETAILS_PAGE.department)} value={assessment.department} />
               <DetailItem label={getTranslation(T_DETAILS_PAGE.region)} value={assessment.region} />
               {assessment.patrolStartDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolStartDate)} value={format(parseISO(assessment.patrolStartDate), "PPP")} icon={CalendarClock} />}

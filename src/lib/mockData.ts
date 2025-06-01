@@ -20,6 +20,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-001',
     referenceNumber: 'CCG-RA-2025-001',
+    maritimeExemptionNumber: 'ME-ARC-2025-07-001',
     vesselName: 'CCGS Amundsen',
     department: 'Navigation',
     region: 'Arctic',
@@ -69,6 +70,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-002',
     referenceNumber: 'CCG-RA-2025-002',
+    maritimeExemptionNumber: 'ME-ATL-2025-07-002',
     vesselName: 'CCGS Terry Fox',
     department: 'Engine Room',
     region: 'Atlantic',
@@ -227,6 +229,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-005',
     referenceNumber: 'CCG-RA-2025-005',
+    maritimeExemptionNumber: 'SD-CEN-2025/021',
     vesselName: 'CCGS Sir John Franklin',
     department: 'Navigation',
     region: 'Central',
@@ -337,6 +340,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-007',
     referenceNumber: 'CCG-RA-2025-007',
+    maritimeExemptionNumber: 'ME-ATL-2025-TECH-001',
     vesselName: 'CCGS Ann Harvey',
     department: 'Engine Room',
     region: 'Atlantic',

@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2, ChevronsUpDown, Check } from "lucide-react";
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2, ChevronsUpDown, Check, FileBadge } from "lucide-react";
 import React, { useCallback, useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -45,6 +45,9 @@ const T_FORM = {
     imoLabel: { en: "Vessel IMO Number (Optional)", fr: "Numéro IMO du navire (Facultatif)" },
     imoPlaceholder: { en: "e.g., 1234567", fr: "ex : 1234567" },
     imoDescription: { en: "Enter the 7-digit IMO number if available.", fr: "Entrez le numéro IMO à 7 chiffres s'il est disponible." },
+    maritimeExemptionNumberLabel: { en: "Maritime Exemption # (Optional)", fr: "N° d'exemption maritime (Facultatif)"},
+    maritimeExemptionNumberPlaceholder: { en: "e.g., ME-2025-001, SD-001/25", fr: "ex : ME-2025-001, SD-001/25"},
+    maritimeExemptionNumberDescription: { en: "Enter the official maritime exemption number if applicable.", fr: "Entrez le numéro d'exemption maritime officiel, le cas échéant."},
     departmentLabel: { en: "Department *", fr: "Département *" },
     departmentPlaceholder: { en: "Select department...", fr: "Sélectionnez le département..." },
     departments: { en: "Departments", fr: "Départements" },
@@ -126,6 +129,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
     defaultValues: initialData || {
       vesselName: "",
       imoNumber: "",
+      maritimeExemptionNumber: "", // New field
       department: undefined,
       region: undefined,
       patrolStartDate: "",
@@ -288,6 +292,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
               )}
             />
             <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> {getTranslation(T_FORM.imoLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.imoPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T_FORM.imoDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="maritimeExemptionNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <FileBadge className="h-4 w-4 text-muted-foreground" /> {getTranslation(T_FORM.maritimeExemptionNumberLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.maritimeExemptionNumberPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T_FORM.maritimeExemptionNumberDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
@@ -588,3 +593,4 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
 });
 RiskAssessmentForm.displayName = 'RiskAssessmentForm';
 export default RiskAssessmentForm;
+
