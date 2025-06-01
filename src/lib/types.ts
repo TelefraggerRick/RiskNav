@@ -83,6 +83,8 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   aiGeneratedSummary?: string;
   aiSuggestedMitigations?: string;
   aiRegulatoryConsiderations?: string;
+  aiLikelihoodScore?: number; // Scale 1-5
+  aiConsequenceScore?: number; // Scale 1-5
   lastModified: string; // ISO date string
   submissionTimestamp: number; // For sorting
   lastModifiedTimestamp: number; // For sorting
@@ -106,3 +108,4 @@ export interface User {
 }
 
 export type Language = 'en' | 'fr';
+

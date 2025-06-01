@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -22,7 +22,8 @@ import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-sc
 import { cn } from "@/lib/utils";
 import { useUser } from '@/contexts/UserContext';
 import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
-import { useLanguage } from '@/contexts/LanguageContext'; // Added
+import RiskMatrix from '@/components/risk-assessments/RiskMatrix'; // Added RiskMatrix import
+import { useLanguage } from '@/contexts/LanguageContext'; 
 
 const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
@@ -104,7 +105,7 @@ export default function AssessmentDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { currentUser } = useUser();
-  const { getTranslation } = useLanguage(); // Added
+  const { getTranslation } = useLanguage(); 
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
@@ -262,6 +263,8 @@ export default function AssessmentDetailPage() {
       const updatedAssessment = { 
         ...assessment, 
         aiRiskScore: result.riskScore,
+        aiLikelihoodScore: result.likelihoodScore,
+        aiConsequenceScore: result.consequenceScore,
         aiSuggestedMitigations: result.recommendations,
         aiRegulatoryConsiderations: result.regulatoryConsiderations,
         lastModified: new Date().toISOString(),
@@ -551,12 +554,12 @@ export default function AssessmentDetailPage() {
                 <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
                   {isAiLoading.summary ? getTranslation(T.generating) : (assessment.aiGeneratedSummary ? getTranslation(T.summaryGenerated) : getTranslation(T.generateSummary))}
                 </Button>
-                <Button onClick={runAiRiskScoreAndRecommendations} disabled={isAiLoading.riskScore || !!assessment.aiRiskScore} variant="outline" size="sm">
-                  {isAiLoading.riskScore ? getTranslation(T.analyzing) : (assessment.aiRiskScore ? getTranslation(T.analysisComplete) : getTranslation(T.assessRiskMitigations))}
+                <Button onClick={runAiRiskScoreAndRecommendations} disabled={isAiLoading.riskScore || (!!assessment.aiRiskScore && !!assessment.aiLikelihoodScore)} variant="outline" size="sm">
+                  {isAiLoading.riskScore ? getTranslation(T.analyzing) : ((assessment.aiRiskScore && assessment.aiLikelihoodScore) ? getTranslation(T.analysisComplete) : getTranslation(T.assessRiskMitigations))}
                 </Button>
               </div>
             </div>
-            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && !assessment.aiRiskScore) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse`} />}
+            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore)) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse`} />}
 
             {assessment.aiGeneratedSummary && (
               <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
@@ -565,31 +568,40 @@ export default function AssessmentDetailPage() {
               </Alert>
             )}
             
-            {assessment.aiRiskScore !== undefined && (
-              <Card className="my-4 p-4 bg-muted/30">
-                <CardHeader className="p-0 pb-2">
-                    <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass}`} />
-                    {assessment.aiSuggestedMitigations && (
-                        <div className="mt-2">
-                            <h4 className="font-semibold text-sm">{getTranslation(T.suggestedMitigations)}</h4>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiSuggestedMitigations}</p>
-                        </div>
-                    )}
-                    {assessment.aiRegulatoryConsiderations && (
-                        <div className="mt-3 pt-3 border-t">
-                            <h4 className="font-semibold text-sm">{getTranslation(T.regulatoryConsiderations)}</h4>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiRegulatoryConsiderations}</p>
-                        </div>
-                    )}
-                </CardContent>
-              </Card>
-            )}
-            {!assessment.aiRiskScore && !assessment.aiGeneratedSummary && !isAiLoading.summary && !isAiLoading.riskScore &&
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+              {assessment.aiRiskScore !== undefined && (
+                <Card className="my-4 p-4 bg-muted/30 md:col-span-1">
+                  <CardHeader className="p-0 pb-2">
+                      <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                      <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass}`} />
+                      {assessment.aiSuggestedMitigations && (
+                          <div className="mt-2">
+                              <h4 className="font-semibold text-sm">{getTranslation(T.suggestedMitigations)}</h4>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiSuggestedMitigations}</p>
+                          </div>
+                      )}
+                      {assessment.aiRegulatoryConsiderations && (
+                          <div className="mt-3 pt-3 border-t">
+                              <h4 className="font-semibold text-sm">{getTranslation(T.regulatoryConsiderations)}</h4>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiRegulatoryConsiderations}</p>
+                          </div>
+                      )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {(assessment.aiLikelihoodScore !== undefined && assessment.aiConsequenceScore !== undefined) && (
+                 <div className="my-4 md:col-span-1">
+                    <RiskMatrix likelihoodScore={assessment.aiLikelihoodScore} consequenceScore={assessment.aiConsequenceScore} />
+                 </div>
+              )}
+            </div>
+
+            {!assessment.aiRiskScore && !assessment.aiLikelihoodScore && !assessment.aiGeneratedSummary && !isAiLoading.summary && !isAiLoading.riskScore &&
               <Alert variant="default" className="border-dashed">
-                <Info className="h-4 w-4" />
+                <BarChartBig className="h-4 w-4" />
                 <AlertDescription>{getTranslation(T.runAiTools)}</AlertDescription>
               </Alert>
             }
@@ -719,3 +731,4 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+

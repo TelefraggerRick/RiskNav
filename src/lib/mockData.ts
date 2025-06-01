@@ -84,6 +84,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { level: 'Director General' },
     ],
     aiRiskScore: 65,
+    aiLikelihoodScore: 3, // Possible
+    aiConsequenceScore: 4, // Major
     aiSuggestedMitigations: 'Ensure constant communication link with shore-based Senior Chief Engineer. Implement a buddy system for critical engine room tasks. Limit vessel operations to daylight hours if possible until CoC is renewed.',
     aiRegulatoryConsiderations: 'Refer to Marine Personnel Regulations SOR/2007-115, Part 2, Division 7 regarding manning and certification. Exemption may be required under specific circumstances.',
     lastModified: oneDayAgo.toISOString(),
@@ -130,6 +132,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { level: 'Director General', decision: 'Approved', userName: 'Director General (Approver)', date: oneDayAgo.toISOString(), notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.'}, 
     ],
     aiRiskScore: 30,
+    aiLikelihoodScore: 2, // Unlikely (risk materializing if conditions met)
+    aiConsequenceScore: 3, // Moderate (if something goes wrong during reduced watch)
     aiGeneratedSummary: "Request for reduced watchkeeping on CCGS Ann Harvey during favorable conditions to manage crew fatigue. Proposes one officer and one lookout on bridge.",
     aiSuggestedMitigations: 'Implement strict criteria for "non-critical phases". Ensure immediate recall capability for full watch team. Regular fatigue assessments for watchkeepers.',
     aiRegulatoryConsiderations: 'Compliance with STCW Code Chapter VIII and Marine Personnel Regulations regarding watchkeeping arrangements and prevention of fatigue.',
@@ -223,6 +227,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { level: 'Director General' },
     ],
     aiRiskScore: 75,
+    aiLikelihoodScore: 4, // Likely (that issues could arise)
+    aiConsequenceScore: 4, // Major (if navigational error occurs)
     aiGeneratedSummary: "CCGS Sir John Franklin proposes operating with magnetic compass as primary due to gyro overhaul. Mitigations include GPS/visual checks and restricted ops in poor conditions.",
     aiSuggestedMitigations: "Prioritize gyrocompass repair. If proceeding, enhance watchkeeping, ensure all nav aids are fully operational. Consider shore-based navigational support.",
     aiRegulatoryConsiderations: "Refer to SOLAS Chapter V, Regulation 19 regarding carriage requirements for navigational equipment. Ensure compliance with Canada Shipping Act, 2001.",
@@ -250,8 +256,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-006',
     referenceNumber: 'CCG-RA-2024-006',
-    vesselName: 'CCGS Terry Fox',
-    imoNumber: '8127713', // Same IMO as ra-002 for consistency with the vessel
+    vesselName: 'CCGS Terry Fox', // Second entry for Terry Fox
+    imoNumber: '8127713', 
     department: 'Deck',
     region: 'Atlantic',
     voyageDetails: 'SAR Standby, Approaches to Halifax, Starting 2024-07-20',
