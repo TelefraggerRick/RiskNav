@@ -55,17 +55,19 @@ export const mockRiskAssessments: RiskAssessment[] = [
     employeeFamiliarizationProvided: 'Yes',
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'Served as Supernumerary Cadet on bridge for 6 months during 2024-2025 training period.',
-    similarResponsibilityExperience: 'No', // Not in an unsupervised capacity
+    similarResponsibilityExperience: 'No', 
     similarResponsibilityDetails: 'Has performed all NWR duties under supervision.',
-    individualHasRequiredSeaService: 'Yes', // For NWR certification
+    individualHasRequiredSeaService: 'Yes', 
     individualWorkingTowardsCertification: 'Yes',
     certificationProgressSummary: 'All Transport Canada coursework completed. Final TC practical assessment scheduled for Sep 2025. All sea time requirements met.',
     requestCausesVacancyElsewhere: 'No',
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All other crew members are fully certified for their roles. The Master and Chief Officer have extensive experience in Arctic waters. The impact of one less fully certified NWR is mitigated by adjustments to watch schedules, direct supervision of the cadet by the OOW, and prioritizing critical tasks.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'Voyage is in remote Arctic waters, limited external support. Weather can change rapidly. 24-hour daylight during this period.',
     reductionInVesselProgramRequirements: 'No',
+    rocNotificationOfLimitations: undefined,
   },
   {
     id: 'ra-002',
@@ -105,22 +107,24 @@ export const mockRiskAssessments: RiskAssessment[] = [
     certificateHeld: "Chief Engineer, Motor Ship (Expired: 2025-07-08)",
     requiredCertificate: "Chief Engineer, Motor Ship (Valid)",
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Confidence is in the 2nd Eng acting up & CE's history
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'Second Engineer is highly capable and has shadowed CE extensively. CE renewal is administrative, not competency-based.',
-    employeeFamiliarizationProvided: 'Yes', // For 2nd Eng
+    employeeFamiliarizationProvided: 'Yes', 
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'Chief Engineer: Continuously employed as CE for past 5 years. Second Engineer: Continuously employed as 2E for past 3 years.',
-    similarResponsibilityExperience: 'Yes', // For 2nd Eng
+    similarResponsibilityExperience: 'Yes', 
     similarResponsibilityDetails: 'Second Engineer has covered Chief Engineer duties for short periods (up to 1 week) on 2 previous occasions during CE leave.',
-    individualHasRequiredSeaService: 'Yes', // CE has it for renewal
-    individualWorkingTowardsCertification: 'Yes', // CE is renewing
+    individualHasRequiredSeaService: 'Yes', 
+    individualWorkingTowardsCertification: 'Yes', 
     certificationProgressSummary: 'Renewal application submitted to Transport Canada. All supporting docs and medical provided. Awaiting TC processing.',
-    requestCausesVacancyElsewhere: 'No', // Second Engineer formally steps up
+    requestCausesVacancyElsewhere: 'No', 
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All other engine room staff are certified. Second Engineer holds appropriate certification for their substantive role and is familiar with all systems. Remote oversight by Senior CE adds layer of assurance.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'Icebreaking operations demand high engine reliability. Constant monitoring planned. Voyage is relatively short.',
     reductionInVesselProgramRequirements: 'No',
+    rocNotificationOfLimitations: undefined,
   },
   {
     id: 'ra-003',
@@ -159,22 +163,24 @@ export const mockRiskAssessments: RiskAssessment[] = [
     certificateHeld: "N/A",
     requiredCertificate: "N/A",
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Confidence in all watchkeeping officers
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'This is a general operational change, not specific to one individual. The Master confirms all watchkeeping officers are competent for this adjusted procedure under the specified conditions.',
-    employeeFamiliarizationProvided: 'Yes', // To all bridge team on new procedure
+    employeeFamiliarizationProvided: 'Yes', 
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'Applies to all current watchkeeping officers.',
     similarResponsibilityExperience: 'Yes',
     similarResponsibilityDetails: 'Similar procedures used in other fleets under specific conditions.',
     individualHasRequiredSeaService: 'Yes',
-    individualWorkingTowardsCertification: 'Yes', // General crew development
+    individualWorkingTowardsCertification: 'Yes', 
     certificationProgressSummary: 'All officers hold valid STCW CoCs for their ranks.',
     requestCausesVacancyElsewhere: 'No',
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All watchkeeping officers are fully certified and familiar with the vessel and operational area. This change relies on their existing high competency levels. Procedure includes clear triggers to revert to standard watch levels.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'Applicable only during SAR patrol in designated sector, under strict weather and visibility criteria. Does not apply during active SAR cases or transits in congested waters.',
     reductionInVesselProgramRequirements: 'No',
+    rocNotificationOfLimitations: undefined,
   },
   {
     id: 'ra-004',
@@ -203,18 +209,18 @@ export const mockRiskAssessments: RiskAssessment[] = [
     ],
     lastModified: now.toISOString(),
     lastModifiedTimestamp: now.getTime(),
-    employeeName: "N/A - Crew Shortage", // Or name of medevaced individual if relevant for context
+    employeeName: "N/A - Crew Shortage", 
     certificateHeld: "N/A",
     requiredCertificate: "Able Seaman",
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Confidence in remaining crew
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'Remaining deck crew are experienced and capable of managing the temporary shortage. The Bosun is particularly strong and will ensure safety protocols are heightened.',
     employeeFamiliarizationProvided: 'Yes',
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'All remaining deck crew have served more than 12 months in their roles on this vessel.',
     similarResponsibilityExperience: 'Yes',
     similarResponsibilityDetails: 'Team has operated with minimum manning for short periods before due to training/appointments. Procedures for such situations are in place.',
-    individualHasRequiredSeaService: 'Yes', // For the medevaced position, not a specific individual focus
+    individualHasRequiredSeaService: 'Yes', 
     individualWorkingTowardsCertification: 'No',
     certificationProgressSummary: '',
     requestCausesVacancyElsewhere: 'No',
@@ -265,9 +271,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
     certificateHeld: "N/A",
     requiredCertificate: "N/A",
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Confidence in OOWs
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'All navigating officers are trained and certified in traditional navigation techniques, including primary reliance on magnetic compass. Regular drills are conducted.',
-    employeeFamiliarizationProvided: 'Yes', // With procedure
+    employeeFamiliarizationProvided: 'Yes', 
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'All OOWs are experienced on this vessel class.',
     similarResponsibilityExperience: 'Yes',
@@ -279,6 +285,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All navigating officers meet requirements. The primary risk is equipment-based, not personnel competency with the alternative method. Procedures for magnetic compass navigation are well-defined.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'Great Lakes can have high traffic density and variable weather. Navigating by magnetic compass requires heightened diligence and potentially slower speeds.',
     reductionInVesselProgramRequirements: 'Yes',
     rocNotificationOfLimitations: 'Yes',
@@ -286,7 +293,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-006',
     referenceNumber: 'CCG-RA-2025-006',
-    vesselName: 'CCGS Terry Fox',
+    vesselName: 'CCGS Terry Fox', // Re-using Terry Fox for another assessment
     department: 'Deck',
     region: 'Atlantic',
     patrolStartDate: '2025-07-20',
@@ -320,28 +327,30 @@ export const mockRiskAssessments: RiskAssessment[] = [
     certificateHeld: "Ordinary Seaman CoC, STCW Basic Safety, MED A1",
     requiredCertificate: "Vessel Specific Crane Type X Operator Familiarization/Certificate",
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Assuming OS is otherwise competent
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'OS White is generally competent and a quick learner. This is primarily a documentation/verification issue for a specific piece of equipment. Bosun will oversee all crane ops in interim.',
-    employeeFamiliarizationProvided: 'No', // This is the point of the RA
-    workedInDepartmentLast12Months: 'No', // New to vessel
+    employeeFamiliarizationProvided: 'No', 
+    workedInDepartmentLast12Months: 'No', 
     workedInDepartmentDetails: 'Just joined CCGS Terry Fox this week.',
     similarResponsibilityExperience: 'Yes',
     similarResponsibilityDetails: 'Has operated similar small hydraulic cranes (non-marine certified) on previous shore-based roles and on smaller, non-CCG vessels. Needs specific familiarization for this marine crane.',
-    individualHasRequiredSeaService: 'Yes', // For OS Cert
-    individualWorkingTowardsCertification: 'Yes', // Towards crane familiarization
+    individualHasRequiredSeaService: 'Yes', 
+    individualWorkingTowardsCertification: 'Yes', 
     certificationProgressSummary: 'Currently verifying existing certs for transferability. If new cert/familiarization needed, will be expedited during this patrol by Bosun. Plan to complete within 7 days.',
     requestCausesVacancyElsewhere: 'No',
     crewCompositionSufficientForSafety: 'Yes',
     detailedCrewCompetencyAssessment: 'All other deck crew are fully certified. The Bosun and senior ABs are experienced crane operators. The limitation only applies to the new OS for this specific crane. Rescue boat davit operation is by other certified personnel.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'SAR standby may require rapid deployment of rescue boat or stores using crane. Need to ensure operator competency is not a delay factor. Mitigation is to use only currently certified personnel for crane ops.',
     reductionInVesselProgramRequirements: 'No',
+    rocNotificationOfLimitations: undefined,
   },
   {
     id: 'ra-007',
     referenceNumber: 'CCG-RA-2025-007',
     maritimeExemptionNumber: 'ME-ATL-2025-TECH-001',
-    vesselName: 'CCGS Ann Harvey',
+    vesselName: 'CCGS Ann Harvey', // Re-using Ann Harvey
     department: 'Engine Room',
     region: 'Atlantic',
     patrolStartDate: '2025-07-01',
@@ -359,39 +368,42 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-010', name: 'Lubricant_Comparison_Sheet.pdf', url: '#', type: 'application/pdf', size: 120000, uploadedAt: sixDaysAgo.toISOString() },
       { id: 'att-011', name: 'OEM_Consultation_Email.txt', dataAiHint:"email text", url: 'https://placehold.co/200x50.png', type: 'text/plain', size: 5000, uploadedAt: sixDaysAgo.toISOString() },
     ],
-    approvalSteps: [...initialApprovalSteps],
+    approvalSteps: [...initialApprovalSteps], // Reset for seeding
     lastModified: sixDaysAgo.toISOString(),
     lastModifiedTimestamp: sixDaysAgo.getTime(),
     employeeName: "N/A - Equipment/Supply Issue",
     certificateHeld: "N/A",
     requiredCertificate: "N/A",
     coDeptHeadSupportExemption: 'Yes',
-    deptHeadConfidentInIndividual: 'Yes', // Confidence in Chief Engineer
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'Chief Engineer has thoroughly reviewed the alternative lubricant specs and consulted with technical support. Confident in the temporary mitigation measures and monitoring plan.',
-    employeeFamiliarizationProvided: 'Yes', // With new monitoring procedure
+    employeeFamiliarizationProvided: 'Yes', 
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'CE has been with vessel for 2+ years.',
     similarResponsibilityExperience: 'Yes',
     similarResponsibilityDetails: 'Managed temporary part substitutions during previous refits without incident, following similar risk assessment and monitoring protocols.',
     individualHasRequiredSeaService: 'Yes',
-    individualWorkingTowardsCertification: 'No', // CE is fully cert.
+    individualWorkingTowardsCertification: 'No', 
     certificationProgressSummary: '',
     requestCausesVacancyElsewhere: 'No',
-    crewCompositionSufficientForSafety: 'Yes',
+    crewCompositionSufficientForSafety: 'Yes', 
     detailedCrewCompetencyAssessment: 'Engine room staff are fully competent to monitor the generator and execute switch-over procedures. This is a technical deviation, not personnel. OEM guidance has been sought for the alternative lubricant.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'SAR patrol requires high readiness. Auxiliary generator reliability is important for redundancy, but vessel has two main generators and another auxiliary. AG#2 will be on standby if AG#1 is primary.',
     reductionInVesselProgramRequirements: 'No',
+    rocNotificationOfLimitations: undefined,
   },
   {
-    id: 'ra-008',
+    id: 'ra-008', // New ID for the logistics assessment for Sir John Franklin
     referenceNumber: 'CCG-RA-2025-008',
-    vesselName: 'CCGS Sir John Franklin',
-    department: 'Logistics',
-    region: 'Central',
-    patrolStartDate: '2025-08-01',
-    patrolEndDate: '2025-08-15',
-    patrolLengthDays: 15,
+    maritimeExemptionNumber: 'LOG-CEN-2025/001', // Example logistics exemption #
+    vesselName: 'CCGS Sir John Franklin', // Same vessel as ra-005
+    department: 'Logistics', // Logistics department
+    region: 'Central', // Same region
+    patrolStartDate: '2025-08-01', // Same patrol start date as ra-005
+    patrolEndDate: '2025-08-15', // Same patrol end date as ra-005
+    patrolLengthDays: 15, // Same patrol length
     voyageDetails: 'Aids to Navigation maintenance, Great Lakes. Focus on provisioning and stores for extended remote work.',
     reasonForRequest: 'Extended remote operations requiring assessment of critical spares and provisions endurance.',
     personnelShortages: 'No personnel shortage, but assessing risk of critical spares depletion if resupply is delayed by more than 72 hours at remote ATON sites.',
@@ -399,33 +411,35 @@ export const mockRiskAssessments: RiskAssessment[] = [
     submittedBy: 'Central Operations',
     submissionDate: sevenDaysAgo.toISOString(),
     submissionTimestamp: sevenDaysAgo.getTime(),
-    status: 'Pending Crewing Standards and Oversight',
+    status: 'Pending Crewing Standards and Oversight', // Initial status
     attachments: [
       { id: 'att-012', name: 'Critical_Spares_Inventory_Franklin.pdf', url: '#', type: 'application/pdf', size: 175000, uploadedAt: sevenDaysAgo.toISOString() },
       { id: 'att-013', name: 'Provisioning_Plan_Aug2025.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 95000, uploadedAt: sevenDaysAgo.toISOString() },
     ],
-    approvalSteps: [...initialApprovalSteps],
+    approvalSteps: [...initialApprovalSteps], // Fresh approval steps
     lastModified: sevenDaysAgo.toISOString(),
     lastModifiedTimestamp: sevenDaysAgo.getTime(),
     employeeName: "N/A - Logistics Planning",
     certificateHeld: "N/A",
     requiredCertificate: "N/A",
     coDeptHeadSupportExemption: 'Yes', 
-    deptHeadConfidentInIndividual: 'Yes', // Assuming confidence in Logistics Officer
+    deptHeadConfidentInIndividual: 'Yes', 
     deptHeadConfidenceReason: 'Logistics Officer has robust plan for managing stores and spares, including contingencies for delays. Plan reviewed with Master.',
-    employeeFamiliarizationProvided: 'Yes', // Crew aware of rationing if needed
+    employeeFamiliarizationProvided: 'Yes', 
     workedInDepartmentLast12Months: 'Yes',
     workedInDepartmentDetails: 'Logistics Officer has 3 years experience on this vessel class.',
     similarResponsibilityExperience: 'Yes',
     similarResponsibilityDetails: 'Managed provisioning for similar duration remote ops previously without issue.',
-    individualHasRequiredSeaService: 'Yes', // For relevant Logistics personnel if applicable
+    individualHasRequiredSeaService: 'Yes', 
     individualWorkingTowardsCertification: 'No', 
     certificationProgressSummary: '',
     requestCausesVacancyElsewhere: 'No',
-    crewCompositionSufficientForSafety: 'Yes', // From a logistics support perspective
+    crewCompositionSufficientForSafety: 'Yes', 
     detailedCrewCompetencyAssessment: 'Logistics team is fully aware of the extended requirements and has planned accordingly. All handling procedures are standard. Critical items for safety & ops (fuel, water, food, medical) have priority and higher safety margins.',
     crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
     specialVoyageConsiderations: 'Operations at remote ATON sites with limited immediate resupply options. Weather in Great Lakes can impact small boat transfers for supplies if needed. Focus on ATON work, minimizing other stores consumption.',
-    reductionInVesselProgramRequirements: 'No', // Program is to maintain ATONs
+    reductionInVesselProgramRequirements: 'No', 
+    rocNotificationOfLimitations: undefined,
   }
 ];
