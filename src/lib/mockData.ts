@@ -22,6 +22,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
     imoNumber: '9275002',
     department: 'Navigation',
     region: 'Arctic',
+    patrolStartDate: '2024-07-15',
+    patrolEndDate: '2024-08-25',
+    patrolLengthDays: 42,
     voyageDetails: 'Arctic Survey Mission, Resolute Bay to Kugluktuk, Departs 2024-07-15',
     reasonForRequest: 'Sailing with one less certified navigation officer.',
     personnelShortages: 'Missing 1x Navigational Watch Rating (NWR). Current NWR has exceeded work hours.',
@@ -66,6 +69,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
     imoNumber: '8127713',
     department: 'Engine Room',
     region: 'Atlantic',
+    patrolStartDate: '2024-07-10',
+    patrolEndDate: '2024-07-18',
+    patrolLengthDays: 9,
     voyageDetails: 'Icebreaking Escort, St. John\'s to Strait of Belle Isle, Departs 2024-07-10',
     reasonForRequest: 'Chief Engineer certificate expired, renewal pending.',
     personnelShortages: 'Chief Engineer\'s CoC (Certificate of Competency) expired 2 days ago. Renewal paperwork submitted, awaiting issuance.',
@@ -115,6 +121,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
     imoNumber: '8320086',
     department: 'Navigation',
     region: 'Atlantic',
+    patrolStartDate: '2024-07-01', // Example date
+    patrolEndDate: '2024-07-31',   // Example date
+    patrolLengthDays: 31,        // Calculated
     voyageDetails: 'SAR Patrol, Halifax Sector, Continuous Operations',
     reasonForRequest: 'Proposed reduction in minimum watchkeeping personnel during non-critical phases.',
     personnelShortages: 'No current shortage, but proposing a deviation to standard watchkeeping levels to manage crew fatigue on extended patrols.',
@@ -132,8 +141,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { level: 'Director General', decision: 'Approved', userName: 'Director General (Approver)', date: oneDayAgo.toISOString(), notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.'}, 
     ],
     aiRiskScore: 30,
-    aiLikelihoodScore: 2, // Unlikely (risk materializing if conditions met)
-    aiConsequenceScore: 3, // Moderate (if something goes wrong during reduced watch)
+    aiLikelihoodScore: 2, 
+    aiConsequenceScore: 3, 
     aiGeneratedSummary: "Request for reduced watchkeeping on CCGS Ann Harvey during favorable conditions to manage crew fatigue. Proposes one officer and one lookout on bridge.",
     aiSuggestedMitigations: 'Implement strict criteria for "non-critical phases". Ensure immediate recall capability for full watch team. Regular fatigue assessments for watchkeepers.',
     aiRegulatoryConsiderations: 'Compliance with STCW Code Chapter VIII and Marine Personnel Regulations regarding watchkeeping arrangements and prevention of fatigue.',
@@ -227,8 +236,8 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { level: 'Director General' },
     ],
     aiRiskScore: 75,
-    aiLikelihoodScore: 4, // Likely (that issues could arise)
-    aiConsequenceScore: 4, // Major (if navigational error occurs)
+    aiLikelihoodScore: 4, 
+    aiConsequenceScore: 4, 
     aiGeneratedSummary: "CCGS Sir John Franklin proposes operating with magnetic compass as primary due to gyro overhaul. Mitigations include GPS/visual checks and restricted ops in poor conditions.",
     aiSuggestedMitigations: "Prioritize gyrocompass repair. If proceeding, enhance watchkeeping, ensure all nav aids are fully operational. Consider shore-based navigational support.",
     aiRegulatoryConsiderations: "Refer to SOLAS Chapter V, Regulation 19 regarding carriage requirements for navigational equipment. Ensure compliance with Canada Shipping Act, 2001.",
@@ -256,10 +265,13 @@ export const mockRiskAssessments: RiskAssessment[] = [
   {
     id: 'ra-006',
     referenceNumber: 'CCG-RA-2024-006',
-    vesselName: 'CCGS Terry Fox', // Second entry for Terry Fox
+    vesselName: 'CCGS Terry Fox', 
     imoNumber: '8127713', 
     department: 'Deck',
     region: 'Atlantic',
+    patrolStartDate: '2024-07-20',
+    patrolEndDate: '2024-08-05',
+    patrolLengthDays: 17,
     voyageDetails: 'SAR Standby, Approaches to Halifax, Starting 2024-07-20',
     reasonForRequest: 'Request for information regarding crane operator certification for new crew member.',
     personnelShortages: 'New Ordinary Seaman (OS) onboard, records unclear if specific crane familiarization for Vessel Type X crane is complete.',

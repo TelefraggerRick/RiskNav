@@ -88,6 +88,9 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   lastModified: string; // ISO date string
   submissionTimestamp: number; // For sorting
   lastModifiedTimestamp: number; // For sorting
+  patrolStartDate?: string; // ISO date string
+  patrolEndDate?: string; // ISO date string
+  patrolLengthDays?: number;
 }
 
 export type UserRole =

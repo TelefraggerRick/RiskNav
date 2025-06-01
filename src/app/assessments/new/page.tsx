@@ -12,7 +12,7 @@ import Link from "next/link";
 import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
 import { mockRiskAssessments } from '@/lib/mockData'; 
-import { useLanguage } from '@/contexts/LanguageContext'; // Added
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
@@ -67,13 +67,30 @@ export default function NewAssessmentPage() {
   const { toast } = useToast();
   const router = useRouter();
   const { currentUser } = useUser();
-  const { getTranslation } = useLanguage(); // Added
+  const { getTranslation } = useLanguage(); 
 
   const T = {
     pageTitle: { en: "New Risk Assessment", fr: "Nouvelle évaluation des risques" },
     backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
     submitSuccessTitle: { en: "Assessment Submitted Successfully", fr: "Évaluation soumise avec succès" },
     submitSuccessDesc: { en: "Risk assessment for {vesselName} has been submitted. You will be redirected to the dashboard.", fr: "L'évaluation des risques pour {vesselName} a été soumise. Vous allez être redirigé vers le tableau de bord." },
+  };
+
+  const calculatePatrolLengthDays = (startDateStr?: string, endDateStr?: string): number | undefined => {
+    if (startDateStr && endDateStr) {
+      try {
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate >= startDate) {
+          const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays === 0 ? 1 : diffDays; // Minimum 1 day if start and end are same
+        }
+      } catch (e) {
+        console.error("Error parsing patrol dates:", e);
+      }
+    }
+    return undefined;
   };
 
 
@@ -93,6 +110,8 @@ export default function NewAssessmentPage() {
       file: att.file, 
     })) || [];
 
+    const patrolLengthDays = calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate);
+
     const newAssessment: RiskAssessment = {
       id: newId,
       referenceNumber: `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`, 
@@ -100,6 +119,9 @@ export default function NewAssessmentPage() {
       imoNumber: data.imoNumber,
       department: data.department,
       region: data.region,
+      patrolStartDate: data.patrolStartDate || undefined,
+      patrolEndDate: data.patrolEndDate || undefined,
+      patrolLengthDays: patrolLengthDays,
       voyageDetails: data.voyageDetails,
       reasonForRequest: data.reasonForRequest,
       personnelShortages: data.personnelShortages,

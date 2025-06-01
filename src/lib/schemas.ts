@@ -24,13 +24,19 @@ export const attachmentSchema = z.object({
 
 export const riskAssessmentFormSchema = z.object({
   vesselName: z.string().min(3, "Vessel name must be at least 3 characters.").max(100),
-  imoNumber: z.string().regex(/^[0-9]{7}$/, "IMO number must be 7 digits.").optional().or(z.literal('')), // Optional IMO number, must be 7 digits if provided
+  imoNumber: z.string().regex(/^[0-9]{7}$/, "IMO number must be 7 digits.").optional().or(z.literal('')),
   department: z.enum(['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'], {
     required_error: "Department selection is required.",
   }),
   region: z.enum(['Atlantic', 'Central', 'Western', 'Arctic'], {
     required_error: "Region selection is required.",
   }),
+  patrolStartDate: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), {
+    message: "Invalid date format for start date"
+  }).or(z.literal('')),
+  patrolEndDate: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), {
+    message: "Invalid date format for end date"
+  }).or(z.literal('')),
   voyageDetails: z.string().min(10, "Voyage details must be at least 10 characters.").max(1000),
   reasonForRequest: z.string().min(10, "Reason for request must be at least 10 characters.").max(1000),
   personnelShortages: z.string().min(10, "Personnel shortages description must be at least 10 characters.").max(2000),
@@ -97,6 +103,19 @@ export const riskAssessmentFormSchema = z.object({
 .refine(data => !(data.reductionInVesselProgramRequirements === 'Yes' && data.rocNotificationOfLimitations === undefined), {
   message: "ROC/JRCC notification status is required if program requirements are reduced.",
   path: ["rocNotificationOfLimitations"],
+})
+.refine(data => {
+  if (data.patrolStartDate && data.patrolEndDate) {
+    try {
+      return new Date(data.patrolEndDate) >= new Date(data.patrolStartDate);
+    } catch (e) {
+      return false; // Invalid date format will be caught by individual field refines
+    }
+  }
+  return true;
+}, {
+  message: "End date must be on or after start date.",
+  path: ["patrolEndDate"],
 });
 
 

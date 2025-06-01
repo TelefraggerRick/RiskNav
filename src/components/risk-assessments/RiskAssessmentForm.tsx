@@ -12,12 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint } from "lucide-react";
+import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock } from "lucide-react";
 import React, { useCallback } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { VesselDepartment, VesselRegion } from "@/lib/types";
-import { useLanguage } from '@/contexts/LanguageContext'; // Added
+import { useLanguage } from '@/contexts/LanguageContext'; 
 
 interface RiskAssessmentFormProps {
   onSubmit: (data: RiskAssessmentFormData) => Promise<void>;
@@ -39,6 +39,8 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       imoNumber: "",
       department: undefined,
       region: undefined, 
+      patrolStartDate: "",
+      patrolEndDate: "",
       voyageDetails: "",
       reasonForRequest: "",
       personnelShortages: "",
@@ -72,7 +74,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
   });
 
   const { toast } = useToast();
-  const { getTranslation } = useLanguage(); // Added
+  const { getTranslation } = useLanguage(); 
 
   // Translations Object
   const T = {
@@ -89,6 +91,8 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     regionLabel: { en: "Region *", fr: "Région *" },
     regionPlaceholder: { en: "Select region...", fr: "Sélectionnez la région..." },
     regions: { en: "Regions", fr: "Régions" },
+    patrolStartDateLabel: { en: "Patrol Start Date (Optional)", fr: "Date de début de patrouille (Facultatif)" },
+    patrolEndDateLabel: { en: "Patrol End Date (Optional)", fr: "Date de fin de patrouille (Facultatif)" },
     voyageDetailsLabel: { en: "Voyage Details *", fr: "Détails du voyage *" },
     voyageDetailsPlaceholder: { en: "e.g., Route, dates, purpose of voyage", fr: "ex : Route, dates, but du voyage" },
     reasonForRequestLabel: { en: "Reason for Risk Assessment *", fr: "Raison de l'évaluation des risques *" },
@@ -210,56 +214,62 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
           <CardContent className="space-y-6 pt-6">
             <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.vesselNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T.vesselNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> {getTranslation(T.imoLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T.imoPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T.imoDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
-            <FormField
-              control={form.control}
-              name="department"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{getTranslation(T.departmentLabel)}</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                         <SelectValue placeholder={getTranslation(T.departmentPlaceholder)} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>{getTranslation(T.departments)}</SelectLabel>
-                        {departmentOptions.map(option => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="region"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{getTranslation(T.regionLabel)}</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                         <SelectValue placeholder={getTranslation(T.regionPlaceholder)} />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>{getTranslation(T.regions)}</SelectLabel>
-                        {regionOptions.map(option => (
-                          <SelectItem key={option} value={option}>{option}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="department"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{getTranslation(T.departmentLabel)}</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                           <SelectValue placeholder={getTranslation(T.departmentPlaceholder)} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>{getTranslation(T.departments)}</SelectLabel>
+                          {departmentOptions.map(option => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="region"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{getTranslation(T.regionLabel)}</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                           <SelectValue placeholder={getTranslation(T.regionPlaceholder)} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>{getTranslation(T.regions)}</SelectLabel>
+                          {regionOptions.map(option => (
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField control={form.control} name="patrolStartDate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><CalendarClock className="h-4 w-4 text-muted-foreground" />{getTranslation(T.patrolStartDateLabel)}</FormLabel> <FormControl><Input type="date" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField control={form.control} name="patrolEndDate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><CalendarClock className="h-4 w-4 text-muted-foreground" />{getTranslation(T.patrolEndDateLabel)}</FormLabel> <FormControl><Input type="date" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            </div>
             <FormField control={form.control} name="voyageDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.voyageDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.voyageDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="reasonForRequest" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.reasonForRequestLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.reasonForRequestPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
             <FormField control={form.control} name="personnelShortages" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.personnelShortagesLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.personnelShortagesPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />

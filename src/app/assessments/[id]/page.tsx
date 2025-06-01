@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -41,6 +41,10 @@ const T_DETAILS_PAGE = {
   imoNumber: { en: "IMO Number", fr: "Numéro IMO" },
   department: { en: "Department", fr: "Département" },
   region: { en: "Region", fr: "Région" },
+  patrolStartDate: { en: "Patrol Start Date", fr: "Date de début de patrouille" },
+  patrolEndDate: { en: "Patrol End Date", fr: "Date de fin de patrouille" },
+  patrolLength: { en: "Length of Patrol", fr: "Durée de la patrouille" },
+  days: { en: "days", fr: "jours" },
   voyageDetails: { en: "Voyage Details", fr: "Détails du voyage" },
   reasonForRequest: { en: "Reason for Request", fr: "Raison de la demande" },
   personnelShortages: { en: "Personnel Shortages & Impact", fr: "Pénuries de personnel et impact" },
@@ -221,7 +225,7 @@ export default function AssessmentDetailPage() {
       }
       setIsLoading(false);
     }
-  }, [params.id, router, toast, getTranslation]); // Removed T_DETAILS_PAGE from dependencies
+  }, [params.id, router, toast, getTranslation]); 
 
   useEffect(() => {
     fetchAssessment();
@@ -454,7 +458,7 @@ export default function AssessmentDetailPage() {
             <div className="flex flex-col items-start md:items-end gap-2">
                  <Badge className={`text-base px-4 py-2 rounded-full font-medium ${currentStatusConfig.badgeClass}`}>
                     <StatusIcon className="h-5 w-5 mr-2" />
-                    {assessment.status} {/* Status names are usually not translated */}
+                    {assessment.status} 
                 </Badge>
                 <p className="text-xs text-muted-foreground">
                     {getTranslation(T_DETAILS_PAGE.lastModified)}: {format(parseISO(assessment.lastModified), `MMM d, yyyy '${getTranslation(T_DETAILS_PAGE.at)}' h:mm a`)}
@@ -472,6 +476,9 @@ export default function AssessmentDetailPage() {
               {assessment.imoNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.imoNumber)} value={assessment.imoNumber} icon={Fingerprint} />}
               <DetailItem label={getTranslation(T_DETAILS_PAGE.department)} value={assessment.department} />
               <DetailItem label={getTranslation(T_DETAILS_PAGE.region)} value={assessment.region} />
+              {assessment.patrolStartDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolStartDate)} value={format(parseISO(assessment.patrolStartDate), "PPP")} icon={CalendarClock} />}
+              {assessment.patrolEndDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolEndDate)} value={format(parseISO(assessment.patrolEndDate), "PPP")} icon={CalendarClock} />}
+              {assessment.patrolLengthDays !== undefined && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolLength)} value={`${assessment.patrolLengthDays} ${getTranslation(T_DETAILS_PAGE.days)}`} icon={Clock} />}
               <DetailItem label={getTranslation(T_DETAILS_PAGE.voyageDetails)} value={assessment.voyageDetails} isPreformatted fullWidth/>
               <DetailItem label={getTranslation(T_DETAILS_PAGE.reasonForRequest)} value={assessment.reasonForRequest} isPreformatted fullWidth/>
               <DetailItem label={getTranslation(T_DETAILS_PAGE.personnelShortages)} value={assessment.personnelShortages} isPreformatted fullWidth/>
@@ -624,7 +631,7 @@ export default function AssessmentDetailPage() {
                         <CardTitle className={`text-md font-semibold flex items-center justify-between ${stepColor}`}>
                           <span className="flex items-center gap-2">
                             <StepIcon className="h-5 w-5" />
-                            {step.level} {/* Approval levels usually not translated */}
+                            {step.level} 
                           </span>
                           {step.decision ? (
                             <Badge
@@ -638,7 +645,7 @@ export default function AssessmentDetailPage() {
                                 '' 
                               }`}
                             >
-                              {step.decision} {/* Decisions usually not translated */}
+                              {step.decision} 
                             </Badge>
                           ) : ( step.level === currentLevelToAct && !isHalted ? 
                             <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge> 
