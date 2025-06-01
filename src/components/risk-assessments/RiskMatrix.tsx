@@ -5,7 +5,7 @@ import React from 'react';
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ShieldAlert, ShieldCheck, ShieldQuestion, ShieldWarning } from 'lucide-react'; // Example icons
+import { ShieldAlert, ShieldCheck, ShieldQuestion, AlertTriangle } from 'lucide-react'; // Replaced ShieldWarning with AlertTriangle
 import { useLanguage } from '@/contexts/LanguageContext';
 
 
@@ -36,35 +36,35 @@ const consequenceLabels: Record<string, { en: string; fr: string }> = {
 // Example: 3-2 means Likelihood=3 (Possible), Consequence=2 (Minor)
 const riskLevelMap: Record<string, { level: string; fr_level: string; color: string; textColor: string; icon?: React.ElementType }> = {
   // Likelihood 5 (Almost Certain)
-  "5-1": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: ShieldWarning },
+  "5-1": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: AlertTriangle },
   "5-2": { level: "High", fr_level: "Élevé", color: "bg-orange-500", textColor: "text-white", icon: ShieldAlert },
   "5-3": { level: "Extreme", fr_level: "Extrême", color: "bg-red-600", textColor: "text-white", icon: ShieldAlert },
   "5-4": { level: "Extreme", fr_level: "Extrême", color: "bg-red-700", textColor: "text-white", icon: ShieldAlert },
   "5-5": { level: "Extreme", fr_level: "Extrême", color: "bg-red-800", textColor: "text-white", icon: ShieldAlert },
   // Likelihood 4 (Likely)
   "4-1": { level: "Low", fr_level: "Faible", color: "bg-green-500", textColor: "text-white", icon: ShieldCheck },
-  "4-2": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: ShieldWarning },
+  "4-2": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: AlertTriangle },
   "4-3": { level: "High", fr_level: "Élevé", color: "bg-orange-500", textColor: "text-white", icon: ShieldAlert },
   "4-4": { level: "Extreme", fr_level: "Extrême", color: "bg-red-600", textColor: "text-white", icon: ShieldAlert },
   "4-5": { level: "Extreme", fr_level: "Extrême", color: "bg-red-700", textColor: "text-white", icon: ShieldAlert },
   // Likelihood 3 (Possible)
   "3-1": { level: "Low", fr_level: "Faible", color: "bg-green-400", textColor: "text-green-900", icon: ShieldCheck },
-  "3-2": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: ShieldWarning },
-  "3-3": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: ShieldWarning },
+  "3-2": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: AlertTriangle },
+  "3-3": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: AlertTriangle },
   "3-4": { level: "High", fr_level: "Élevé", color: "bg-orange-500", textColor: "text-white", icon: ShieldAlert },
   "3-5": { level: "Extreme", fr_level: "Extrême", color: "bg-red-600", textColor: "text-white", icon: ShieldAlert },
   // Likelihood 2 (Unlikely)
   "2-1": { level: "Low", fr_level: "Faible", color: "bg-green-300", textColor: "text-green-900", icon: ShieldCheck },
   "2-2": { level: "Low", fr_level: "Faible", color: "bg-green-400", textColor: "text-green-900", icon: ShieldCheck },
-  "2-3": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: ShieldWarning },
-  "2-4": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: ShieldWarning },
+  "2-3": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: AlertTriangle },
+  "2-4": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: AlertTriangle },
   "2-5": { level: "High", fr_level: "Élevé", color: "bg-orange-500", textColor: "text-white", icon: ShieldAlert },
   // Likelihood 1 (Rare)
   "1-1": { level: "Low", fr_level: "Faible", color: "bg-green-200", textColor: "text-green-900", icon: ShieldCheck },
   "1-2": { level: "Low", fr_level: "Faible", color: "bg-green-300", textColor: "text-green-900", icon: ShieldCheck },
   "1-3": { level: "Low", fr_level: "Faible", color: "bg-green-400", textColor: "text-green-900", icon: ShieldCheck },
   "1-4": { level: "Low", fr_level: "Faible", color: "bg-green-500", textColor: "text-white", icon: ShieldCheck },
-  "1-5": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: ShieldWarning },
+  "1-5": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: AlertTriangle },
 };
 
 
@@ -206,3 +206,4 @@ const RiskMatrix: React.FC<RiskMatrixProps> = ({ likelihoodScore, consequenceSco
 };
 
 export default RiskMatrix;
+
