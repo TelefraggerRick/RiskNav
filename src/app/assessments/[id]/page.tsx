@@ -4,14 +4,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
-import { mockRiskAssessments } from '@/lib/mockData';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, FileBadge
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -24,8 +24,9 @@ import { useUser } from '@/contexts/UserContext';
 import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext'; 
+import { getRiskAssessmentById, updateRiskAssessment } from '@/services/riskAssessmentService'; // Import Firestore service
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// LOCAL_STORAGE_KEY no longer needed
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
@@ -124,54 +125,19 @@ const T_DETAILS_PAGE = {
   assessmentActionToastTitle: { en: "Assessment {decision}", fr: "Évaluation {decision}" },
   assessmentActionToastDesc: { en: "The assessment has been {decision} with your notes.", fr: "L'évaluation a été {decision} avec vos notes." },
   na: { en: "N/A", fr: "S.O." },
+  updateError: { en: "Update Error", fr: "Erreur de mise à jour" },
+  failedToUpdateAssessment: { en: "Failed to update assessment in the database.", fr: "Échec de la mise à jour de l'évaluation dans la base de données." },
 };
 
-const getAllAssessments = (): RiskAssessment[] => {
-  const storedAssessmentsRaw = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEY) : null;
-  const storedAssessments: RiskAssessment[] = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
-  
-  const combinedAssessments = [...mockRiskAssessments];
-  storedAssessments.forEach(storedAssessment => {
-    const index = combinedAssessments.findIndex(mock => mock.id === storedAssessment.id);
-    if (index !== -1) {
-      combinedAssessments[index] = storedAssessment; 
-    } else {
-      combinedAssessments.push(storedAssessment); 
-    }
-  });
-  return combinedAssessments;
-};
 
-const getAssessmentById = (id: string): RiskAssessment | undefined => {
-  return getAllAssessments().find(assessment => assessment.id === id);
-};
-
-const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
-  if (typeof window === 'undefined') return;
-  let assessments = getAllAssessments();
-  const index = assessments.findIndex(a => a.id === updatedAssessment.id);
-  if (index !== -1) {
-    assessments[index] = updatedAssessment;
-  } else {
-    assessments.push(updatedAssessment); 
-  }
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
-};
+// Functions like getAllAssessments, getAssessmentById, saveAssessmentUpdate are now handled by riskAssessmentService.ts
 
 const handleDownloadAttachment = (attachment: Attachment) => {
+  // For Firestore, URL should always be present (Cloud Storage URL)
   if (attachment.url && attachment.url !== '#') {
      window.open(attachment.url, '_blank');
-  } else if (attachment.file) {
-     const tempUrl = URL.createObjectURL(attachment.file);
-     const a = document.createElement('a');
-     a.href = tempUrl;
-     a.download = attachment.name;
-     document.body.appendChild(a);
-     a.click();
-     document.body.removeChild(a);
-     URL.revokeObjectURL(tempUrl);
   } else {
-    alert(`Download for ${attachment.name} is not available (No URL or local file).`);
+    alert(`Download link for ${attachment.name} is not available.`);
   }
 };
 
@@ -210,22 +176,30 @@ export default function AssessmentDetailPage() {
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
-  const fetchAssessment = useCallback(() => {
+  const fetchAssessment = useCallback(async () => {
     if (params.id) {
-      const foundAssessment = getAssessmentById(params.id as string);
-      if (foundAssessment) {
-        const populatedAssessment = {
-          ...foundAssessment,
-          approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0 
-            ? foundAssessment.approvalSteps 
-            : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) 
-        };
-        setAssessment(populatedAssessment);
-      } else {
-        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.assessmentNotFoundToast), variant: "destructive" });
+      setIsLoading(true);
+      try {
+        const foundAssessment = await getRiskAssessmentById(params.id as string);
+        if (foundAssessment) {
+          const populatedAssessment = {
+            ...foundAssessment,
+            approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0 
+              ? foundAssessment.approvalSteps 
+              : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) 
+          };
+          setAssessment(populatedAssessment);
+        } else {
+          toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.assessmentNotFoundToast), variant: "destructive" });
+          router.push('/');
+        }
+      } catch (error) {
+        console.error("Error fetching assessment:", error);
+        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: (error as Error).message, variant: "destructive" });
         router.push('/');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
   }, [params.id, router, toast, getTranslation]); 
 
@@ -244,9 +218,14 @@ export default function AssessmentDetailPage() {
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
       });
-      const updatedAssessment = { ...assessment, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString(), lastModifiedTimestamp: Date.now() };
-      setAssessment(updatedAssessment);
-      saveAssessmentUpdate(updatedAssessment);
+      
+      const updates: Partial<RiskAssessment> = { 
+        aiGeneratedSummary: summaryResult.summary, 
+        lastModified: new Date().toISOString(), // Will be replaced by serverTimestamp by service
+      };
+      await updateRiskAssessment(assessment.id, updates);
+      setAssessment(prev => prev ? {...prev, ...updates, aiGeneratedSummary: summaryResult.summary} : null); // Optimistic update
+      
       toast({ title: getTranslation(T_DETAILS_PAGE.aiSummaryGenerated), description: getTranslation(T_DETAILS_PAGE.aiSummaryAdded) });
     } catch (error) {
       console.error("AI Summary Error:", error);
@@ -266,18 +245,18 @@ export default function AssessmentDetailPage() {
         operationalDeviations: assessment.proposedOperationalDeviations,
         attachedDocuments: assessment.attachments.map(a => a.url || a.name), 
       });
-      const updatedAssessment = { 
-        ...assessment, 
+      
+      const updates: Partial<RiskAssessment> = { 
         aiRiskScore: result.riskScore,
         aiLikelihoodScore: result.likelihoodScore,
         aiConsequenceScore: result.consequenceScore,
         aiSuggestedMitigations: result.recommendations,
         aiRegulatoryConsiderations: result.regulatoryConsiderations,
-        lastModified: new Date().toISOString(),
-        lastModifiedTimestamp: Date.now(),
+        lastModified: new Date().toISOString(), // Will be replaced by serverTimestamp
       };
-      setAssessment(updatedAssessment);
-      saveAssessmentUpdate(updatedAssessment);
+      await updateRiskAssessment(assessment.id, updates);
+      setAssessment(prev => prev ? {...prev, ...updates} : null); // Optimistic update
+
       toast({ title: getTranslation(T_DETAILS_PAGE.aiRiskScoreGenerated) });
     } catch (error) {
       console.error("AI Risk Score Error:", error);
@@ -329,7 +308,6 @@ export default function AssessmentDetailPage() {
     setIsSubmittingApproval(true);
 
     const nowISO = new Date().toISOString();
-    const nowTimestamp = Date.now();
 
     const updatedApprovalSteps = assessment.approvalSteps.map(step =>
       step.level === currentLevelToAct
@@ -352,36 +330,43 @@ export default function AssessmentDetailPage() {
       newStatus = 'Needs Information';
     }
     
-    const updatedAssessment: RiskAssessment = {
-      ...assessment,
+    const updatesToSave: Partial<RiskAssessment> = {
       approvalSteps: updatedApprovalSteps,
       status: newStatus,
-      lastModified: nowISO,
-      lastModifiedTimestamp: nowTimestamp,
+      lastModified: nowISO, // This will be handled by serverTimestamp in service
     };
 
-    setAssessment(updatedAssessment);
-    saveAssessmentUpdate(updatedAssessment);
-    
-    toast({
-      title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
-      description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
-    });
-    
-    setIsSubmittingApproval(false);
-    setIsApprovalDialogOpen(false);
-    setCurrentDecision(undefined);
+    try {
+      await updateRiskAssessment(assessment.id, updatesToSave);
+      setAssessment(prev => prev ? { ...prev, ...updatesToSave, approvalSteps: updatedApprovalSteps, status: newStatus } : null); // Optimistic update
+      
+      toast({
+        title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
+        description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
+      });
+    } catch (error) {
+        console.error("Error updating assessment:", error);
+        toast({
+            title: getTranslation(T_DETAILS_PAGE.updateError),
+            description: getTranslation(T_DETAILS_PAGE.failedToUpdateAssessment),
+            variant: "destructive",
+        });
+    } finally {
+        setIsSubmittingApproval(false);
+        setIsApprovalDialogOpen(false);
+        setCurrentDecision(undefined);
+    }
   }, [assessment, currentLevelToAct, currentUser, currentDecision, toast, getTranslation]);
 
 
-  if (isLoading) {
+  if (isLoading && !assessment) { // Show loader only if assessment is not yet loaded
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
-        <BrainCircuit className="h-16 w-16 animate-pulse text-primary" /> 
+        <Loader2 className="h-16 w-16 animate-spin text-primary" /> 
         <p className="text-xl text-muted-foreground">{getTranslation(T_DETAILS_PAGE.loadingAssessment)}</p>
     </div>;
   }
 
-  if (!assessment) {
+  if (!assessment) { // This case handles if loading finished but assessment is still null (e.g. not found)
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto text-center">
         <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
@@ -535,10 +520,10 @@ export default function AssessmentDetailPage() {
 
           <section>
             <SectionTitle icon={FileText} title={getTranslation(T_DETAILS_PAGE.attachments)} />
-            {assessment.attachments.length > 0 ? (
+            {assessment.attachments && assessment.attachments.length > 0 ? (
               <ul className="space-y-3">
                 {assessment.attachments.map(att => (
-                  <li key={att.id} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                  <li key={att.id || att.name} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <FileText className="h-6 w-6 text-primary shrink-0" />
                       <div className="overflow-hidden">
@@ -568,10 +553,10 @@ export default function AssessmentDetailPage() {
               <SectionTitle icon={Bot} title={getTranslation(T_DETAILS_PAGE.aiInsights)} className="mb-0"/>
               <div className="flex flex-wrap gap-2">
                 <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
-                  {isAiLoading.summary ? getTranslation(T_DETAILS_PAGE.generating) : (assessment.aiGeneratedSummary ? getTranslation(T_DETAILS_PAGE.summaryGenerated) : getTranslation(T_DETAILS_PAGE.generateSummary))}
+                  {isAiLoading.summary ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.generating)}</> : (assessment.aiGeneratedSummary ? getTranslation(T_DETAILS_PAGE.summaryGenerated) : getTranslation(T_DETAILS_PAGE.generateSummary))}
                 </Button>
                 <Button onClick={runAiRiskScoreAndRecommendations} disabled={isAiLoading.riskScore || (!!assessment.aiRiskScore && !!assessment.aiLikelihoodScore)} variant="outline" size="sm">
-                  {isAiLoading.riskScore ? getTranslation(T_DETAILS_PAGE.analyzing) : ((assessment.aiRiskScore && assessment.aiLikelihoodScore) ? getTranslation(T_DETAILS_PAGE.analysisComplete) : getTranslation(T_DETAILS_PAGE.assessRiskMitigations))}
+                  {isAiLoading.riskScore ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.analyzing)}</> : ((assessment.aiRiskScore && assessment.aiLikelihoodScore) ? getTranslation(T_DETAILS_PAGE.analysisComplete) : getTranslation(T_DETAILS_PAGE.assessRiskMitigations))}
                 </Button>
               </div>
             </div>

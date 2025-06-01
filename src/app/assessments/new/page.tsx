@@ -6,61 +6,20 @@ import type { RiskAssessmentFormData } from "@/lib/schemas";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
-import { mockRiskAssessments } from '@/lib/mockData'; 
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
 import { useLanguage } from '@/contexts/LanguageContext';
+import { addRiskAssessment } from "@/services/riskAssessmentService"; // Import Firestore service
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// LOCAL_STORAGE_KEY no longer needed
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 
-const getAllStoredAssessments = (): RiskAssessment[] => {
-  if (typeof window === 'undefined') return [...mockRiskAssessments]; 
-  const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-  const storedAssessments: RiskAssessment[] = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
-  
-  const combinedAssessments = [...mockRiskAssessments];
-  storedAssessments.forEach(storedAssessment => {
-    const index = combinedAssessments.findIndex(mock => mock.id === storedAssessment.id);
-    if (index !== -1) {
-      combinedAssessments[index] = storedAssessment; 
-    } else {
-      combinedAssessments.push(storedAssessment); 
-    }
-  });
-  return combinedAssessments;
-};
-
-
-const addNewAssessmentToStorage = (newAssessment: RiskAssessment) => {
-  if (typeof window === 'undefined') return;
-  const assessments = getAllStoredAssessments(); 
-  
-  if (assessments.some(a => a.id === newAssessment.id)) {
-    console.error("Error: Duplicate ID generated for new assessment.");
-    return;
-  }
-  
-  assessments.push(newAssessment);
-  const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-  const existingStoredAssessments : RiskAssessment[] = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
-  existingStoredAssessments.push(newAssessment);
-
-  const assessmentsToStore = existingStoredAssessments.filter(assessment => {
-    const mockEquivalent = mockRiskAssessments.find(mock => mock.id === assessment.id);
-    return !mockEquivalent || JSON.stringify(assessment) !== JSON.stringify(mockEquivalent);
-  });
-   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessmentsToStore.filter((value, index, self) =>
-    index === self.findIndex((t) => (
-      t.id === value.id 
-    ))
-  )));
-};
-
+// getAllStoredAssessments and addNewAssessmentToStorage are no longer needed as Firestore is used
 
 export default function NewAssessmentPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -74,6 +33,8 @@ export default function NewAssessmentPage() {
     backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
     submitSuccessTitle: { en: "Assessment Submitted Successfully", fr: "Évaluation soumise avec succès" },
     submitSuccessDesc: { en: "Risk assessment for {vesselName} has been submitted. You will be redirected to the dashboard.", fr: "L'évaluation des risques pour {vesselName} a été soumise. Vous allez être redirigé vers le tableau de bord." },
+    submitErrorTitle: { en: "Submission Failed", fr: "Échec de la soumission"},
+    submitErrorDesc: { en: "Could not submit the risk assessment. Please try again.", fr: "Impossible de soumettre l'évaluation des risques. Veuillez réessayer."},
   };
 
   const calculatePatrolLengthDays = (startDateStr?: string, endDateStr?: string): number | undefined => {
@@ -95,83 +56,50 @@ export default function NewAssessmentPage() {
 
 
   const handleSubmit = async (data: RiskAssessmentFormData) => {
+    if (!currentUser || currentUser.id === 'user-unauth') {
+        toast({ title: "Authentication Error", description: "You must be logged in to submit an assessment.", variant: "destructive" });
+        return;
+    }
     setIsLoading(true);
     
-    const now = new Date();
-    const newId = `ra-${Date.now()}`; 
-    
-    const newAttachments: AttachmentType[] = data.attachments?.map((att, index) => ({
-      id: `att-${newId}-${index}`,
-      name: att.file?.name || att.name || "Unnamed File",
-      url: att.file ? '#' : (att.url || '#'), 
-      type: att.file?.type || att.type || "application/octet-stream",
-      size: att.file?.size || att.size || 0,
-      uploadedAt: now.toISOString(),
-      file: att.file, 
-    })) || [];
+    try {
+        // Reference number can be generated client-side or server-side (e.g., via Cloud Function trigger)
+        // For now, keeping client-side generation.
+        const now = new Date();
+        const referenceNumber = `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
+        
+        // The addRiskAssessment service now handles attachment uploads and data structuring.
+        // We just pass the raw form data and the submitter's name.
+        
+        const assessmentDataWithRef = {
+            ...data,
+            referenceNumber, // Add the generated reference number
+             // patrolLengthDays is calculated by the service or not needed if start/end is enough
+            patrolLengthDays: calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate),
+            status: 'Pending Crewing Standards and Oversight', // Initial status
+            approvalSteps: approvalLevelsOrder.map(level => ({ level })), // Initial approval steps
+        };
 
-    const patrolLengthDays = calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate);
+        await addRiskAssessment(assessmentDataWithRef as RiskAssessmentFormData, currentUser.name);
 
-    const newAssessment: RiskAssessment = {
-      id: newId,
-      referenceNumber: `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`, 
-      vesselName: data.vesselName,
-      imoNumber: data.imoNumber,
-      maritimeExemptionNumber: data.maritimeExemptionNumber, // New field
-      department: data.department,
-      region: data.region,
-      patrolStartDate: data.patrolStartDate || undefined,
-      patrolEndDate: data.patrolEndDate || undefined,
-      patrolLengthDays: patrolLengthDays,
-      voyageDetails: data.voyageDetails,
-      reasonForRequest: data.reasonForRequest,
-      personnelShortages: data.personnelShortages,
-      proposedOperationalDeviations: data.proposedOperationalDeviations,
-      attachments: newAttachments,
-      
-      employeeName: data.employeeName,
-      certificateHeld: data.certificateHeld,
-      requiredCertificate: data.requiredCertificate,
-      coDeptHeadSupportExemption: data.coDeptHeadSupportExemption,
-      deptHeadConfidentInIndividual: data.deptHeadConfidentInIndividual,
-      deptHeadConfidenceReason: data.deptHeadConfidenceReason,
-      employeeFamiliarizationProvided: data.employeeFamiliarizationProvided,
-      workedInDepartmentLast12Months: data.workedInDepartmentLast12Months,
-      workedInDepartmentDetails: data.workedInDepartmentDetails,
-      similarResponsibilityExperience: data.similarResponsibilityExperience,
-      similarResponsibilityDetails: data.similarResponsibilityDetails,
-      individualHasRequiredSeaService: data.individualHasRequiredSeaService,
-      individualWorkingTowardsCertification: data.individualWorkingTowardsCertification,
-      certificationProgressSummary: data.certificationProgressSummary,
+        toast({
+          title: getTranslation(T.submitSuccessTitle),
+          description: getTranslation(T.submitSuccessDesc).replace('{vesselName}', data.vesselName),
+          variant: "default",
+        });
+        
+        setTimeout(() => router.push("/"), 2000);
 
-      requestCausesVacancyElsewhere: data.requestCausesVacancyElsewhere,
-      crewCompositionSufficientForSafety: data.crewCompositionSufficientForSafety,
-      detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment,
-      crewContinuityAsPerProfile: data.crewContinuityAsPerProfile,
-      crewContinuityDetails: data.crewContinuityDetails,
-      specialVoyageConsiderations: data.specialVoyageConsiderations,
-      reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
-      rocNotificationOfLimitations: data.rocNotificationOfLimitations,
-
-      submittedBy: currentUser.name, 
-      submissionDate: now.toISOString(),
-      submissionTimestamp: now.getTime(),
-      status: 'Pending Crewing Standards and Oversight',
-      approvalSteps: approvalLevelsOrder.map(level => ({ level })), 
-      lastModified: now.toISOString(),
-      lastModifiedTimestamp: now.getTime(),
-    };
-
-    addNewAssessmentToStorage(newAssessment);
-
-    setIsLoading(false);
-    toast({
-      title: getTranslation(T.submitSuccessTitle),
-      description: getTranslation(T.submitSuccessDesc).replace('{vesselName}', data.vesselName),
-      variant: "default",
-    });
-    
-    setTimeout(() => router.push("/"), 2000);
+    } catch (error) {
+        console.error("Error submitting assessment:", error);
+        toast({
+            title: getTranslation(T.submitErrorTitle),
+            description: getTranslation(T.submitErrorDesc),
+            variant: "destructive",
+        });
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   return (

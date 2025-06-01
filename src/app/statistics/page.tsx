@@ -1,16 +1,19 @@
 
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { mockRiskAssessments } from '@/lib/mockData';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
 import type { RiskAssessment, VesselRegion, VesselDepartment, RiskAssessmentStatus } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock } from 'lucide-react';
+import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext'; 
+import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
+import { useToast } from "@/hooks/use-toast";
+
 
 interface ChartDataItem {
   name: string; // Can be department, region, or status name
@@ -24,7 +27,6 @@ interface DepartmentAvgLengthItem {
 
 const chartColorHSL = (variable: string) => `hsl(var(--${variable}))`;
 
-// Define T_STATISTICS_PAGE outside the component
 const T_STATISTICS_PAGE = {
   pageTitle: { en: "Assessment Statistics", fr: "Statistiques des évaluations" },
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
@@ -53,11 +55,16 @@ const T_STATISTICS_PAGE = {
   Central: { en: 'Central', fr: 'Centre' },
   Western: { en: 'Western', fr: 'Ouest' },
   Arctic: { en: 'Arctic', fr: 'Arctique' },
+  loadingStatistics: { en: "Loading statistics...", fr: "Chargement des statistiques..." },
+  errorLoadingStats: { en: "Error Loading Statistics", fr: "Erreur de chargement des statistiques"},
+  errorLoadingStatsDesc: { en: "Could not fetch data for statistics.", fr: "Impossible de récupérer les données pour les statistiques."},
 };
 
 
 export default function StatisticsPage() {
-  const [totalAssessments, setTotalAssessments] = useState(0);
+  const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalAssessmentsCount, setTotalAssessmentsCount] = useState(0);
   const [assessmentsByRegionData, setAssessmentsByRegionData] = useState<ChartDataItem[]>([]);
   const [assessmentsByDepartmentData, setAssessmentsByDepartmentData] = useState<ChartDataItem[]>([]);
   const [assessmentsByStatusData, setAssessmentsByStatusData] = useState<ChartDataItem[]>([]);
@@ -65,10 +72,10 @@ export default function StatisticsPage() {
   const [averagePatrolLengthByDepartmentData, setAveragePatrolLengthByDepartmentData] = useState<DepartmentAvgLengthItem[]>([]);
 
   const { getTranslation } = useLanguage(); 
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const data: RiskAssessment[] = mockRiskAssessments; 
-    setTotalAssessments(data.length);
+  const processData = useCallback((data: RiskAssessment[]) => {
+    setTotalAssessmentsCount(data.length);
 
     const regionCounts: Record<string, number> = {};
     data.forEach(assessment => {
@@ -126,8 +133,29 @@ export default function StatisticsPage() {
         : 0,
     })).sort((a,b) => b.averageLength - a.averageLength);
     setAveragePatrolLengthByDepartmentData(avgLengthByDeptData);
-
   }, [getTranslation]);
+
+
+  useEffect(() => {
+    const fetchAndProcessData = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedAssessments = await getAllRiskAssessments();
+        setAssessments(fetchedAssessments); // Store raw data if needed elsewhere
+        processData(fetchedAssessments);   // Process for statistics
+      } catch (error) {
+        console.error("Error fetching assessments for statistics:", error);
+        toast({
+          title: getTranslation(T_STATISTICS_PAGE.errorLoadingStats),
+          description: getTranslation(T_STATISTICS_PAGE.errorLoadingStatsDesc),
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAndProcessData();
+  }, [getTranslation, processData, toast]); // processData is memoized by useCallback
 
   const departmentDisplayConfig = useMemo((): ChartConfig => ({
     [getTranslation(T_STATISTICS_PAGE.Navigation)]: { label: getTranslation(T_STATISTICS_PAGE.Navigation), color: 'hsl(210, 65%, 50%)' }, 
@@ -146,14 +174,14 @@ export default function StatisticsPage() {
 
   const statusDisplayConfig = useMemo((): ChartConfig => {
     const config: ChartConfig = {};
-    assessmentsByStatusData.forEach((item, index) => {
+    assessmentsByStatusData.forEach((item, index) => { // Use state variable already set
         config[item.name] = { 
             label: item.name, 
             color: chartColorHSL(`chart-${(index % 5) + 1}` as "chart-1" | "chart-2" | "chart-3" | "chart-4" | "chart-5")
         };
     });
     return config;
-  }, [assessmentsByStatusData]);
+  }, [assessmentsByStatusData]); // Depends on the processed data
   
   const avgLengthDataKeyConfig = useMemo((): ChartConfig => ({ 
     averageLength: {
@@ -218,6 +246,15 @@ export default function StatisticsPage() {
     </Card>
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <p className="text-xl text-muted-foreground">{getTranslation(T_STATISTICS_PAGE.loadingStatistics)}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex items-center justify-between">
@@ -243,7 +280,7 @@ export default function StatisticsPage() {
             <CardDescription>{getTranslation(T_STATISTICS_PAGE.overallSummaryDesc)}</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-bold text-foreground">{totalAssessments}</p>
+            <p className="text-4xl font-bold text-foreground">{totalAssessmentsCount}</p>
             <p className="text-muted-foreground">{getTranslation(T_STATISTICS_PAGE.totalAssessmentsLogged)}</p>
           </CardContent>
         </Card>
@@ -291,4 +328,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-

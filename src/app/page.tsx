@@ -3,12 +3,12 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
-import { mockRiskAssessments } from '@/lib/mockData'; 
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe as GlobeIcon, Package, Cog, Anchor, Info } from 'lucide-react';
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns'; 
 import {
   DropdownMenu,
@@ -22,11 +22,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
+import { useToast } from "@/hooks/use-toast";
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// LOCAL_STORAGE_KEY no longer needed
 
 const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date', fr_label: 'Date de soumission' },
@@ -59,12 +61,14 @@ const departmentLegendItems: { department: VesselDepartment; colorClass: string;
 
 export default function DashboardPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<RiskAssessmentStatus[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
+  const { toast } = useToast();
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -86,38 +90,29 @@ export default function DashboardPage() {
     patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
     generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
     departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
+    loadingAssessments: { en: "Loading assessments...", fr: "Chargement des évaluations..."},
+    errorLoadingAssessments: { en: "Error loading assessments", fr: "Erreur lors du chargement des évaluations"},
+    errorLoadingAssessmentsDesc: { en: "Could not fetch risk assessments from the database.", fr: "Impossible de récupérer les évaluations de risques de la base de données."},
   };
 
 
-  const loadAssessments = useCallback(() => {
-    const baseAssessments = [...mockRiskAssessments];
-    let storedAssessments: RiskAssessment[] = [];
-    if (typeof window !== 'undefined') {
-        const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-        storedAssessments = storedAssessmentsRaw ? JSON.parse(storedAssessmentsRaw) : [];
+  const loadAssessments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const fetchedAssessments = await getAllRiskAssessments();
+      setAssessments(fetchedAssessments);
+    } catch (error) {
+      console.error("Failed to load assessments:", error);
+      toast({
+        title: getTranslation(T.errorLoadingAssessments),
+        description: getTranslation(T.errorLoadingAssessmentsDesc),
+        variant: "destructive",
+      });
+      setAssessments([]); // Set to empty array on error
+    } finally {
+      setIsLoading(false);
     }
-
-    const combinedMap = new Map<string, RiskAssessment>();
-
-    baseAssessments.forEach(assessment => {
-        combinedMap.set(assessment.id, {
-            ...assessment,
-            region: assessment.region ? assessment.region as VesselRegion : undefined,
-            department: assessment.department ? assessment.department as VesselDepartment : undefined,
-        });
-    });
-
-    storedAssessments.forEach(storedAssessment => {
-        combinedMap.set(storedAssessment.id, {
-            ...storedAssessment,
-            region: storedAssessment.region ? storedAssessment.region as VesselRegion : undefined,
-            department: storedAssessment.department ? storedAssessment.department as VesselDepartment : undefined,
-        });
-    });
-    
-    setAssessments(Array.from(combinedMap.values()));
-  }, []);
-
+  }, [getTranslation, toast, T.errorLoadingAssessments, T.errorLoadingAssessmentsDesc]); // Added T dependencies for toast
 
   useEffect(() => {
     loadAssessments();
@@ -165,14 +160,16 @@ export default function DashboardPage() {
 
     const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
+      // Use lastModifiedTimestamp for sorting by 'lastModified' and submissionTimestamp for 'submissionDate'
+      // These are numbers and more reliable for sorting than ISO strings directly.
       switch (sortKey) {
         case 'submissionDate':
-          valA = a.submissionTimestamp;
-          valB = b.submissionTimestamp;
+          valA = a.submissionTimestamp || 0;
+          valB = b.submissionTimestamp || 0;
           break;
         case 'lastModified':
-            valA = a.lastModifiedTimestamp;
-            valB = b.lastModifiedTimestamp;
+            valA = a.lastModifiedTimestamp || 0;
+            valB = b.lastModifiedTimestamp || 0;
             break;
         case 'status':
           valA = a.status;
@@ -192,7 +189,8 @@ export default function DashboardPage() {
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      if (sortKey !== 'submissionDate') {
+      // Fallback sort by submission date if primary sort keys are equal
+      if (sortKey !== 'submissionDate' && a.submissionTimestamp && b.submissionTimestamp) {
         if (a.submissionTimestamp < b.submissionTimestamp) return 1; 
         if (a.submissionTimestamp > b.submissionTimestamp) return -1;
       }
@@ -260,6 +258,14 @@ export default function DashboardPage() {
     return `${vesselName} (${getTranslation(T.generalAssessmentsLabel)})`;
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <p className="text-xl text-muted-foreground">{getTranslation(T.loadingAssessments)}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

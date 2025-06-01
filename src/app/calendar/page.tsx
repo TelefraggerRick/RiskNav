@@ -4,17 +4,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardDescription
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { RiskAssessment } from '@/lib/types';
-import { mockRiskAssessments } from '@/lib/mockData';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ArrowLeft, CalendarDays, Info, List } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Info, List, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
+import { useToast } from "@/hooks/use-toast";
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// LOCAL_STORAGE_KEY no longer needed
 
 const T_CALENDAR_PAGE = {
   pageTitle: { en: "Risk Assessment Calendar", fr: "Calendrier des évaluations des risques" },
@@ -26,38 +28,11 @@ const T_CALENDAR_PAGE = {
   patrolPeriod: { en: "Patrol:", fr: "Patrouille :" },
   noPatrolDates: { en: "Patrol dates not set", fr: "Dates de patrouille non définies"},
   loadingAssessments: { en: "Loading assessments...", fr: "Chargement des évaluations..." },
+  errorLoadingAssessments: { en: "Error loading assessments", fr: "Erreur lors du chargement des évaluations"},
+  errorLoadingAssessmentsDesc: { en: "Could not fetch risk assessments for the calendar.", fr: "Impossible de récupérer les évaluations de risques pour le calendrier."},
 };
 
-const getAllAssessments = (): RiskAssessment[] => {
-  const baseAssessments = [...mockRiskAssessments];
-  let storedAssessments: RiskAssessment[] = [];
-
-  if (typeof window !== 'undefined') {
-    const storedAssessmentsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedAssessmentsRaw) {
-      try {
-        const parsed = JSON.parse(storedAssessmentsRaw);
-        if (Array.isArray(parsed)) {
-          // Further check if elements are somewhat valid (e.g., have an id)
-          storedAssessments = parsed.filter(item => item && typeof item.id === 'string');
-        } else {
-          console.warn("Stored risk assessments data from localStorage is not an array. Clearing it.", parsed);
-          localStorage.removeItem(LOCAL_STORAGE_KEY); // Optional: clear corrupted data
-        }
-      } catch (error) {
-        console.error("Error parsing risk assessments from localStorage. Clearing it.", error);
-        localStorage.removeItem(LOCAL_STORAGE_KEY); // Optional: clear corrupted data
-      }
-    }
-  }
-
-  const combinedMap = new Map<string, RiskAssessment>();
-  baseAssessments.forEach(assessment => combinedMap.set(assessment.id, assessment));
-  storedAssessments.forEach(storedAssessment => combinedMap.set(storedAssessment.id, storedAssessment));
-  
-  return Array.from(combinedMap.values());
-};
-
+// getAllAssessments from localStorage is no longer needed
 
 export default function AssessmentCalendarPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -66,12 +41,29 @@ export default function AssessmentCalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { getTranslation, currentLanguage } = useLanguage();
+  const { toast } = useToast();
+
+  const loadAssessments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const fetchedAssessments = await getAllRiskAssessments();
+      setAssessments(fetchedAssessments);
+    } catch (error) {
+      console.error("Failed to load assessments for calendar:", error);
+      toast({
+        title: getTranslation(T_CALENDAR_PAGE.errorLoadingAssessments),
+        description: getTranslation(T_CALENDAR_PAGE.errorLoadingAssessmentsDesc),
+        variant: "destructive",
+      });
+       setAssessments([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getTranslation, toast, T_CALENDAR_PAGE.errorLoadingAssessments, T_CALENDAR_PAGE.errorLoadingAssessmentsDesc]); // Added T dependencies for toast
 
   useEffect(() => {
-    const data = getAllAssessments();
-    setAssessments(data);
-    setIsLoading(false);
-  }, []);
+    loadAssessments();
+  }, [loadAssessments]);
 
   const patrolDayMatcher = useMemo(() => {
     if (isLoading || assessments.length === 0) return [];
@@ -136,11 +128,11 @@ export default function AssessmentCalendarPage() {
   }, [assessments]);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && assessments.length > 0) { // Ensure assessments are loaded before initial day click
         handleDayClick(new Date());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, handleDayClick]);
+  }, [isLoading, assessments, handleDayClick]); // Added assessments to dependencies
 
   const formatPatrolDateRange = (assessment: RiskAssessment) => {
     if (assessment.patrolStartDate && assessment.patrolEndDate) {
@@ -157,7 +149,7 @@ export default function AssessmentCalendarPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
-        <CalendarDays className="h-16 w-16 animate-pulse text-primary" /> 
+        <Loader2 className="h-16 w-16 animate-spin text-primary" /> 
         <p className="text-xl text-muted-foreground">{getTranslation(T_CALENDAR_PAGE.loadingAssessments)}</p>
       </div>
     );
@@ -241,5 +233,3 @@ export default function AssessmentCalendarPage() {
     </div>
   );
 }
-
-    
