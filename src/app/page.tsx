@@ -2,14 +2,14 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import type { RiskAssessment, RiskAssessmentStatus, VesselRegion } from '@/lib/types';
+import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData'; 
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe } from 'lucide-react';
-import { format, parseISO } from 'date-fns'; // Added format and parseISO
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Check, Globe as GlobeIcon, Package, Cog, Anchor, Info } from 'lucide-react';
+import { format, parseISO } from 'date-fns'; 
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { cn } from '@/lib/utils';
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
@@ -46,6 +47,14 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
 ];
 
 const ALL_REGIONS: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
+
+const departmentLegendItems: { department: VesselDepartment; colorClass: string; icon: React.ElementType; translations: { en: string; fr: string} }[] = [
+  { department: 'Navigation', colorClass: 'bg-blue-50 border-blue-200', icon: GlobeIcon, translations: { en: 'Navigation', fr: 'Navigation'} },
+  { department: 'Deck', colorClass: 'bg-slate-50 border-slate-200', icon: Anchor, translations: { en: 'Deck', fr: 'Pont'} },
+  { department: 'Engine Room', colorClass: 'bg-purple-50 border-purple-200', icon: Cog, translations: { en: 'Engine Room', fr: 'Salle des machines'} },
+  { department: 'Logistics', colorClass: 'bg-green-50 border-green-200', icon: Package, translations: { en: 'Logistics', fr: 'Logistique'} },
+  { department: 'Other', colorClass: 'bg-orange-50 border-orange-200', icon: Info, translations: { en: 'Other', fr: 'Autre'} },
+];
 
 
 export default function DashboardPage() {
@@ -76,6 +85,7 @@ export default function DashboardPage() {
     clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
     patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
     generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
+    departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
   };
 
 
@@ -92,14 +102,16 @@ export default function DashboardPage() {
     baseAssessments.forEach(assessment => {
         combinedMap.set(assessment.id, {
             ...assessment,
-            region: assessment.region ? assessment.region as VesselRegion : undefined
+            region: assessment.region ? assessment.region as VesselRegion : undefined,
+            department: assessment.department ? assessment.department as VesselDepartment : undefined,
         });
     });
 
     storedAssessments.forEach(storedAssessment => {
         combinedMap.set(storedAssessment.id, {
             ...storedAssessment,
-            region: storedAssessment.region ? storedAssessment.region as VesselRegion : undefined
+            region: storedAssessment.region ? storedAssessment.region as VesselRegion : undefined,
+            department: storedAssessment.department ? storedAssessment.department as VesselDepartment : undefined,
         });
     });
     
@@ -136,6 +148,7 @@ export default function DashboardPage() {
       filtered = filtered.filter(assessment =>
         assessment.vesselName.toLowerCase().includes(lowerSearchTerm) ||
         assessment.referenceNumber.toLowerCase().includes(lowerSearchTerm) ||
+        (assessment.department && assessment.department.toLowerCase().includes(lowerSearchTerm)) ||
         (assessment.reasonForRequest && assessment.reasonForRequest.toLowerCase().includes(lowerSearchTerm)) ||
         (assessment.region && assessment.region.toLowerCase().includes(lowerSearchTerm))
       );
@@ -312,7 +325,7 @@ export default function DashboardPage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label={getTranslation(T.filterByRegion)}>
                  <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <GlobeIcon className="h-4 w-4 text-muted-foreground" />
                   <span>{getTranslation(T.filterByRegion)}</span>
                 </div>
                 {selectedRegions.length > 0 && <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">{regionFilterLabel}</Badge>}
@@ -360,6 +373,22 @@ export default function DashboardPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        
+        <div className="mt-4 pt-3 border-t">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">{getTranslation(T.departmentLegendTitle)}</h3>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {departmentLegendItems.map(item => {
+                const Icon = item.icon;
+                return (
+                <div key={item.department} className="flex items-center gap-2 text-xs">
+                    <span className={cn("w-3 h-3 rounded-sm inline-block border", item.colorClass)}></span>
+                    <Icon className="w-3 h-3 text-muted-foreground" />
+                    <span>{getTranslation(item.translations)}</span>
+                </div>
+                );
+            })}
+            </div>
+        </div>
       </Card>
 
       {groupedAndSortedAssessments.length > 0 ? (
@@ -367,7 +396,6 @@ export default function DashboardPage() {
           {groupedAndSortedAssessments.map(([groupKey, patrolAssessments]) => {
             const displayTitle = getGroupDisplayTitle(patrolAssessments);
             const groupId = displayTitle.replace(/\s+/g, '-').toLowerCase();
-            const vesselNameFromGroup = patrolAssessments[0]?.vesselName || "Unknown Vessel";
             
             return (
               <section key={groupKey} aria-labelledby={`patrol-group-${groupId}`}>
@@ -398,4 +426,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
