@@ -1,4 +1,6 @@
 
+"use client";
+
 import Link from 'next/link';
 import type { RiskAssessment, RiskAssessmentStatus, VesselDepartment } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -8,6 +10,7 @@ import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, 
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 interface RiskAssessmentCardProps {
   assessment: RiskAssessment;
@@ -31,8 +34,14 @@ const departmentColorConfig: Record<VesselDepartment, { cardClass: string, icon:
   'Other': { cardClass: 'bg-orange-50 border-orange-200 hover:border-orange-300 dark:bg-orange-900/30 dark:border-orange-700 dark:hover:border-orange-600', icon: Info },
 };
 
+const T_CARD = {
+    reason: { en: "Reason:", fr: "Raison :" },
+    proposedDeviations: { en: "Proposed Deviations:", fr: "Dérogations proposées :" },
+    viewDetails: { en: "View Details", fr: "Voir les détails" },
+    department: { en: "Department:", fr: "Département :" }
+  };
 
-export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardProps) {
+const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = React.memo(({ assessment }) => {
   const currentStatusConfig = statusConfig[assessment.status] || { icon: Info, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300' };
   const StatusIcon = currentStatusConfig.icon;
   
@@ -42,13 +51,6 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
   const DepartmentIcon = currentDepartmentConfig.icon;
 
   const { getTranslation } = useLanguage(); 
-
-  const T = {
-    reason: { en: "Reason:", fr: "Raison :" },
-    proposedDeviations: { en: "Proposed Deviations:", fr: "Dérogations proposées :" },
-    viewDetails: { en: "View Details", fr: "Voir les détails" },
-    department: { en: "Department:", fr: "Département :" }
-  };
 
   return (
     <Card className={cn(
@@ -87,13 +89,13 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
       </CardHeader>
       <CardContent className="flex-grow space-y-2 text-sm py-3">
         <div className="space-y-1">
-            <p className="font-medium">{getTranslation(T.reason)}</p>
+            <p className="font-medium">{getTranslation(T_CARD.reason)}</p>
             <p className="line-clamp-2 text-muted-foreground" title={assessment.reasonForRequest}>
             {assessment.reasonForRequest}
             </p>
         </div>
          <div className="space-y-1">
-            <p className="font-medium">{getTranslation(T.proposedDeviations)}</p>
+            <p className="font-medium">{getTranslation(T_CARD.proposedDeviations)}</p>
             <p className="line-clamp-2 text-muted-foreground" title={assessment.proposedOperationalDeviations}>
             {assessment.proposedOperationalDeviations}
             </p>
@@ -107,11 +109,14 @@ export default function RiskAssessmentCard({ assessment }: RiskAssessmentCardPro
             </div>
             <Link href={`/assessments/${assessment.id}`} passHref>
               <Button variant="outline" size="sm" className="bg-card/50 hover:bg-card">
-                {getTranslation(T.viewDetails)}
+                {getTranslation(T_CARD.viewDetails)}
               </Button>
             </Link>
         </div>
       </CardFooter>
     </Card>
   );
-}
+});
+
+RiskAssessmentCard.displayName = 'RiskAssessmentCard';
+export default RiskAssessmentCard;

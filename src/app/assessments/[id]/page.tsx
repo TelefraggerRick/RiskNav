@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
 import { mockRiskAssessments } from '@/lib/mockData';
@@ -29,7 +29,6 @@ const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
-// Define T_DETAILS_PAGE outside the component
 const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
   imo: { en: "IMO", fr: "IMO" },
@@ -155,7 +154,6 @@ const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
 };
 
-
 const handleDownloadAttachment = (attachment: Attachment) => {
   if (attachment.url && attachment.url !== '#') {
      window.open(attachment.url, '_blank');
@@ -173,14 +171,15 @@ const handleDownloadAttachment = (attachment: Attachment) => {
   }
 };
 
-const SectionTitle: React.FC<{ icon: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
+const SectionTitle: React.FC<{ icon: React.ElementType; title: string; className?: string }> = React.memo(({ icon: Icon, title, className }) => (
   <h3 className={cn("text-lg font-semibold mb-4 text-foreground flex items-center gap-2 pt-1", className)}>
     <Icon className="h-5 w-5 text-primary" />
     {title}
   </h3>
-);
+));
+SectionTitle.displayName = 'SectionTitle';
 
-const DetailItem: React.FC<{ label: string; value?: React.ReactNode | string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean; icon?: React.ElementType }> = ({ label, value, isPreformatted = false, fullWidth = false, icon: Icon }) => {
+const DetailItem: React.FC<{ label: string; value?: React.ReactNode | string | null | YesNoOptional; isPreformatted?: boolean; fullWidth?: boolean; icon?: React.ElementType }> = React.memo(({ label, value, isPreformatted = false, fullWidth = false, icon: Icon }) => {
   if (value === undefined || value === null || value === '') return null;
   return (
     <div className={fullWidth ? "md:col-span-2" : ""}>
@@ -191,8 +190,8 @@ const DetailItem: React.FC<{ label: string; value?: React.ReactNode | string | n
       {isPreformatted && typeof value === 'string' ? <p className="whitespace-pre-wrap text-sm leading-relaxed">{value}</p> : <div className="text-sm leading-relaxed">{value}</div>}
     </div>
   );
-};
-
+});
+DetailItem.displayName = 'DetailItem';
 
 export default function AssessmentDetailPage() {
   const params = useParams();
@@ -206,7 +205,6 @@ export default function AssessmentDetailPage() {
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
-
 
   const fetchAssessment = useCallback(() => {
     if (params.id) {
@@ -231,7 +229,7 @@ export default function AssessmentDetailPage() {
     fetchAssessment();
   }, [fetchAssessment]);
 
-  const runAiSummary = async () => {
+  const runAiSummary = useCallback(async () => {
     if (!assessment) return;
     setIsAiLoading(prev => ({...prev, summary: true}));
     try {
@@ -251,9 +249,9 @@ export default function AssessmentDetailPage() {
       toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description: getTranslation(T_DETAILS_PAGE.failedToGenerateSummary), variant: "destructive" });
     }
     setIsAiLoading(prev => ({...prev, summary: false}));
-  };
+  }, [assessment, toast, getTranslation]);
   
-  const runAiRiskScoreAndRecommendations = async () => {
+  const runAiRiskScoreAndRecommendations = useCallback(async () => {
     if (!assessment) return;
     setIsAiLoading(prev => ({...prev, riskScore: true}));
     try {
@@ -282,7 +280,7 @@ export default function AssessmentDetailPage() {
       toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description: getTranslation(T_DETAILS_PAGE.failedToGenerateRiskScore), variant: "destructive" });
     }
     setIsAiLoading(prev => ({...prev, riskScore: false}));
-  };
+  }, [assessment, toast, getTranslation]);
 
   const getCurrentApprovalStepInfo = useCallback(() => {
     if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false, overallStatus: assessment?.status };
@@ -316,12 +314,12 @@ export default function AssessmentDetailPage() {
   
   const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted } = getCurrentApprovalStepInfo();
 
-  const handleOpenApprovalDialog = (decision: ApprovalDecision) => {
+  const handleOpenApprovalDialog = useCallback((decision: ApprovalDecision) => {
     setCurrentDecision(decision);
     setIsApprovalDialogOpen(true);
-  };
+  }, []);
 
-  const handleApprovalAction = async (notes: string) => {
+  const handleApprovalAction = useCallback(async (notes: string) => {
     if (!assessment || !currentLevelToAct || !currentUser || !currentDecision) return;
 
     setIsSubmittingApproval(true);
@@ -369,7 +367,7 @@ export default function AssessmentDetailPage() {
     setIsSubmittingApproval(false);
     setIsApprovalDialogOpen(false);
     setCurrentDecision(undefined);
-  };
+  }, [assessment, currentLevelToAct, currentUser, currentDecision, toast, getTranslation]);
 
 
   if (isLoading) {
@@ -738,4 +736,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-

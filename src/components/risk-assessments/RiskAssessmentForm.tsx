@@ -31,53 +31,8 @@ const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'applicatio
 const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
 const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
 
-export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = false }: RiskAssessmentFormProps) {
-  const form = useForm<RiskAssessmentFormData>({
-    resolver: zodResolver(riskAssessmentFormSchema),
-    defaultValues: initialData || {
-      vesselName: "",
-      imoNumber: "",
-      department: undefined,
-      region: undefined, 
-      patrolStartDate: "",
-      patrolEndDate: "",
-      voyageDetails: "",
-      reasonForRequest: "",
-      personnelShortages: "",
-      proposedOperationalDeviations: "",
-      attachments: [],
-      coDeptHeadSupportExemption: undefined,
-      deptHeadConfidentInIndividual: undefined,
-      deptHeadConfidenceReason: "",
-      employeeFamiliarizationProvided: undefined,
-      workedInDepartmentLast12Months: undefined,
-      workedInDepartmentDetails: "",
-      similarResponsibilityExperience: undefined,
-      similarResponsibilityDetails: "",
-      individualHasRequiredSeaService: undefined,
-      individualWorkingTowardsCertification: undefined,
-      certificationProgressSummary: "",
-      requestCausesVacancyElsewhere: undefined,
-      crewCompositionSufficientForSafety: undefined,
-      detailedCrewCompetencyAssessment: "",
-      crewContinuityAsPerProfile: undefined,
-      crewContinuityDetails: "",
-      specialVoyageConsiderations: "",
-      reductionInVesselProgramRequirements: undefined,
-      rocNotificationOfLimitations: undefined,
-    },
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "attachments",
-  });
-
-  const { toast } = useToast();
-  const { getTranslation } = useLanguage(); 
-
-  // Translations Object
-  const T = {
+// Moved T object outside the component for stable reference
+const T_FORM = {
     vesselAndOverview: { en: "Vessel & Assessment Overview", fr: "Aperçu du navire et de l'évaluation" },
     vesselAndOverviewDesc: { en: "Provide core details about the vessel and the reason for this assessment.", fr: "Fournissez les détails essentiels concernant le navire et la raison de cette évaluation." },
     vesselNameLabel: { en: "Vessel Name *", fr: "Nom du navire *" },
@@ -154,11 +109,55 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
     fileUploadIssues: { en: "File Upload Issues", fr: "Problèmes de téléversement de fichiers" },
   };
 
+export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = false }: RiskAssessmentFormProps) {
+  const form = useForm<RiskAssessmentFormData>({
+    resolver: zodResolver(riskAssessmentFormSchema),
+    defaultValues: initialData || {
+      vesselName: "",
+      imoNumber: "",
+      department: undefined,
+      region: undefined, 
+      patrolStartDate: "",
+      patrolEndDate: "",
+      voyageDetails: "",
+      reasonForRequest: "",
+      personnelShortages: "",
+      proposedOperationalDeviations: "",
+      attachments: [],
+      coDeptHeadSupportExemption: undefined,
+      deptHeadConfidentInIndividual: undefined,
+      deptHeadConfidenceReason: "",
+      employeeFamiliarizationProvided: undefined,
+      workedInDepartmentLast12Months: undefined,
+      workedInDepartmentDetails: "",
+      similarResponsibilityExperience: undefined,
+      similarResponsibilityDetails: "",
+      individualHasRequiredSeaService: undefined,
+      individualWorkingTowardsCertification: undefined,
+      certificationProgressSummary: "",
+      requestCausesVacancyElsewhere: undefined,
+      crewCompositionSufficientForSafety: undefined,
+      detailedCrewCompetencyAssessment: "",
+      crewContinuityAsPerProfile: undefined,
+      crewContinuityDetails: "",
+      specialVoyageConsiderations: "",
+      reductionInVesselProgramRequirements: undefined,
+      rocNotificationOfLimitations: undefined,
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "attachments",
+  });
+
+  const { toast } = useToast();
+  const { getTranslation } = useLanguage(); 
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const currentFilesCount = form.getValues("attachments")?.length || 0;
     if (currentFilesCount >= 5) {
-      toast({ title: getTranslation(T.fileLimitReached), description: getTranslation(T.fileLimitReachedDesc), variant: "destructive" });
+      toast({ title: getTranslation(T_FORM.fileLimitReached), description: getTranslation(T_FORM.fileLimitReachedDesc), variant: "destructive" });
       if (event.target) event.target.value = ""; 
       return;
     }
@@ -187,14 +186,14 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       
       if (errors.length > 0) {
         toast({
-          title: getTranslation(T.fileUploadIssues),
+          title: getTranslation(T_FORM.fileUploadIssues),
           description: ( <ul className="list-disc pl-5"> {errors.map((e, i) => <li key={i}>{e}</li>)} </ul> ),
           variant: "destructive",
         });
       }
     }
     if (event.target) event.target.value = ""; 
-  }, [append, toast, form, getTranslation, T]);
+  }, [append, toast, form, getTranslation]);
 
   const watchDeptHeadConfident = form.watch("deptHeadConfidentInIndividual");
   const watchWorkedInDept = form.watch("workedInDepartmentLast12Months");
@@ -208,28 +207,28 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <Card className="shadow-lg rounded-lg overflow-hidden">
           <CardHeader className="bg-muted/30">
-            <CardTitle className="text-xl flex items-center gap-2"><Sailboat className="h-6 w-6 text-primary"/>{getTranslation(T.vesselAndOverview)}</CardTitle>
-            <CardDescription>{getTranslation(T.vesselAndOverviewDesc)}</CardDescription>
+            <CardTitle className="text-xl flex items-center gap-2"><Sailboat className="h-6 w-6 text-primary"/>{getTranslation(T_FORM.vesselAndOverview)}</CardTitle>
+            <CardDescription>{getTranslation(T_FORM.vesselAndOverviewDesc)}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.vesselNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T.vesselNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> {getTranslation(T.imoLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T.imoPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T.imoDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="vesselName" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.vesselNameLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.vesselNamePlaceholder)} {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="imoNumber" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"> <Fingerprint className="h-4 w-4 text-muted-foreground" /> {getTranslation(T_FORM.imoLabel)}</FormLabel> <FormControl><Input placeholder={getTranslation(T_FORM.imoPlaceholder)} {...field} /></FormControl> <FormDescription>{getTranslation(T_FORM.imoDescription)}</FormDescription> <FormMessage /> </FormItem> )} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
                 name="department"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{getTranslation(T.departmentLabel)}</FormLabel>
+                    <FormLabel>{getTranslation(T_FORM.departmentLabel)}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                           <SelectValue placeholder={getTranslation(T.departmentPlaceholder)} />
+                           <SelectValue placeholder={getTranslation(T_FORM.departmentPlaceholder)} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectLabel>{getTranslation(T.departments)}</SelectLabel>
+                          <SelectLabel>{getTranslation(T_FORM.departments)}</SelectLabel>
                           {departmentOptions.map(option => (
                             <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
@@ -245,16 +244,16 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                 name="region"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{getTranslation(T.regionLabel)}</FormLabel>
+                    <FormLabel>{getTranslation(T_FORM.regionLabel)}</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                           <SelectValue placeholder={getTranslation(T.regionPlaceholder)} />
+                           <SelectValue placeholder={getTranslation(T_FORM.regionPlaceholder)} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectLabel>{getTranslation(T.regions)}</SelectLabel>
+                          <SelectLabel>{getTranslation(T_FORM.regions)}</SelectLabel>
                           {regionOptions.map(option => (
                             <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
@@ -267,168 +266,168 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <FormField control={form.control} name="patrolStartDate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><CalendarClock className="h-4 w-4 text-muted-foreground" />{getTranslation(T.patrolStartDateLabel)}</FormLabel> <FormControl><Input type="date" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-              <FormField control={form.control} name="patrolEndDate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><CalendarClock className="h-4 w-4 text-muted-foreground" />{getTranslation(T.patrolEndDateLabel)}</FormLabel> <FormControl><Input type="date" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField control={form.control} name="patrolStartDate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><CalendarClock className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.patrolStartDateLabel)}</FormLabel> <FormControl><Input type="date" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+              <FormField control={form.control} name="patrolEndDate" render={({ field }) => ( <FormItem> <FormLabel className="flex items-center gap-1"><CalendarClock className="h-4 w-4 text-muted-foreground" />{getTranslation(T_FORM.patrolEndDateLabel)}</FormLabel> <FormControl><Input type="date" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
             </div>
-            <FormField control={form.control} name="voyageDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.voyageDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.voyageDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="reasonForRequest" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.reasonForRequestLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.reasonForRequestPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="personnelShortages" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.personnelShortagesLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.personnelShortagesPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
-            <FormField control={form.control} name="proposedOperationalDeviations" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.proposedDeviationsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.proposedDeviationsPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="voyageDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.voyageDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.voyageDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="reasonForRequest" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.reasonForRequestLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.reasonForRequestPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="personnelShortages" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.personnelShortagesLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.personnelShortagesPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+            <FormField control={form.control} name="proposedOperationalDeviations" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.proposedDeviationsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.proposedDeviationsPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
           </CardContent>
         </Card>
 
         <Card className="shadow-lg rounded-lg overflow-hidden">
             <CardHeader className="bg-muted/30">
-                <CardTitle className="text-xl flex items-center gap-2"><UserCheck className="h-6 w-6 text-primary" />{getTranslation(T.exemptionAndIndividualAssessment)}</CardTitle>
-                <CardDescription>{getTranslation(T.exemptionAndIndividualAssessmentDesc)}</CardDescription>
+                <CardTitle className="text-xl flex items-center gap-2"><UserCheck className="h-6 w-6 text-primary" />{getTranslation(T_FORM.exemptionAndIndividualAssessment)}</CardTitle>
+                <CardDescription>{getTranslation(T_FORM.exemptionAndIndividualAssessmentDesc)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
                 <FormField control={form.control} name="coDeptHeadSupportExemption" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.coSupportExemptionLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.coSupportExemptionLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="deptHeadConfidentInIndividual" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.deptHeadConfidentLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.deptHeadConfidentLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchDeptHeadConfident === 'Yes' && (
-                    <FormField control={form.control} name="deptHeadConfidenceReason" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.deptHeadConfidenceReasonLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.deptHeadConfidenceReasonPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="deptHeadConfidenceReason" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.deptHeadConfidenceReasonLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.deptHeadConfidenceReasonPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
                 <FormField control={form.control} name="employeeFamiliarizationProvided" render={({ field }) => (
-                     <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.familiarizationProvidedLabel)}</FormLabel>
+                     <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.familiarizationProvidedLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="workedInDepartmentLast12Months" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.workedInDeptLast12MonthsLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.workedInDeptLast12MonthsLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchWorkedInDept === 'Yes' && (
-                     <FormField control={form.control} name="workedInDepartmentDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.workedInDeptDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.workedInDeptDetailsPlaceholder)} {...field} rows={2} /></FormControl> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="workedInDepartmentDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.workedInDeptDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.workedInDeptDetailsPlaceholder)} {...field} rows={2} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
                  <FormField control={form.control} name="similarResponsibilityExperience" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.similarExperienceLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.similarExperienceLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchSimilarExperience === 'Yes' && (
-                     <FormField control={form.control} name="similarResponsibilityDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.similarExperienceDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.similarExperienceDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="similarResponsibilityDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.similarExperienceDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.similarExperienceDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
                 <FormField control={form.control} name="individualHasRequiredSeaService" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.requiredSeaServiceLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.requiredSeaServiceLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                  <FormField control={form.control} name="individualWorkingTowardsCertification" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.workingTowardsCertLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.workingTowardsCertLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchWorkingTowardsCert === 'Yes' && (
-                     <FormField control={form.control} name="certificationProgressSummary" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.certificationProgressSummaryLabel)}</FormLabel> <FormDescription>{getTranslation(T.certificationProgressSummaryDesc)}</FormDescription> <FormControl><Textarea placeholder={getTranslation(T.certificationProgressSummaryPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="certificationProgressSummary" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.certificationProgressSummaryLabel)}</FormLabel> <FormDescription>{getTranslation(T_FORM.certificationProgressSummaryDesc)}</FormDescription> <FormControl><Textarea placeholder={getTranslation(T_FORM.certificationProgressSummaryPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
             </CardContent>
         </Card>
 
         <Card className="shadow-lg rounded-lg overflow-hidden">
             <CardHeader className="bg-muted/30">
-                <CardTitle className="text-xl flex items-center gap-2"><AlertCircle className="h-6 w-6 text-primary"/>{getTranslation(T.operationalConsiderations)}</CardTitle>
-                <CardDescription>{getTranslation(T.operationalConsiderationsDesc)}</CardDescription>
+                <CardTitle className="text-xl flex items-center gap-2"><AlertCircle className="h-6 w-6 text-primary"/>{getTranslation(T_FORM.operationalConsiderations)}</CardTitle>
+                <CardDescription>{getTranslation(T_FORM.operationalConsiderationsDesc)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
-                <h3 className="text-lg font-semibold text-foreground border-b pb-2">{getTranslation(T.crewTeamConsiderations)}</h3>
+                <h3 className="text-lg font-semibold text-foreground border-b pb-2">{getTranslation(T_FORM.crewTeamConsiderations)}</h3>
                 <FormField control={form.control} name="requestCausesVacancyElsewhere" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.requestCausesVacancyLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.requestCausesVacancyLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="crewCompositionSufficientForSafety" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.crewCompositionSufficientLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.crewCompositionSufficientLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
-                <FormField control={form.control} name="detailedCrewCompetencyAssessment" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.crewCompetencyAssessmentLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.crewCompetencyAssessmentPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
+                <FormField control={form.control} name="detailedCrewCompetencyAssessment" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.crewCompetencyAssessmentLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.crewCompetencyAssessmentPlaceholder)} {...field} rows={4} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="crewContinuityAsPerProfile" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.crewContinuityProfileLabel)}</FormLabel>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.crewContinuityProfileLabel)}</FormLabel>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchCrewContinuity === 'No' && (
-                    <FormField control={form.control} name="crewContinuityDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.crewContinuityDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T.crewContinuityDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="crewContinuityDetails" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.crewContinuityDetailsLabel)}</FormLabel> <FormControl><Textarea placeholder={getTranslation(T_FORM.crewContinuityDetailsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 )}
 
-                <h3 className="text-lg font-semibold text-foreground border-b pb-2 mt-8">{getTranslation(T.voyageConsiderations)}</h3>
-                <FormField control={form.control} name="specialVoyageConsiderations" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T.specialVoyageConsiderationsLabel)}</FormLabel><FormDescription>{getTranslation(T.specialVoyageConsiderationsDesc)}</FormDescription> <FormControl><Textarea placeholder={getTranslation(T.specialVoyageConsiderationsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
+                <h3 className="text-lg font-semibold text-foreground border-b pb-2 mt-8">{getTranslation(T_FORM.voyageConsiderations)}</h3>
+                <FormField control={form.control} name="specialVoyageConsiderations" render={({ field }) => ( <FormItem> <FormLabel>{getTranslation(T_FORM.specialVoyageConsiderationsLabel)}</FormLabel><FormDescription>{getTranslation(T_FORM.specialVoyageConsiderationsDesc)}</FormDescription> <FormControl><Textarea placeholder={getTranslation(T_FORM.specialVoyageConsiderationsPlaceholder)} {...field} rows={3} /></FormControl> <FormMessage /> </FormItem> )} />
                 <FormField control={form.control} name="reductionInVesselProgramRequirements" render={({ field }) => (
-                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.programReductionLabel)}</FormLabel><FormDescription>{getTranslation(T.programReductionDesc)}</FormDescription>
+                    <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.programReductionLabel)}</FormLabel><FormDescription>{getTranslation(T_FORM.programReductionDesc)}</FormDescription>
                         <FormControl>
                             <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                             </RadioGroup>
                         </FormControl> <FormMessage />
                     </FormItem>
                 )} />
                 {watchProgramReduction === 'Yes' && (
                     <FormField control={form.control} name="rocNotificationOfLimitations" render={({ field }) => (
-                        <FormItem className="space-y-3"> <FormLabel>{getTranslation(T.rocNotificationLabel)}</FormLabel>
+                        <FormItem className="space-y-3"> <FormLabel>{getTranslation(T_FORM.rocNotificationLabel)}</FormLabel>
                             <FormControl>
                                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T.yes)}</FormLabel> </FormItem>
-                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T.no)}</FormLabel> </FormItem>
+                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="Yes" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.yes)}</FormLabel> </FormItem>
+                                    <FormItem className="flex items-center space-x-2"> <FormControl><RadioGroupItem value="No" /></FormControl><FormLabel className="font-normal">{getTranslation(T_FORM.no)}</FormLabel> </FormItem>
                                 </RadioGroup>
                             </FormControl> <FormMessage />
                         </FormItem>
@@ -439,8 +438,8 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
 
         <Card className="shadow-lg rounded-lg overflow-hidden">
           <CardHeader className="bg-muted/30">
-            <CardTitle className="text-xl flex items-center gap-2"><UploadCloud className="h-6 w-6 text-primary"/>{getTranslation(T.supportingDocuments)}</CardTitle>
-            <CardDescription>{getTranslation(T.supportingDocumentsDesc)}</CardDescription>
+            <CardTitle className="text-xl flex items-center gap-2"><UploadCloud className="h-6 w-6 text-primary"/>{getTranslation(T_FORM.supportingDocuments)}</CardTitle>
+            <CardDescription>{getTranslation(T_FORM.supportingDocumentsDesc)}</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <FormField
@@ -452,11 +451,11 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                        <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
                         <label htmlFor="file-upload" className="cursor-pointer flex items-center justify-center gap-2">
-                          <UploadCloud className="h-4 w-4" /> {getTranslation(T.selectFiles)}
+                          <UploadCloud className="h-4 w-4" /> {getTranslation(T_FORM.selectFiles)}
                         </label>
                       </Button>
                       <Input id="file-upload" type="file" multiple onChange={handleFileChange} className="hidden" accept={ALLOWED_FILE_TYPES.join(",")} />
-                      <span className="text-sm text-muted-foreground">{getTranslation(T.filesSelected).replace('{count}', String(fields.length))}</span>
+                      <span className="text-sm text-muted-foreground">{getTranslation(T_FORM.filesSelected).replace('{count}', String(fields.length))}</span>
                     </div>
                   </FormControl>
                   <FormMessage /> 
@@ -466,7 +465,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
             
             {fields.length > 0 && (
               <div className="mt-6 space-y-3">
-                <h4 className="text-md font-medium">{getTranslation(T.selectedFiles)}</h4>
+                <h4 className="text-md font-medium">{getTranslation(T_FORM.selectedFiles)}</h4>
                 <ul className="divide-y divide-border rounded-md border bg-background/50">
                   {fields.map((item, index) => (
                     <li key={item.id} className="flex items-center justify-between p-3 hover:bg-muted/20">
@@ -477,7 +476,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                           {item.size && <span className="text-xs text-muted-foreground">({(item.size / 1024).toFixed(1)} KB) - {item.type}</span>}
                         </div>
                       </div>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={getTranslation(T.removeFile).replace('{fileName}', item.name)}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={getTranslation(T_FORM.removeFile).replace('{fileName}', item.name)}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </li>
@@ -489,7 +488,7 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
                 <Alert className="mt-6 border-dashed bg-background/50">
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                    {getTranslation(T.noFilesAttached)}
+                    {getTranslation(T_FORM.noFilesAttached)}
                     </AlertDescription>
                 </Alert>
             )}
@@ -498,10 +497,10 @@ export default function RiskAssessmentForm({ onSubmit, initialData, isLoading = 
         
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isLoading}>
-                {getTranslation(T.resetForm)}
+                {getTranslation(T_FORM.resetForm)}
             </Button>
             <Button type="submit" disabled={isLoading || (!form.formState.isDirty && !initialData)}>
-                {isLoading ? getTranslation(T.processing) : (initialData ? getTranslation(T.updateAssessment) : getTranslation(T.submitAssessment))}
+                {isLoading ? getTranslation(T_FORM.processing) : (initialData ? getTranslation(T_FORM.updateAssessment) : getTranslation(T_FORM.submitAssessment))}
             </Button>
         </div>
       </form>

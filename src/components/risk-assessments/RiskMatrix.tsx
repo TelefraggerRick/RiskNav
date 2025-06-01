@@ -5,7 +5,7 @@ import React from 'react';
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ShieldAlert, ShieldCheck, ShieldQuestion, AlertTriangle } from 'lucide-react'; // Replaced ShieldWarning with AlertTriangle
+import { ShieldAlert, ShieldCheck, ShieldQuestion, AlertTriangle } from 'lucide-react'; 
 import { useLanguage } from '@/contexts/LanguageContext';
 
 
@@ -30,10 +30,6 @@ const consequenceLabels: Record<string, { en: string; fr: string }> = {
   5: { en: "Catastrophic", fr: "Catastrophique" },
 };
 
-// Define risk levels based on L x C. This is a common 5x5 matrix setup.
-// Key: "Likelihood-Consequence"
-// Value: { level: "Low" | "Medium" | "High" | "Extreme", color: "bg-green-500", textColor: "text-white", label: "L", fr_label: "F" }
-// Example: 3-2 means Likelihood=3 (Possible), Consequence=2 (Minor)
 const riskLevelMap: Record<string, { level: string; fr_level: string; color: string; textColor: string; icon?: React.ElementType }> = {
   // Likelihood 5 (Almost Certain)
   "5-1": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-500", textColor: "text-yellow-900", icon: AlertTriangle },
@@ -67,19 +63,18 @@ const riskLevelMap: Record<string, { level: string; fr_level: string; color: str
   "1-5": { level: "Medium", fr_level: "Moyen", color: "bg-yellow-400", textColor: "text-yellow-900", icon: AlertTriangle },
 };
 
+const T_MATRIX = {
+  title: { en: "AI-Generated Risk Matrix (ISO 31000)", fr: "Matrice de risque générée par IA (ISO 31000)" },
+  likelihood: { en: "Likelihood", fr: "Probabilité" },
+  consequence: { en: "Consequence", fr: "Conséquence" },
+  currentRisk: { en: "Current Assessed Risk", fr: "Risque évalué actuel" },
+  notAvailable: { en: "Risk matrix data not available.", fr: "Données de la matrice de risque non disponibles." },
+  riskLevel: { en: "Risk Level", fr: "Niveau de risque" },
+};
 
-const RiskMatrix: React.FC<RiskMatrixProps> = ({ likelihoodScore, consequenceScore }) => {
+const RiskMatrix: React.FC<RiskMatrixProps> = React.memo(({ likelihoodScore, consequenceScore }) => {
   const { getTranslation, currentLanguage } = useLanguage();
   
-  const T_MATRIX = {
-    title: { en: "AI-Generated Risk Matrix (ISO 31000)", fr: "Matrice de risque générée par IA (ISO 31000)" },
-    likelihood: { en: "Likelihood", fr: "Probabilité" },
-    consequence: { en: "Consequence", fr: "Conséquence" },
-    currentRisk: { en: "Current Assessed Risk", fr: "Risque évalué actuel" },
-    notAvailable: { en: "Risk matrix data not available.", fr: "Données de la matrice de risque non disponibles." },
-    riskLevel: { en: "Risk Level", fr: "Niveau de risque" },
-  };
-
   const likelihoodAxis = [5, 4, 3, 2, 1]; // Almost Certain to Rare
   const consequenceAxis = [1, 2, 3, 4, 5]; // Insignificant to Catastrophic
 
@@ -203,7 +198,7 @@ const RiskMatrix: React.FC<RiskMatrixProps> = ({ likelihoodScore, consequenceSco
       </CardContent>
     </Card>
   );
-};
+});
 
+RiskMatrix.displayName = 'RiskMatrix';
 export default RiskMatrix;
-
