@@ -11,7 +11,7 @@ import type { RiskAssessment } from '@/lib/types';
 // import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ArrowLeft, CalendarDays, Info, List, Loader2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Info, List, Loader2, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,9 @@ const T_CALENDAR_PAGE = {
   loadingAssessments: { en: "Loading assessments...", fr: "Chargement des évaluations..." },
   errorLoadingAssessments: { en: "Error loading assessments", fr: "Erreur lors du chargement des évaluations"},
   errorLoadingAssessmentsDesc: { en: "Could not fetch risk assessments for the calendar.", fr: "Impossible de récupérer les évaluations de risques pour le calendrier."},
+  noAssessmentsInSystemTitle: { en: "No Assessments in System", fr: "Aucune évaluation dans le système" },
+  noAssessmentsInSystemDesc: { en: "There are currently no risk assessments logged. Get started by creating one.", fr: "Aucune évaluation des risques n'est actuellement enregistrée. Commencez par en créer une." },
+  createNewAssessment: { en: "Create New Assessment", fr: "Créer une nouvelle évaluation" },
 };
 
 // getAllAssessments from localStorage is no longer needed
@@ -59,7 +62,7 @@ export default function AssessmentCalendarPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [getTranslation, toast, T_CALENDAR_PAGE.errorLoadingAssessments, T_CALENDAR_PAGE.errorLoadingAssessmentsDesc]); // Added T dependencies for toast
+  }, [getTranslation, toast]); 
 
   useEffect(() => {
     loadAssessments();
@@ -155,6 +158,30 @@ export default function AssessmentCalendarPage() {
     );
   }
 
+  if (!isLoading && assessments.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-300px)] gap-6 text-center">
+        <CalendarDays className="h-20 w-20 text-muted-foreground/50" />
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold">{getTranslation(T_CALENDAR_PAGE.noAssessmentsInSystemTitle)}</h2>
+          <p className="text-muted-foreground max-w-md">
+            {getTranslation(T_CALENDAR_PAGE.noAssessmentsInSystemDesc)}
+          </p>
+        </div>
+        <Button asChild size="lg">
+          <Link href="/assessments/new">
+            <PlusCircle className="mr-2 h-5 w-5" />
+            {getTranslation(T_CALENDAR_PAGE.createNewAssessment)}
+          </Link>
+        </Button>
+         <Button variant="outline" onClick={() => router.push('/')} className="mt-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {getTranslation(T_CALENDAR_PAGE.backToDashboard)}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -233,3 +260,4 @@ export default function AssessmentCalendarPage() {
     </div>
   );
 }
+

@@ -7,7 +7,7 @@ import type { RiskAssessment, VesselRegion, VesselDepartment, RiskAssessmentStat
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext'; 
@@ -58,6 +58,9 @@ const T_STATISTICS_PAGE = {
   loadingStatistics: { en: "Loading statistics...", fr: "Chargement des statistiques..." },
   errorLoadingStats: { en: "Error Loading Statistics", fr: "Erreur de chargement des statistiques"},
   errorLoadingStatsDesc: { en: "Could not fetch data for statistics.", fr: "Impossible de récupérer les données pour les statistiques."},
+  noDataForStatisticsTitle: { en: "No Data for Statistics", fr: "Aucune donnée pour les statistiques" },
+  noDataForStatisticsDesc: { en: "There are no risk assessments in the system to generate statistics. Please create some assessments first.", fr: "Aucune évaluation des risques dans le système pour générer des statistiques. Veuillez d'abord créer des évaluations." },
+  createNewAssessment: { en: "Create New Assessment", fr: "Créer une nouvelle évaluation" },
 };
 
 
@@ -255,6 +258,32 @@ export default function StatisticsPage() {
     );
   }
 
+  if (!isLoading && totalAssessmentsCount === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-300px)] gap-6 text-center">
+        <BarChart3 className="h-20 w-20 text-muted-foreground/50" />
+         <div className="space-y-2">
+            <h2 className="text-2xl font-semibold">{getTranslation(T_STATISTICS_PAGE.noDataForStatisticsTitle)}</h2>
+            <p className="text-muted-foreground max-w-md">
+                {getTranslation(T_STATISTICS_PAGE.noDataForStatisticsDesc)}
+            </p>
+        </div>
+        <Button asChild size="lg">
+          <Link href="/assessments/new">
+            <PlusCircle className="mr-2 h-5 w-5" />
+            {getTranslation(T_STATISTICS_PAGE.createNewAssessment)}
+          </Link>
+        </Button>
+         <Button variant="outline" asChild className="mt-4">
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            {getTranslation(T_STATISTICS_PAGE.backToDashboard)}
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex items-center justify-between">
@@ -328,3 +357,4 @@ export default function StatisticsPage() {
     </div>
   );
 }
+
