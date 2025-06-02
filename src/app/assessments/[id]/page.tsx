@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2, Lock
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit as EditIcon, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2, Lock
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import Link from 'next/link';
@@ -29,6 +29,7 @@ const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight',
 
 const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
+  editAssessment: { en: "Edit Assessment", fr: "Modifier l'évaluation" },
   imo: { en: "IMO", fr: "IMO" },
   maritimeExemptionNumber: { en: "Maritime Exemption #", fr: "N° d'exemption maritime" },
   lastModified: { en: "Last Modified", fr: "Dernière modification" },
@@ -129,16 +130,15 @@ const T_DETAILS_PAGE = {
 
 const handleDownloadAttachment = (attachment: Attachment) => {
   if (attachment.url && attachment.url !== '#') {
-    // For Firebase Storage URLs or any direct link, trigger a download
     if (attachment.url.startsWith('https://firebasestorage.googleapis.com') || attachment.url.startsWith('http')) {
         const link = document.createElement('a');
         link.href = attachment.url;
-        link.target = '_blank'; // Open in a new tab for direct view, or browser handles download
-        link.download = attachment.name; // Suggests a filename if browser opts to download
+        link.target = '_blank'; 
+        link.download = attachment.name; 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    } else if (attachment.url.startsWith('data:')) { // Handle data URIs (if any remain from mock/previous)
+    } else if (attachment.url.startsWith('data:')) { 
         const link = document.createElement('a');
         link.href = attachment.url;
         link.download = attachment.name;
@@ -146,7 +146,6 @@ const handleDownloadAttachment = (attachment: Attachment) => {
         link.click();
         document.body.removeChild(link);
     } else {
-      // Fallback for other non-standard URLs or placeholders
       alert(`Download link for ${attachment.name} is not a standard web URL or data URI.`);
     }
   } else {
@@ -367,6 +366,11 @@ export default function AssessmentDetailPage() {
     }
   }, [assessment, currentLevelToAct, currentUser, currentDecision, toast, getTranslation]);
 
+  const canEdit = useMemo(() => {
+    if (!assessment || !currentUser || currentUser.id === 'user-unauth') return false;
+    return currentUser.role === 'Admin' || currentUser.name === assessment.submittedBy;
+  }, [assessment, currentUser]);
+
 
   if (isLoading) {
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
@@ -387,7 +391,7 @@ export default function AssessmentDetailPage() {
   }
   
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
-    'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300', progressClass: '[&>div]:bg-gray-500' },
+    'Draft': { icon: EditIcon, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300', progressClass: '[&>div]:bg-gray-500' },
     'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400', progressClass: '[&>div]:bg-yellow-500' },
     'Pending Senior Director': { icon: UserCheckLucideIcon, badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-400', progressClass: '[&>div]:bg-cyan-500' },
     'Pending Director General': { icon: UserCircleIcon, badgeClass: 'bg-purple-100 text-purple-800 border border-purple-400', progressClass: '[&>div]:bg-purple-500' },
@@ -446,6 +450,13 @@ export default function AssessmentDetailPage() {
         <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.backToDashboard)}
         </Button>
+        {canEdit && (
+           <Button variant="secondary" size="sm" asChild>
+             <Link href={`/assessments/${assessment.id}/edit`}>
+               <EditIcon className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.editAssessment)}
+             </Link>
+           </Button>
+         )}
       </div>
 
       <Card className="shadow-lg rounded-lg overflow-hidden">
@@ -752,3 +763,5 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+
+    
