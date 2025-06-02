@@ -11,9 +11,10 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, ApprovalStep } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
-// mockRiskAssessments and localStorage logic removed
 import { useLanguage } from '@/contexts/LanguageContext';
-import { addAssessmentToDB } from '@/lib/firestoreService'; // Import Firestore service
+import { addAssessmentToDB, uploadFileToStorage } from '@/lib/firestoreService'; // Import Firestore service and uploadFileToStorage
+import { doc, collection } from 'firebase/firestore'; // For generating a client-side unique ID for path
+import { db } from '@/lib/firebase'; // Import db for client-side ID generation
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
@@ -31,6 +32,8 @@ export default function NewAssessmentPage() {
     submitSuccessDesc: { en: "Risk assessment for {vesselName} has been submitted. You will be redirected to the dashboard.", fr: "L'évaluation des risques pour {vesselName} a été soumise. Vous allez être redirigé vers le tableau de bord." },
     submitErrorTitle: { en: "Submission Failed", fr: "Échec de la soumission"},
     submitErrorDesc: { en: "Could not submit the risk assessment. Please try again.", fr: "Impossible de soumettre l'évaluation des risques. Veuillez réessayer."},
+    fileUploadErrorTitle: { en: "File Upload Failed", fr: "Échec du téléversement de fichier" },
+    fileUploadErrorDesc: { en: "Could not upload attachment: {fileName}. Please try again.", fr: "Impossible de téléverser la pièce jointe : {fileName}. Veuillez réessayer."}
   };
 
   const calculatePatrolLengthDays = (startDateStr?: string, endDateStr?: string): number | undefined => {
@@ -41,7 +44,7 @@ export default function NewAssessmentPage() {
         if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime()) && endDate >= startDate) {
           const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays === 0 ? 1 : diffDays; // Minimum 1 day if start and end are same
+          return diffDays === 0 ? 1 : diffDays;
         }
       } catch (e) {
         console.error("Error parsing patrol dates:", e);
@@ -61,19 +64,52 @@ export default function NewAssessmentPage() {
     try {
       const now = new Date();
       const referenceNumber = `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
+      // Generate a temporary client-side unique ID for constructing storage paths
+      // This ID is NOT the final Firestore document ID.
+      const tempAssessmentIdForStoragePath = doc(collection(db, '_temp')).id;
 
-      // Prepare attachments for Firestore service, keeping File object for potential upload logic later (service strips it for DB)
-      const newAttachmentsForDB: Array<Partial<AttachmentType> & { file?: File }> = (data.attachments || []).map(att => ({
-        name: att.file?.name || att.name || "unknown_file",
-        url: att.url || '#', // Placeholder URL - actual upload would generate this
-        type: att.file?.type || att.type || "unknown",
-        size: att.file?.size || att.size || 0,
-        uploadedAt: now.toISOString(), // Client-side timestamp for now, service converts to Firestore.Timestamp
-        file: att.file, // Pass the file, service function will handle not storing it.
-        dataAiHint: att.dataAiHint,
-      }));
 
-      const assessmentDataForDB: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified'> & { attachments?: Array<Partial<AttachmentType> & { file?: File }> } = {
+      const processedAttachments: AttachmentType[] = [];
+      if (data.attachments && data.attachments.length > 0) {
+        for (const att of data.attachments) {
+          if (att.file && att.name) { // Ensure file and name exist
+            try {
+              const storagePath = `riskAssessments/attachments/${tempAssessmentIdForStoragePath}/${att.file.name}`;
+              const downloadURL = await uploadFileToStorage(att.file, storagePath);
+              processedAttachments.push({
+                id: doc(collection(db, '_temp')).id, // client-side unique ID for attachment
+                name: att.file.name,
+                url: downloadURL,
+                type: att.file.type,
+                size: att.file.size,
+                uploadedAt: now.toISOString(),
+                dataAiHint: att.dataAiHint,
+              });
+            } catch (uploadError) {
+              console.error(`Error uploading attachment ${att.name}:`, uploadError);
+              toast({
+                title: getTranslation(T.fileUploadErrorTitle),
+                description: getTranslation(T.fileUploadErrorDesc).replace('{fileName}', att.name),
+                variant: "destructive",
+              });
+              setIsLoading(false);
+              return; // Stop submission if a file upload fails
+            }
+          } else if (att.url && att.id) { // Handle pre-existing attachments (though less likely for a new form)
+             processedAttachments.push({
+                id: att.id,
+                name: att.name || "unknown_file",
+                url: att.url,
+                type: att.type || "unknown",
+                size: att.size || 0,
+                uploadedAt: att.uploadedAt || now.toISOString(),
+                dataAiHint: att.dataAiHint,
+            });
+          }
+        }
+      }
+
+      const assessmentDataForDB: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified'> = {
         referenceNumber,
         maritimeExemptionNumber: data.maritimeExemptionNumber || undefined,
         vesselName: data.vesselName,
@@ -88,11 +124,10 @@ export default function NewAssessmentPage() {
         personnelShortages: data.personnelShortages,
         proposedOperationalDeviations: data.proposedOperationalDeviations,
         submittedBy: currentUser.name,
-        status: 'Pending Crewing Standards and Oversight', // Initial status
-        attachments: newAttachmentsForDB,
-        approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)), // Initial approval steps
+        status: 'Pending Crewing Standards and Oversight',
+        attachments: processedAttachments, // Use processed attachments with Firebase Storage URLs
+        approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)),
         
-        // Exemption & Individual Assessment Data
         employeeName: data.employeeName || undefined,
         certificateHeld: data.certificateHeld || undefined,
         requiredCertificate: data.requiredCertificate || undefined,
@@ -108,7 +143,6 @@ export default function NewAssessmentPage() {
         individualWorkingTowardsCertification: data.individualWorkingTowardsCertification,
         certificationProgressSummary: data.certificationProgressSummary || undefined,
         
-        // Operational Considerations
         requestCausesVacancyElsewhere: data.requestCausesVacancyElsewhere,
         crewCompositionSufficientForSafety: data.crewCompositionSufficientForSafety,
         detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment || undefined,
@@ -118,7 +152,6 @@ export default function NewAssessmentPage() {
         reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
 
-        // AI fields will be undefined initially
         aiRiskScore: undefined,
         aiGeneratedSummary: undefined,
         aiSuggestedMitigations: undefined,
@@ -126,9 +159,6 @@ export default function NewAssessmentPage() {
         aiLikelihoodScore: undefined,
         aiConsequenceScore: undefined,
       };
-
-      // Simulate async operation for UX if addAssessmentToDB is very fast
-      // await new Promise(resolve => setTimeout(resolve, 500)); 
       
       const newDocId = await addAssessmentToDB(assessmentDataForDB);
       console.log("New assessment added with ID:", newDocId);
@@ -168,4 +198,3 @@ export default function NewAssessmentPage() {
     </div>
   );
 }
-

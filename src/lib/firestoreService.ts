@@ -13,15 +13,12 @@ import {
   Timestamp,
   query,
   orderBy,
-  // where,
-  // writeBatch,
-  // deleteDoc,
-  // QuerySnapshot,
   DocumentData,
   DocumentSnapshot,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase'; // Import storage
 import type { RiskAssessment, Attachment, ApprovalStep } from '@/lib/types';
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase Storage imports
 
 // Helper to convert Firestore Timestamps to ISO strings recursively
 const convertTimestampsToISO = (data: any): any => {
@@ -78,11 +75,10 @@ export const getAssessmentByIdFromDB = async (id: string): Promise<RiskAssessmen
   }
 };
 
-// Helper to prepare data for Firestore: convert date strings/objects to Timestamps, remove File objects
+// Helper to prepare data for Firestore: convert date strings/objects to Timestamps
 const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): DocumentData => {
   const firestoreData: DocumentData = { ...data };
 
-  // Convert relevant date strings to Timestamps if they are strings
   const dateFieldsToConvert: (keyof RiskAssessment)[] = [
     'submissionDate', 'lastModified', 'patrolStartDate', 'patrolEndDate'
   ];
@@ -96,14 +92,13 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
   
   if (firestoreData.attachments) {
     firestoreData.attachments = firestoreData.attachments.map((att: Partial<Attachment>) => {
-      const { file, ...restOfAtt } = att; // Remove File object if present
-      const attachmentData: Partial<Attachment> = { ...restOfAtt };
+      const attachmentData: Partial<Attachment> = { ...att };
       if (att.uploadedAt && typeof att.uploadedAt === 'string') {
         attachmentData.uploadedAt = Timestamp.fromDate(new Date(att.uploadedAt)) as any;
       } else if (att.uploadedAt instanceof Date) {
         attachmentData.uploadedAt = Timestamp.fromDate(att.uploadedAt) as any;
       }
-      delete attachmentData.file; // Ensure file property is not included
+      delete attachmentData.file; // Ensure file property is not included when saving to Firestore
       return attachmentData;
     });
   }
@@ -120,25 +115,23 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
     });
   }
   
-  // Remove top-level 'file' property if it exists by mistake (e.g. from form data)
   delete firestoreData.file; 
   
   return firestoreData;
 };
 
 export const addAssessmentToDB = async (
-  assessmentData: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified'> & { attachments?: Array<Partial<Attachment> & { file?: File }> }
+  assessmentData: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified'>
 ): Promise<string> => {
   try {
-    // Remove 'id', 'submissionDate', 'lastModified' as they will be set by Firestore or serverTimestamp
     const { id, submissionDate, lastModified, ...dataForFirestore } = assessmentData;
     
     const preparedData = prepareAssessmentDataForFirestore(dataForFirestore as Partial<RiskAssessment>);
 
     const docRef = await addDoc(collection(db, 'riskAssessments'), {
       ...preparedData,
-      submissionDate: serverTimestamp(), // Firestore server-side timestamp
-      lastModified: serverTimestamp(),   // Firestore server-side timestamp
+      submissionDate: serverTimestamp(),
+      lastModified: serverTimestamp(),
     });
     return docRef.id;
   } catch (error) {
@@ -153,17 +146,51 @@ export const updateAssessmentInDB = async (
 ): Promise<void> => {
   try {
     const assessmentDocRef = doc(db, 'riskAssessments', id);
-    // Remove fields that should not be directly updated or are handled by serverTimestamp
     const { submissionDate, ...updatesForFirestore } = updates;
     
     const preparedUpdates = prepareAssessmentDataForFirestore(updatesForFirestore);
     
     await updateDoc(assessmentDocRef, {
       ...preparedUpdates,
-      lastModified: serverTimestamp(), // Update lastModified with server-side timestamp
+      lastModified: serverTimestamp(),
     });
   } catch (error) {
     console.error(`Error updating assessment ${id}: `, error);
     throw error;
   }
+};
+
+/**
+ * Uploads a file to Firebase Storage and returns its download URL.
+ * @param file The file to upload.
+ * @param storagePath The path in Firebase Storage where the file should be stored (e.g., 'riskAssessments/attachments/some-id/filename.pdf').
+ * @returns A promise that resolves with the download URL of the uploaded file.
+ */
+export const uploadFileToStorage = async (file: File, storagePath: string): Promise<string> => {
+  const storageRef = ref(storage, storagePath);
+  const uploadTask = uploadBytesResumable(storageRef, file);
+
+  return new Promise((resolve, reject) => {
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        // Optional: handle progress
+        // const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        // console.log('Upload is ' + progress + '% done');
+      },
+      (error) => {
+        console.error("Upload failed:", error);
+        reject(error);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve(downloadURL);
+        } catch (error) {
+          console.error("Failed to get download URL:", error);
+          reject(error);
+        }
+      }
+    );
+  });
 };

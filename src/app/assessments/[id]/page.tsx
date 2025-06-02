@@ -4,7 +4,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,9 +23,8 @@ import { useUser } from '@/contexts/UserContext';
 import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService'; // Firestore service
+import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService';
 
-// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 const T_DETAILS_PAGE = {
@@ -130,10 +128,17 @@ const T_DETAILS_PAGE = {
 };
 
 const handleDownloadAttachment = (attachment: Attachment) => {
-  // In a real app, this would trigger a download from a server or cloud storage.
-  // For mock data / placeholder URLs, we'll just simulate with an alert or log.
   if (attachment.url && attachment.url !== '#') {
-    if (attachment.url.startsWith('data:') || attachment.url.startsWith('http')) {
+    // For Firebase Storage URLs or any direct link, trigger a download
+    if (attachment.url.startsWith('https://firebasestorage.googleapis.com') || attachment.url.startsWith('http')) {
+        const link = document.createElement('a');
+        link.href = attachment.url;
+        link.target = '_blank'; // Open in a new tab for direct view, or browser handles download
+        link.download = attachment.name; // Suggests a filename if browser opts to download
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } else if (attachment.url.startsWith('data:')) { // Handle data URIs (if any remain from mock/previous)
         const link = document.createElement('a');
         link.href = attachment.url;
         link.download = attachment.name;
@@ -141,7 +146,8 @@ const handleDownloadAttachment = (attachment: Attachment) => {
         link.click();
         document.body.removeChild(link);
     } else {
-      alert(`Simulating download for: ${attachment.name}\nURL (mock): ${attachment.url}`);
+      // Fallback for other non-standard URLs or placeholders
+      alert(`Download link for ${attachment.name} is not a standard web URL or data URI.`);
     }
   } else {
     alert(`Download link for ${attachment.name} is not available.`);
@@ -233,7 +239,7 @@ export default function AssessmentDetailPage() {
     } catch (error: any) {
       console.error("AI Summary Error:", error);
       let description = getTranslation(T_DETAILS_PAGE.failedToGenerateSummary);
-      if (error && error.message && error.message.toLowerCase().includes('503')) {
+      if (error && error.message && (error.message.toLowerCase().includes('503') || error.message.toLowerCase().includes('service unavailable'))) {
         description += ` ${getTranslation(T_DETAILS_PAGE.aiServiceOverloaded)}`;
       }
       toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description, variant: "destructive" });
@@ -266,7 +272,7 @@ export default function AssessmentDetailPage() {
     } catch (error: any) {
       console.error("AI Risk Score Error:", error);
       let description = getTranslation(T_DETAILS_PAGE.failedToGenerateRiskScore);
-      if (error && error.message && error.message.toLowerCase().includes('503')) {
+       if (error && error.message && (error.message.toLowerCase().includes('503') || error.message.toLowerCase().includes('service unavailable'))) {
         description += ` ${getTranslation(T_DETAILS_PAGE.aiServiceOverloaded)}`;
       }
       toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description, variant: "destructive" });
@@ -346,7 +352,7 @@ export default function AssessmentDetailPage() {
 
     try {
         await updateAssessmentInDB(assessment.id, updates);
-        setAssessment(prev => prev ? {...prev, ...updates } : null); // Optimistic update
+        setAssessment(prev => prev ? {...prev, ...updates } : null); 
         toast({
             title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
             description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
@@ -430,7 +436,7 @@ export default function AssessmentDetailPage() {
         return format(parsedDate, formatTemplate);
       }
     } catch (e) { /* fall through */ }
-    return dateStr; // fallback to original string if parsing fails
+    return dateStr; 
   };
 
 
@@ -746,7 +752,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-
-    
-
-    
