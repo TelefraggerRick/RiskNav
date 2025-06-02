@@ -111,7 +111,7 @@ export default function DashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast, getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]);
+  }, [toast, getTranslation]); // Corrected dependencies
 
   useEffect(() => {
     loadAssessments();
