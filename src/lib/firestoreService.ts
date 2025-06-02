@@ -75,7 +75,7 @@ export const getAssessmentByIdFromDB = async (id: string): Promise<RiskAssessmen
   }
 };
 
-// Helper to prepare data for Firestore: convert date strings/objects to Timestamps
+// Helper to prepare data for Firestore: convert date strings/objects to Timestamps and remove undefined
 const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): DocumentData => {
   const firestoreData: DocumentData = { ...data };
 
@@ -117,6 +117,13 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
   
   delete firestoreData.file; 
   
+  // Remove top-level undefined properties AFTER all conversions
+  Object.keys(firestoreData).forEach(key => {
+    if (firestoreData[key] === undefined) {
+      delete firestoreData[key];
+    }
+  });
+
   return firestoreData;
 };
 

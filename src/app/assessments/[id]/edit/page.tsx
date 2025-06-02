@@ -173,8 +173,8 @@ export default function EditAssessmentPage() {
       
       const fieldsToUpdateFromForm: Partial<RiskAssessment> = {
         vesselName: data.vesselName,
-        imoNumber: data.imoNumber || undefined,
-        maritimeExemptionNumber: data.maritimeExemptionNumber || undefined,
+        imoNumber: data.imoNumber, // Keep empty string if provided, or undefined if not
+        maritimeExemptionNumber: data.maritimeExemptionNumber, // Keep empty string if provided, or undefined if not
         department: data.department,
         region: data.region,
         patrolStartDate: data.patrolStartDate || undefined,
@@ -185,26 +185,26 @@ export default function EditAssessmentPage() {
         proposedOperationalDeviations: data.proposedOperationalDeviations,
         attachments: processedAttachments,
         patrolLengthDays: calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate),
-        employeeName: data.employeeName || undefined,
-        certificateHeld: data.certificateHeld || undefined,
-        requiredCertificate: data.requiredCertificate || undefined,
+        employeeName: data.employeeName, // Keep empty string if provided, or undefined if not
+        certificateHeld: data.certificateHeld, // Keep empty string if provided, or undefined if not
+        requiredCertificate: data.requiredCertificate, // Keep empty string if provided, or undefined if not
         coDeptHeadSupportExemption: data.coDeptHeadSupportExemption,
         deptHeadConfidentInIndividual: data.deptHeadConfidentInIndividual,
-        deptHeadConfidenceReason: data.deptHeadConfidenceReason || undefined,
+        deptHeadConfidenceReason: data.deptHeadConfidenceReason, // Keep empty string if provided, or undefined if not
         employeeFamiliarizationProvided: data.employeeFamiliarizationProvided,
         workedInDepartmentLast12Months: data.workedInDepartmentLast12Months,
-        workedInDepartmentDetails: data.workedInDepartmentDetails || undefined,
+        workedInDepartmentDetails: data.workedInDepartmentDetails, // Keep empty string if provided, or undefined if not
         similarResponsibilityExperience: data.similarResponsibilityExperience,
-        similarResponsibilityDetails: data.similarResponsibilityDetails || undefined,
+        similarResponsibilityDetails: data.similarResponsibilityDetails, // Keep empty string if provided, or undefined if not
         individualHasRequiredSeaService: data.individualHasRequiredSeaService,
         individualWorkingTowardsCertification: data.individualWorkingTowardsCertification,
-        certificationProgressSummary: data.certificationProgressSummary || undefined,
+        certificationProgressSummary: data.certificationProgressSummary, // Keep empty string if provided, or undefined if not
         requestCausesVacancyElsewhere: data.requestCausesVacancyElsewhere,
         crewCompositionSufficientForSafety: data.crewCompositionSufficientForSafety,
-        detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment || undefined,
+        detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment, // Keep empty string if provided, or undefined if not
         crewContinuityAsPerProfile: data.crewContinuityAsPerProfile,
-        crewContinuityDetails: data.crewContinuityDetails || undefined,
-        specialVoyageConsiderations: data.specialVoyageConsiderations || undefined,
+        crewContinuityDetails: data.crewContinuityDetails, // Keep empty string if provided, or undefined if not
+        specialVoyageConsiderations: data.specialVoyageConsiderations, // Keep empty string if provided, or undefined if not
         reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
         // lastModified will be handled by updateAssessmentInDB with serverTimestamp
@@ -308,5 +308,3 @@ export default function EditAssessmentPage() {
     </div>
   );
 }
-
-    
