@@ -6,17 +6,17 @@ config(); // Load environment variables from .env
 import { db } from '@/lib/firebase';
 import { collection, doc, setDoc, Timestamp, serverTimestamp, FieldValue } from 'firebase/firestore';
 import { mockRiskAssessments } from '@/lib/mockData';
-import type { RiskAssessment, ApprovalStep, Attachment } from '@/lib/types';
+import type { RiskAssessment, ApprovalStep, Attachment, VesselDepartment, VesselRegion, RiskAssessmentStatus, YesNoOptional, ApprovalDecision, ApprovalLevel } from '@/lib/types';
 
 const ASSESSMENTS_COLLECTION = 'riskAssessments';
 
-function safeCreateTimestamp(dateStringInput: string | Date | undefined | null): Timestamp | null {
+function safeCreateTimestamp(dateStringInput?: string | Date | null): Timestamp | null {
   if (!dateStringInput) {
     return null;
   }
   try {
     const date = typeof dateStringInput === 'string' ? new Date(dateStringInput) : dateStringInput;
-    if (isNaN(date.getTime())) { // Check if date is invalid
+    if (isNaN(date.getTime())) {
       console.warn(`Invalid date input encountered: "${dateStringInput}". Storing as null.`);
       return null;
     }
@@ -29,22 +29,22 @@ function safeCreateTimestamp(dateStringInput: string | Date | undefined | null):
 
 function cleanUndefinedRecursively(obj: any): any {
   if (obj === null || typeof obj !== 'object') {
-    if (obj === undefined) return null; // Convert standalone undefined to null
+    if (obj === undefined) return null;
     return obj;
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => cleanUndefinedRecursively(item));
+    return obj.map(item => cleanUndefinedRecursively(item)).filter(item => item !== undefined); // Filter out undefined after map
   }
 
   const cleanedObj: { [key: string]: any } = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const value = obj[key];
-      if (value === undefined) {
-        cleanedObj[key] = null; // Convert object property undefined to null
-      } else {
+      if (value !== undefined) {
         cleanedObj[key] = cleanUndefinedRecursively(value);
+      } else {
+         cleanedObj[key] = null; // Explicitly set to null if top-level undefined was intended for a key
       }
     }
   }
@@ -58,100 +58,130 @@ async function seedDatabase() {
   let errorCount = 0;
 
   for (const mockAssessment of mockRiskAssessments) {
-    let assessmentData: Partial<RiskAssessment> = JSON.parse(JSON.stringify(mockAssessment)); // Deep copy and remove top-level undefined
-
-    // Convert date strings to Firestore Timestamps or null
-    assessmentData.submissionDate = safeCreateTimestamp(assessmentData.submissionDate as string);
-    assessmentData.lastModified = safeCreateTimestamp(assessmentData.lastModified as string);
-
-    if (assessmentData.approvalSteps) {
-      assessmentData.approvalSteps = assessmentData.approvalSteps.map((step: Partial<ApprovalStep>) => ({
-        ...step,
-        date: step.date ? safeCreateTimestamp(step.date as string) : null,
-      }));
-    }
-
-    if (assessmentData.attachments) {
-      assessmentData.attachments = assessmentData.attachments.map((att: Partial<Attachment>) => {
-        const { file, ...restOfAtt } = att; // Remove client-side 'file' object
-        return {
-          ...restOfAtt,
-          uploadedAt: att.uploadedAt ? safeCreateTimestamp(att.uploadedAt as string) : null,
-        };
-      });
-    }
-    
-    // Ensure numeric timestamps (for client-side sorting) are correctly derived
-    if (assessmentData.submissionDate instanceof Timestamp) {
-      assessmentData.submissionTimestamp = assessmentData.submissionDate.toMillis();
-    } else {
-      assessmentData.submissionTimestamp = 0; 
-    }
-    
-    if (assessmentData.lastModified instanceof Timestamp) {
-      assessmentData.lastModifiedTimestamp = assessmentData.lastModified.toMillis();
-    } else if (mockAssessment.lastModified) { 
-       const originalLastModifiedDate = new Date(mockAssessment.lastModified);
-       if(!isNaN(originalLastModifiedDate.getTime())) {
-          assessmentData.lastModifiedTimestamp = originalLastModifiedDate.getTime();
-       } else {
-          assessmentData.lastModifiedTimestamp = 0;
-       }
-    } else {
-      assessmentData.lastModifiedTimestamp = 0;
-    }
-    
-    const cleanedData = cleanUndefinedRecursively(assessmentData);
-
-    const firestoreData = {
-      ...cleanedData,
-      lastModified: serverTimestamp() as FieldValue, // Ensure lastModified uses serverTimestamp
-      // Ensure submissionDate and approvalStep/attachment dates are Timestamps or null
-      submissionDate: cleanedData.submissionDate instanceof Timestamp ? cleanedData.submissionDate : null,
-      submissionTimestamp: cleanedData.submissionTimestamp, // This is already a number
-      lastModifiedTimestamp: cleanedData.lastModifiedTimestamp, // This is already a number
-      approvalSteps: (cleanedData.approvalSteps || []).map((step: any) => ({
-          ...step,
-          level: step.level || null, // Ensure required fields in sub-objects are not undefined
-          date: step.date instanceof Timestamp ? step.date : null,
-      })),
-       attachments: (cleanedData.attachments || []).map((att: any) => ({
-          ...att,
-          name: att.name || null, // Ensure required fields in sub-objects are not undefined
-          url: att.url || null,
-          type: att.type || null,
-          size: typeof att.size === 'number' ? att.size : null,
-          uploadedAt: att.uploadedAt instanceof Timestamp ? att.uploadedAt : null,
-      })),
-    };
-    
-    const { id, ...dataToSet } = firestoreData;
-
     if (!mockAssessment.id) {
-        console.error(`Mock assessment is missing an ID: ${mockAssessment.referenceNumber}`);
+        console.error(`Mock assessment is missing an ID: ${mockAssessment.referenceNumber || 'Unknown Ref'}. Skipping.`);
         errorCount++;
         continue;
     }
 
+    // Clean the entire mock object first to handle any undefined values at any level
+    const cleanedMock = cleanUndefinedRecursively(JSON.parse(JSON.stringify(mockAssessment)));
+
+    const dataToSet: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified' | 'submissionTimestamp' | 'lastModifiedTimestamp' | 'attachments' | 'approvalSteps'> & {
+        submissionDate: Timestamp | null;
+        lastModified: FieldValue;
+        submissionTimestamp: Timestamp | null;
+        lastModifiedTimestamp: FieldValue;
+        attachments: any[]; // Will be specifically typed attachments
+        approvalSteps: any[]; // Will be specifically typed approval steps
+    } = {
+      // Strings (ensure they are strings or null)
+      referenceNumber: cleanedMock.referenceNumber || null,
+      maritimeExemptionNumber: cleanedMock.maritimeExemptionNumber || null,
+      vesselName: cleanedMock.vesselName || null,
+      imoNumber: cleanedMock.imoNumber || null,
+      voyageDetails: cleanedMock.voyageDetails || null,
+      reasonForRequest: cleanedMock.reasonForRequest || null,
+      personnelShortages: cleanedMock.personnelShortages || null,
+      proposedOperationalDeviations: cleanedMock.proposedOperationalDeviations || null,
+      submittedBy: cleanedMock.submittedBy || null,
+      employeeName: cleanedMock.employeeName || null,
+      certificateHeld: cleanedMock.certificateHeld || null,
+      requiredCertificate: cleanedMock.requiredCertificate || null,
+      deptHeadConfidenceReason: cleanedMock.deptHeadConfidenceReason || null,
+      workedInDepartmentDetails: cleanedMock.workedInDepartmentDetails || null,
+      similarResponsibilityDetails: cleanedMock.similarResponsibilityDetails || null,
+      certificationProgressSummary: cleanedMock.certificationProgressSummary || null,
+      detailedCrewCompetencyAssessment: cleanedMock.detailedCrewCompetencyAssessment || null,
+      crewContinuityDetails: cleanedMock.crewContinuityDetails || null,
+      specialVoyageConsiderations: cleanedMock.specialVoyageConsiderations || null,
+      
+      // Enums (ensure they are valid enum values or null)
+      department: cleanedMock.department as VesselDepartment || null,
+      region: cleanedMock.region as VesselRegion || null,
+      status: cleanedMock.status as RiskAssessmentStatus || null,
+
+      // Optional Numbers (ensure they are numbers or null)
+      patrolLengthDays: typeof cleanedMock.patrolLengthDays === 'number' ? cleanedMock.patrolLengthDays : null,
+      aiRiskScore: typeof cleanedMock.aiRiskScore === 'number' ? cleanedMock.aiRiskScore : null,
+      aiLikelihoodScore: typeof cleanedMock.aiLikelihoodScore === 'number' ? cleanedMock.aiLikelihoodScore : null,
+      aiConsequenceScore: typeof cleanedMock.aiConsequenceScore === 'number' ? cleanedMock.aiConsequenceScore : null,
+      
+      // Optional AI Strings
+      aiGeneratedSummary: cleanedMock.aiGeneratedSummary || null,
+      aiSuggestedMitigations: cleanedMock.aiSuggestedMitigations || null,
+      aiRegulatoryConsiderations: cleanedMock.aiRegulatoryConsiderations || null,
+      
+      // YesNoOptional fields (ensure they are 'Yes', 'No', or null)
+      coDeptHeadSupportExemption: cleanedMock.coDeptHeadSupportExemption as YesNoOptional || null,
+      deptHeadConfidentInIndividual: cleanedMock.deptHeadConfidentInIndividual as YesNoOptional || null,
+      employeeFamiliarizationProvided: cleanedMock.employeeFamiliarizationProvided as YesNoOptional || null,
+      workedInDepartmentLast12Months: cleanedMock.workedInDepartmentLast12Months as YesNoOptional || null,
+      similarResponsibilityExperience: cleanedMock.similarResponsibilityExperience as YesNoOptional || null,
+      individualHasRequiredSeaService: cleanedMock.individualHasRequiredSeaService as YesNoOptional || null,
+      individualWorkingTowardsCertification: cleanedMock.individualWorkingTowardsCertification as YesNoOptional || null,
+      requestCausesVacancyElsewhere: cleanedMock.requestCausesVacancyElsewhere as YesNoOptional || null,
+      crewCompositionSufficientForSafety: cleanedMock.crewCompositionSufficientForSafety as YesNoOptional || null,
+      crewContinuityAsPerProfile: cleanedMock.crewContinuityAsPerProfile as YesNoOptional || null,
+      reductionInVesselProgramRequirements: cleanedMock.reductionInVesselProgramRequirements as YesNoOptional || null,
+      rocNotificationOfLimitations: cleanedMock.rocNotificationOfLimitations as YesNoOptional || null,
+
+      // Dates & Timestamps
+      submissionDate: safeCreateTimestamp(cleanedMock.submissionDate),
+      submissionTimestamp: safeCreateTimestamp(cleanedMock.submissionDate), // For ordering, use the same source as submissionDate
+      lastModified: serverTimestamp(),
+      lastModifiedTimestamp: serverTimestamp(),
+      patrolStartDate: cleanedMock.patrolStartDate || null, // Keep as string if that's how it's defined in Firestore schema, or convert to Timestamp
+      patrolEndDate: cleanedMock.patrolEndDate || null,     // Keep as string if that's how it's defined in Firestore schema, or convert to Timestamp
+
+      // Arrays of Objects
+      approvalSteps: (cleanedMock.approvalSteps || []).map((step: any) => ({
+        level: step.level as ApprovalLevel || null,
+        decision: step.decision as ApprovalDecision || null,
+        userId: step.userId || null,
+        userName: step.userName || null,
+        date: safeCreateTimestamp(step.date),
+        notes: step.notes || null,
+      })),
+      attachments: (cleanedMock.attachments || []).map((att: any) => ({
+        id: att.id || `gen_${Date.now()}`, // Ensure ID exists
+        name: att.name || null,
+        url: att.url || null,
+        type: att.type || null,
+        size: typeof att.size === 'number' ? att.size : null,
+        uploadedAt: safeCreateTimestamp(att.uploadedAt),
+        storagePath: att.storagePath || null,
+        dataAiHint: att.dataAiHint || null, // from mock data
+      })),
+    };
+    
+    // Explicitly remove mock data's client-side id from the data to be set
+    const { id: mockId, ...finalDataToSet } = dataToSet as any; 
+    // Also remove any fields that were only in mock and not in RiskAssessment type explicitly
+    // For example, the original mock data `submissionTimestamp` and `lastModifiedTimestamp` were numbers,
+    // but we are creating proper Timestamp fields for Firestore.
+    delete finalDataToSet.submissionTimestampNumber; // if such a field existed from cleaning
+    delete finalDataToSet.lastModifiedTimestampNumber; // if such a field existed from cleaning
+
+
     const docRef = doc(db, ASSESSMENTS_COLLECTION, mockAssessment.id);
     
     try {
-      await setDoc(docRef, dataToSet);
+      await setDoc(docRef, finalDataToSet);
       console.log(`Successfully seeded assessment: ${mockAssessment.referenceNumber} (ID: ${mockAssessment.id})`);
       successCount++;
     } catch (error) {
       console.error(`Error seeding assessment ${mockAssessment.referenceNumber} (ID: ${mockAssessment.id}):`, error);
-      // Enhanced logging for the object that caused the error
-      console.error("Data object attempted for setDoc:", JSON.stringify(dataToSet, (key, value) => {
+      console.error("Data object attempted for setDoc:", JSON.stringify(finalDataToSet, (key, value) => {
         if (value instanceof Timestamp) {
           return `Timestamp(seconds=${value.seconds}, nanoseconds=${value.nanoseconds})`;
         }
-        // For Firebase FieldValue (like serverTimestamp)
         if (value && typeof value === 'object' && value.constructor && value.constructor.name === '_FieldValue') {
-            return `FieldValue(${value.lc})`; // lc might indicate method name like "serverTimestamp"
-        }
-        if (value === undefined) {
-            return "[UNDEFINED_VALUE_DETECTED_IN_FINAL_OBJECT]"; // Should not happen if cleanUndefinedRecursively works
+            // Attempt to get a more descriptive string for FieldValue sentinels
+            if ('_methodName' in value && typeof value._methodName === 'string') {
+                return `FieldValue(${value._methodName})`;
+            }
+            return 'FieldValue(unknown)';
         }
         return value;
       }, 2));
@@ -174,3 +204,4 @@ seedDatabase().then(() => {
   process.exit(1);
 });
 
+    
