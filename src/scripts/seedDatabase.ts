@@ -10,6 +10,15 @@ import type { RiskAssessment, ApprovalStep, Attachment, VesselDepartment, Vessel
 
 const ASSESSMENTS_COLLECTION = 'riskAssessments';
 
+// Valid enum values - must match your types.ts definitions
+const VALID_VESSEL_DEPARTMENTS: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
+const VALID_VESSEL_REGIONS: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
+const VALID_RISK_ASSESSMENT_STATUSES: RiskAssessmentStatus[] = ['Draft', 'Pending Crewing Standards and Oversight', 'Pending Senior Director', 'Pending Director General', 'Needs Information', 'Approved', 'Rejected'];
+const VALID_YES_NO_OPTIONAL: YesNoOptional[] = ['Yes', 'No', undefined]; // undefined will become null
+const VALID_APPROVAL_DECISIONS: ApprovalDecision[] = ['Approved', 'Rejected', 'Needs Information'];
+const VALID_APPROVAL_LEVELS: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+
+
 function safeCreateTimestamp(dateStringInput?: string | Date | null): Timestamp | null {
   if (!dateStringInput) {
     return null;
@@ -29,12 +38,11 @@ function safeCreateTimestamp(dateStringInput?: string | Date | null): Timestamp 
 
 function cleanUndefinedRecursively(obj: any): any {
   if (obj === null || typeof obj !== 'object') {
-    if (obj === undefined) return null;
-    return obj;
+    return obj === undefined ? null : obj;
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => cleanUndefinedRecursively(item)).filter(item => item !== undefined); // Filter out undefined after map
+    return obj.map(item => cleanUndefinedRecursively(item)).filter(item => item !== undefined && item !== null); // Also filter out explicit nulls if they were originally undefined in array
   }
 
   const cleanedObj: { [key: string]: any } = {};
@@ -43,12 +51,22 @@ function cleanUndefinedRecursively(obj: any): any {
       const value = obj[key];
       if (value !== undefined) {
         cleanedObj[key] = cleanUndefinedRecursively(value);
-      } else {
-         cleanedObj[key] = null; // Explicitly set to null if top-level undefined was intended for a key
       }
     }
   }
   return cleanedObj;
+}
+
+function validateAndCoerceEnum<T extends string>(value: any, validValues: readonly T[], fieldName: string): T | null {
+    const cleanedValue = typeof value === 'string' ? value.trim() : value;
+    if (cleanedValue === null || cleanedValue === undefined || cleanedValue === '') {
+        return null;
+    }
+    if (validValues.includes(cleanedValue as T)) {
+        return cleanedValue as T;
+    }
+    console.warn(`Invalid value "${value}" for enum field "${fieldName}". Setting to null. Valid values: ${validValues.join(', ')}`);
+    return null;
 }
 
 
@@ -64,124 +82,106 @@ async function seedDatabase() {
         continue;
     }
 
-    // Clean the entire mock object first to handle any undefined values at any level
+    // Deep clone and clean undefined values to null initially
     const cleanedMock = cleanUndefinedRecursively(JSON.parse(JSON.stringify(mockAssessment)));
 
-    const dataToSet: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified' | 'submissionTimestamp' | 'lastModifiedTimestamp' | 'attachments' | 'approvalSteps'> & {
-        submissionDate: Timestamp | null;
-        lastModified: FieldValue;
-        submissionTimestamp: Timestamp | null;
-        lastModifiedTimestamp: FieldValue;
-        attachments: any[]; // Will be specifically typed attachments
-        approvalSteps: any[]; // Will be specifically typed approval steps
-    } = {
-      // Strings (ensure they are strings or null)
-      referenceNumber: cleanedMock.referenceNumber || null,
-      maritimeExemptionNumber: cleanedMock.maritimeExemptionNumber || null,
-      vesselName: cleanedMock.vesselName || null,
-      imoNumber: cleanedMock.imoNumber || null,
-      voyageDetails: cleanedMock.voyageDetails || null,
-      reasonForRequest: cleanedMock.reasonForRequest || null,
-      personnelShortages: cleanedMock.personnelShortages || null,
-      proposedOperationalDeviations: cleanedMock.proposedOperationalDeviations || null,
-      submittedBy: cleanedMock.submittedBy || null,
-      employeeName: cleanedMock.employeeName || null,
-      certificateHeld: cleanedMock.certificateHeld || null,
-      requiredCertificate: cleanedMock.requiredCertificate || null,
-      deptHeadConfidenceReason: cleanedMock.deptHeadConfidenceReason || null,
-      workedInDepartmentDetails: cleanedMock.workedInDepartmentDetails || null,
-      similarResponsibilityDetails: cleanedMock.similarResponsibilityDetails || null,
-      certificationProgressSummary: cleanedMock.certificationProgressSummary || null,
-      detailedCrewCompetencyAssessment: cleanedMock.detailedCrewCompetencyAssessment || null,
-      crewContinuityDetails: cleanedMock.crewContinuityDetails || null,
-      specialVoyageConsiderations: cleanedMock.specialVoyageConsiderations || null,
-      
-      // Enums (ensure they are valid enum values or null)
-      department: cleanedMock.department as VesselDepartment || null,
-      region: cleanedMock.region as VesselRegion || null,
-      status: cleanedMock.status as RiskAssessmentStatus || null,
-
-      // Optional Numbers (ensure they are numbers or null)
+    const dataToSet = {
+      referenceNumber: String(cleanedMock.referenceNumber || ''),
+      maritimeExemptionNumber: cleanedMock.maritimeExemptionNumber ? String(cleanedMock.maritimeExemptionNumber) : null,
+      vesselName: String(cleanedMock.vesselName || ''),
+      imoNumber: cleanedMock.imoNumber ? String(cleanedMock.imoNumber) : null,
+      department: validateAndCoerceEnum(cleanedMock.department, VALID_VESSEL_DEPARTMENTS, 'department'),
+      region: validateAndCoerceEnum(cleanedMock.region, VALID_VESSEL_REGIONS, 'region'),
+      patrolStartDate: cleanedMock.patrolStartDate ? String(cleanedMock.patrolStartDate) : null,
+      patrolEndDate: cleanedMock.patrolEndDate ? String(cleanedMock.patrolEndDate) : null,
       patrolLengthDays: typeof cleanedMock.patrolLengthDays === 'number' ? cleanedMock.patrolLengthDays : null,
+      voyageDetails: String(cleanedMock.voyageDetails || ''),
+      reasonForRequest: String(cleanedMock.reasonForRequest || ''),
+      personnelShortages: String(cleanedMock.personnelShortages || ''),
+      proposedOperationalDeviations: String(cleanedMock.proposedOperationalDeviations || ''),
+      submittedBy: String(cleanedMock.submittedBy || ''),
+      submissionDate: safeCreateTimestamp(cleanedMock.submissionDate),
+      status: validateAndCoerceEnum(cleanedMock.status, VALID_RISK_ASSESSMENT_STATUSES, 'status'),
+      
       aiRiskScore: typeof cleanedMock.aiRiskScore === 'number' ? cleanedMock.aiRiskScore : null,
+      aiGeneratedSummary: cleanedMock.aiGeneratedSummary ? String(cleanedMock.aiGeneratedSummary) : null,
+      aiSuggestedMitigations: cleanedMock.aiSuggestedMitigations ? String(cleanedMock.aiSuggestedMitigations) : null,
+      aiRegulatoryConsiderations: cleanedMock.aiRegulatoryConsiderations ? String(cleanedMock.aiRegulatoryConsiderations) : null,
       aiLikelihoodScore: typeof cleanedMock.aiLikelihoodScore === 'number' ? cleanedMock.aiLikelihoodScore : null,
       aiConsequenceScore: typeof cleanedMock.aiConsequenceScore === 'number' ? cleanedMock.aiConsequenceScore : null,
       
-      // Optional AI Strings
-      aiGeneratedSummary: cleanedMock.aiGeneratedSummary || null,
-      aiSuggestedMitigations: cleanedMock.aiSuggestedMitigations || null,
-      aiRegulatoryConsiderations: cleanedMock.aiRegulatoryConsiderations || null,
-      
-      // YesNoOptional fields (ensure they are 'Yes', 'No', or null)
-      coDeptHeadSupportExemption: cleanedMock.coDeptHeadSupportExemption as YesNoOptional || null,
-      deptHeadConfidentInIndividual: cleanedMock.deptHeadConfidentInIndividual as YesNoOptional || null,
-      employeeFamiliarizationProvided: cleanedMock.employeeFamiliarizationProvided as YesNoOptional || null,
-      workedInDepartmentLast12Months: cleanedMock.workedInDepartmentLast12Months as YesNoOptional || null,
-      similarResponsibilityExperience: cleanedMock.similarResponsibilityExperience as YesNoOptional || null,
-      individualHasRequiredSeaService: cleanedMock.individualHasRequiredSeaService as YesNoOptional || null,
-      individualWorkingTowardsCertification: cleanedMock.individualWorkingTowardsCertification as YesNoOptional || null,
-      requestCausesVacancyElsewhere: cleanedMock.requestCausesVacancyElsewhere as YesNoOptional || null,
-      crewCompositionSufficientForSafety: cleanedMock.crewCompositionSufficientForSafety as YesNoOptional || null,
-      crewContinuityAsPerProfile: cleanedMock.crewContinuityAsPerProfile as YesNoOptional || null,
-      reductionInVesselProgramRequirements: cleanedMock.reductionInVesselProgramRequirements as YesNoOptional || null,
-      rocNotificationOfLimitations: cleanedMock.rocNotificationOfLimitations as YesNoOptional || null,
-
-      // Dates & Timestamps
-      submissionDate: safeCreateTimestamp(cleanedMock.submissionDate),
-      submissionTimestamp: safeCreateTimestamp(cleanedMock.submissionDate), // For ordering, use the same source as submissionDate
       lastModified: serverTimestamp(),
+      submissionTimestamp: safeCreateTimestamp(cleanedMock.submissionDate), 
       lastModifiedTimestamp: serverTimestamp(),
-      patrolStartDate: cleanedMock.patrolStartDate || null, // Keep as string if that's how it's defined in Firestore schema, or convert to Timestamp
-      patrolEndDate: cleanedMock.patrolEndDate || null,     // Keep as string if that's how it's defined in Firestore schema, or convert to Timestamp
 
-      // Arrays of Objects
-      approvalSteps: (cleanedMock.approvalSteps || []).map((step: any) => ({
-        level: step.level as ApprovalLevel || null,
-        decision: step.decision as ApprovalDecision || null,
-        userId: step.userId || null,
-        userName: step.userName || null,
+      // ExemptionIndividualAssessmentData
+      employeeName: cleanedMock.employeeName ? String(cleanedMock.employeeName) : null,
+      certificateHeld: cleanedMock.certificateHeld ? String(cleanedMock.certificateHeld) : null,
+      requiredCertificate: cleanedMock.requiredCertificate ? String(cleanedMock.requiredCertificate) : null,
+      coDeptHeadSupportExemption: validateAndCoerceEnum(cleanedMock.coDeptHeadSupportExemption, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'coDeptHeadSupportExemption'),
+      deptHeadConfidentInIndividual: validateAndCoerceEnum(cleanedMock.deptHeadConfidentInIndividual, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'deptHeadConfidentInIndividual'),
+      deptHeadConfidenceReason: cleanedMock.deptHeadConfidenceReason ? String(cleanedMock.deptHeadConfidenceReason) : null,
+      employeeFamiliarizationProvided: validateAndCoerceEnum(cleanedMock.employeeFamiliarizationProvided, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'employeeFamiliarizationProvided'),
+      workedInDepartmentLast12Months: validateAndCoerceEnum(cleanedMock.workedInDepartmentLast12Months, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'workedInDepartmentLast12Months'),
+      workedInDepartmentDetails: cleanedMock.workedInDepartmentDetails ? String(cleanedMock.workedInDepartmentDetails) : null,
+      similarResponsibilityExperience: validateAndCoerceEnum(cleanedMock.similarResponsibilityExperience, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'similarResponsibilityExperience'),
+      similarResponsibilityDetails: cleanedMock.similarResponsibilityDetails ? String(cleanedMock.similarResponsibilityDetails) : null,
+      individualHasRequiredSeaService: validateAndCoerceEnum(cleanedMock.individualHasRequiredSeaService, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'individualHasRequiredSeaService'),
+      individualWorkingTowardsCertification: validateAndCoerceEnum(cleanedMock.individualWorkingTowardsCertification, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'individualWorkingTowardsCertification'),
+      certificationProgressSummary: cleanedMock.certificationProgressSummary ? String(cleanedMock.certificationProgressSummary) : null,
+
+      // OperationalConsiderationsData
+      requestCausesVacancyElsewhere: validateAndCoerceEnum(cleanedMock.requestCausesVacancyElsewhere, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'requestCausesVacancyElsewhere'),
+      crewCompositionSufficientForSafety: validateAndCoerceEnum(cleanedMock.crewCompositionSufficientForSafety, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'crewCompositionSufficientForSafety'),
+      detailedCrewCompetencyAssessment: cleanedMock.detailedCrewCompetencyAssessment ? String(cleanedMock.detailedCrewCompetencyAssessment) : null,
+      crewContinuityAsPerProfile: validateAndCoerceEnum(cleanedMock.crewContinuityAsPerProfile, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'crewContinuityAsPerProfile'),
+      crewContinuityDetails: cleanedMock.crewContinuityDetails ? String(cleanedMock.crewContinuityDetails) : null,
+      specialVoyageConsiderations: cleanedMock.specialVoyageConsiderations ? String(cleanedMock.specialVoyageConsiderations) : null,
+      reductionInVesselProgramRequirements: validateAndCoerceEnum(cleanedMock.reductionInVesselProgramRequirements, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'reductionInVesselProgramRequirements'),
+      rocNotificationOfLimitations: validateAndCoerceEnum(cleanedMock.rocNotificationOfLimitations, VALID_YES_NO_OPTIONAL.filter(v => v !== undefined) as ('Yes' | 'No')[], 'rocNotificationOfLimitations'),
+
+      approvalSteps: (cleanedMock.approvalSteps || []).map((step: any) => cleanUndefinedRecursively({ // Ensure step object is cleaned
+        level: validateAndCoerceEnum(step.level, VALID_APPROVAL_LEVELS, 'approvalStep.level'),
+        decision: validateAndCoerceEnum(step.decision, VALID_APPROVAL_DECISIONS, 'approvalStep.decision'),
+        userId: step.userId ? String(step.userId) : null,
+        userName: step.userName ? String(step.userName) : null,
         date: safeCreateTimestamp(step.date),
-        notes: step.notes || null,
-      })),
-      attachments: (cleanedMock.attachments || []).map((att: any) => ({
-        id: att.id || `gen_${Date.now()}`, // Ensure ID exists
-        name: att.name || null,
-        url: att.url || null,
-        type: att.type || null,
-        size: typeof att.size === 'number' ? att.size : null,
+        notes: step.notes ? String(step.notes) : null,
+      })).filter(Boolean), // Filter out any steps that might have become null due to invalid level
+
+      attachments: (cleanedMock.attachments || []).map((att: any) => cleanUndefinedRecursively({ // Ensure attachment object is cleaned
+        id: String(att.id || `gen_${Date.now()}_${Math.random().toString(36).substring(2,7)}`),
+        name: String(att.name || 'Unknown File'),
+        url: String(att.url || ''),
+        type: String(att.type || 'application/octet-stream'),
+        size: typeof att.size === 'number' ? att.size : 0,
         uploadedAt: safeCreateTimestamp(att.uploadedAt),
-        storagePath: att.storagePath || null,
-        dataAiHint: att.dataAiHint || null, // from mock data
-      })),
+        storagePath: att.storagePath ? String(att.storagePath) : null,
+        dataAiHint: att.dataAiHint ? String(att.dataAiHint) : null,
+      })).filter(Boolean),
     };
     
-    // Explicitly remove mock data's client-side id from the data to be set
-    const { id: mockId, ...finalDataToSet } = dataToSet as any; 
-    // Also remove any fields that were only in mock and not in RiskAssessment type explicitly
-    // For example, the original mock data `submissionTimestamp` and `lastModifiedTimestamp` were numbers,
-    // but we are creating proper Timestamp fields for Firestore.
-    delete finalDataToSet.submissionTimestampNumber; // if such a field existed from cleaning
-    delete finalDataToSet.lastModifiedTimestampNumber; // if such a field existed from cleaning
+    // Final pass to ensure no undefined values exist at the top level of dataToSet
+    const finalFirestoreData = Object.entries(dataToSet).reduce((acc, [key, value]) => {
+        acc[key] = value === undefined ? null : value;
+        return acc;
+    }, {} as Record<string, any>);
 
 
     const docRef = doc(db, ASSESSMENTS_COLLECTION, mockAssessment.id);
     
     try {
-      await setDoc(docRef, finalDataToSet);
+      await setDoc(docRef, finalFirestoreData);
       console.log(`Successfully seeded assessment: ${mockAssessment.referenceNumber} (ID: ${mockAssessment.id})`);
       successCount++;
     } catch (error) {
       console.error(`Error seeding assessment ${mockAssessment.referenceNumber} (ID: ${mockAssessment.id}):`, error);
-      console.error("Data object attempted for setDoc:", JSON.stringify(finalDataToSet, (key, value) => {
+      console.error("Data object attempted for setDoc:", JSON.stringify(finalFirestoreData, (key, value) => {
         if (value instanceof Timestamp) {
           return `Timestamp(seconds=${value.seconds}, nanoseconds=${value.nanoseconds})`;
         }
-        if (value && typeof value === 'object' && value.constructor && value.constructor.name === '_FieldValue') {
-            // Attempt to get a more descriptive string for FieldValue sentinels
-            if ('_methodName' in value && typeof value._methodName === 'string') {
-                return `FieldValue(${value._methodName})`;
-            }
-            return 'FieldValue(unknown)';
+         if (value && value._methodName && typeof value._methodName === 'string' && value._methodName.startsWith('serverTimestamp')) {
+          return 'FieldValue(serverTimestamp)';
         }
         return value;
       }, 2));
@@ -203,5 +203,3 @@ seedDatabase().then(() => {
   console.error('Unhandled error in seed script:', error);
   process.exit(1);
 });
-
-    
