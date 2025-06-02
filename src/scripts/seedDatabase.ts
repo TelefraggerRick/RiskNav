@@ -4,7 +4,7 @@
 import { db } from '@/lib/firebase';
 import { mockRiskAssessments } from '@/lib/mockData';
 import type { RiskAssessment, ApprovalStep, Attachment, YesNoOptional, VesselDepartment, VesselRegion, RiskAssessmentStatus, ApprovalDecision, ApprovalLevel } from '@/lib/types';
-import { doc, setDoc, Timestamp, serverTimestamp, FieldValue } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, FieldValue, serverTimestamp } from 'firebase/firestore'; // Added serverTimestamp
 import { config } from 'dotenv';
 
 config(); // Load environment variables from .env
@@ -12,13 +12,13 @@ config(); // Load environment variables from .env
 const DEBUG_SIMPLIFY_RA_001 = true; // Keep this true for testing
 
 // --- Helper to safely create Firestore Timestamps from date strings ---
-function safeCreateTimestamp(dateString: string | undefined): Timestamp | null {
+function safeCreateTimestamp(dateString: string | undefined | null): Timestamp | null {
   if (!dateString) {
     return null;
   }
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) { // Check if date is valid
+    if (isNaN(date.getTime())) {
       console.warn(`Invalid date string encountered for Timestamp: "${dateString}". Storing as null.`);
       return null;
     }
@@ -31,18 +31,20 @@ function safeCreateTimestamp(dateString: string | undefined): Timestamp | null {
 
 // --- Helper to recursively convert undefined to null ---
 function cleanUndefinedRecursively(obj: any): any {
+  if (obj === undefined) {
+    return null;
+  }
   if (Array.isArray(obj)) {
     return obj.map(item => cleanUndefinedRecursively(item));
   } else if (typeof obj === 'object' && obj !== null) {
+    // Check if it's a Firestore Timestamp or FieldValue, and leave it alone
+    if (obj instanceof Timestamp || (obj && typeof obj === 'object' && '_methodName' in obj && typeof obj._methodName === 'string' && obj._methodName.includes('timestamp'))) {
+        return obj;
+    }
     const newObj: {[key: string]: any} = {};
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        const value = obj[key];
-        if (value === undefined) {
-          newObj[key] = null; // Convert undefined to null
-        } else {
-          newObj[key] = cleanUndefinedRecursively(value);
-        }
+        newObj[key] = cleanUndefinedRecursively(obj[key]);
       }
     }
     return newObj;
@@ -50,26 +52,28 @@ function cleanUndefinedRecursively(obj: any): any {
   return obj;
 }
 
-const VALID_VESSEL_DEPARTMENTS: ReadonlyArray<VesselDepartment> = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
-const VALID_VESSEL_REGIONS: ReadonlyArray<VesselRegion> = ['Atlantic', 'Central', 'Western', 'Arctic'];
-const VALID_STATUSES: ReadonlyArray<RiskAssessmentStatus> = ['Draft', 'Pending Crewing Standards and Oversight', 'Pending Senior Director', 'Pending Director General', 'Needs Information', 'Approved', 'Rejected'];
-const VALID_YES_NO_OPTIONAL: ReadonlyArray<YesNoOptional | '' | null | undefined> = ['Yes', 'No', null, undefined, ''];
-const VALID_APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision | '' | null | undefined> = ['Approved', 'Rejected', 'Needs Information', null, undefined, ''];
+
+const VALID_VESSEL_DEPARTMENTS: ReadonlyArray<VesselDepartment | '' | null | undefined> = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other', '', null, undefined];
+const VALID_VESSEL_REGIONS: ReadonlyArray<VesselRegion | '' | null | undefined> = ['Atlantic', 'Central', 'Western', 'Arctic', '', null, undefined];
+const VALID_STATUSES: ReadonlyArray<RiskAssessmentStatus | '' | null | undefined> = ['Draft', 'Pending Crewing Standards and Oversight', 'Pending Senior Director', 'Pending Director General', 'Needs Information', 'Approved', 'Rejected', '', null, undefined];
+const VALID_YES_NO_OPTIONAL: ReadonlyArray<YesNoOptional | '' | null | undefined> = ['Yes', 'No', null, undefined, '']; // Already includes null/undefined
+const VALID_APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision | '' | null | undefined> = ['Approved', 'Rejected', 'Needs Information', '', null, undefined];
 const VALID_APPROVAL_LEVELS: ReadonlyArray<ApprovalLevel> = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 function validateAndCoerceEnum<T extends string>(
-  value: any, // Value can be anything from mock
+  value: any,
   validValues: readonly (T | '' | null | undefined)[],
   fieldName: string,
   assessmentId: string,
-  isOptional: boolean = true
+  allowNull: boolean = true
 ): T | null {
   const trimmedValue = typeof value === 'string' ? value.trim() : value;
 
-  if (trimmedValue === undefined || trimmedValue === null || (isOptional && trimmedValue === "")) {
+  if (trimmedValue === undefined || trimmedValue === null || (allowNull && trimmedValue === "")) {
     return null;
   }
-  if (validValues.includes(trimmedValue as T)) {
+  // Check if the trimmed value is among the valid enum string values
+  if (validValues.some(valid => typeof valid === 'string' && valid === trimmedValue)) {
     return trimmedValue as T;
   }
   console.warn(`Invalid value "${value}" (trimmed: "${trimmedValue}") for enum field "${fieldName}" in assessment "${assessmentId}". Storing as null.`);
@@ -104,95 +108,77 @@ async function seedDatabase() {
     const assessmentId = mockAssessment.id;
     console.log(`Processing assessment: ${assessmentId} - ${mockAssessment.vesselName}`);
 
-    const cleanedMockInitial = cleanUndefinedRecursively(mockAssessment);
-    
     let dataToSet: any = {};
-    
-    if (DEBUG_SIMPLIFY_RA_001 && assessmentId === 'ra-001') {
-      console.log(`DEBUG: Radically simplifying data for assessment ${assessmentId} and using native Date objects for timestamps.`);
-      // Attempting to use native JS Date objects. Firestore SDK should convert these.
-      let submissionDateForRA001 : Date | null = null;
-      if (cleanedMockInitial.submissionDate) {
-        const parsedDate = new Date(cleanedMockInitial.submissionDate);
-        if (!isNaN(parsedDate.getTime())) {
-            submissionDateForRA001 = parsedDate;
-        } else {
-            console.warn(`RA-001: Invalid submissionDate string "${cleanedMockInitial.submissionDate}", using current date.`);
-            submissionDateForRA001 = new Date(); // fallback to now
-        }
-      } else {
-        console.warn(`RA-001: Missing submissionDate, using current date.`);
-        submissionDateForRA001 = new Date(); // fallback to now
-      }
+    const cleanedMockInitial = cleanUndefinedRecursively(mockAssessment);
 
+    if (DEBUG_SIMPLIFY_RA_001 && assessmentId === 'ra-001') {
+      console.log(`DEBUG: Radically simplifying data for assessment ${assessmentId}, using native Dates, and REMOVING 'id' from data payload.`);
       dataToSet = {
-        id: assessmentId,
-        referenceNumber: String(cleanedMockInitial.referenceNumber || 'REF_MISSING_MOCK'),
-        vesselName: String(cleanedMockInitial.vesselName || 'VESSEL_NAME_MISSING_MOCK'),
+        // id: assessmentId, // REMOVED from data payload for this debug step
+        referenceNumber: String(cleanedMockInitial.referenceNumber || 'REF_MISSING_DEBUG'),
+        vesselName: String(cleanedMockInitial.vesselName || 'VESSEL_NAME_MISSING_DEBUG'),
         status: validateAndCoerceEnum(cleanedMockInitial.status, VALID_STATUSES, 'status', assessmentId, false) || 'Draft',
-        submissionDate: submissionDateForRA001, // Native JS Date
-        lastModified: new Date(), // Native JS Date (instead of serverTimestamp for this specific test)
+        submissionDate: new Date(cleanedMockInitial.submissionDate || Date.now()), // Native JS Date
+        lastModified: new Date(), // Native JS Date
       };
     } else {
       // Full data construction for other assessments or if debug flag is off
-      const cleanedMock = cleanedMockInitial; // Already cleaned
-
       dataToSet = {
-        id: assessmentId,
-        referenceNumber: String(cleanedMock.referenceNumber || ''),
-        maritimeExemptionNumber: (typeof cleanedMock.maritimeExemptionNumber === 'string' && cleanedMock.maritimeExemptionNumber.trim() !== "") ? cleanedMock.maritimeExemptionNumber.trim() : null,
-        vesselName: String(cleanedMock.vesselName || ''),
-        imoNumber: (typeof cleanedMock.imoNumber === 'string' && cleanedMock.imoNumber.trim() !== "") ? cleanedMock.imoNumber.trim() : null,
-        department: validateAndCoerceEnum(cleanedMock.department, VALID_VESSEL_DEPARTMENTS, 'department', assessmentId),
-        region: validateAndCoerceEnum(cleanedMock.region, VALID_VESSEL_REGIONS, 'region', assessmentId),
-        
-        patrolStartDate: (typeof cleanedMock.patrolStartDate === 'string' && cleanedMock.patrolStartDate.trim() !== "") ? cleanedMock.patrolStartDate.trim() : null,
-        patrolEndDate: (typeof cleanedMock.patrolEndDate === 'string' && cleanedMock.patrolEndDate.trim() !== "") ? cleanedMock.patrolEndDate.trim() : null,
-        patrolLengthDays: typeof cleanedMock.patrolLengthDays === 'number' ? cleanedMock.patrolLengthDays : null,
-        
-        voyageDetails: String(cleanedMock.voyageDetails || ''),
-        reasonForRequest: String(cleanedMock.reasonForRequest || ''),
-        personnelShortages: String(cleanedMock.personnelShortages || ''),
-        proposedOperationalDeviations: String(cleanedMock.proposedOperationalDeviations || ''),
-        submittedBy: String(cleanedMock.submittedBy || ''),
-        submissionDate: safeCreateTimestamp(cleanedMock.submissionDate) || serverTimestamp(),
-        status: validateAndCoerceEnum(cleanedMock.status, VALID_STATUSES, 'status', assessmentId, false),
-        lastModified: serverTimestamp(),
+        id: assessmentId, // Keep ID in data for non-debug cases or other assessments
+        referenceNumber: String(cleanedMockInitial.referenceNumber || ''),
+        maritimeExemptionNumber: (typeof cleanedMockInitial.maritimeExemptionNumber === 'string' && cleanedMockInitial.maritimeExemptionNumber.trim() !== "") ? cleanedMockInitial.maritimeExemptionNumber.trim() : null,
+        vesselName: String(cleanedMockInitial.vesselName || ''),
+        imoNumber: (typeof cleanedMockInitial.imoNumber === 'string' && cleanedMockInitial.imoNumber.trim() !== "") ? cleanedMockInitial.imoNumber.trim() : null,
+        department: validateAndCoerceEnum(cleanedMockInitial.department, VALID_VESSEL_DEPARTMENTS, 'department', assessmentId),
+        region: validateAndCoerceEnum(cleanedMockInitial.region, VALID_VESSEL_REGIONS, 'region', assessmentId),
 
-        aiRiskScore: typeof cleanedMock.aiRiskScore === 'number' ? cleanedMock.aiRiskScore : null,
-        aiGeneratedSummary: (typeof cleanedMock.aiGeneratedSummary === 'string' && cleanedMock.aiGeneratedSummary.trim() !== "") ? cleanedMock.aiGeneratedSummary.trim() : null,
-        aiSuggestedMitigations: (typeof cleanedMock.aiSuggestedMitigations === 'string' && cleanedMock.aiSuggestedMitigations.trim() !== "") ? cleanedMock.aiSuggestedMitigations.trim() : null,
-        aiRegulatoryConsiderations: (typeof cleanedMock.aiRegulatoryConsiderations === 'string' && cleanedMock.aiRegulatoryConsiderations.trim() !== "") ? cleanedMock.aiRegulatoryConsiderations.trim() : null,
-        aiLikelihoodScore: typeof cleanedMock.aiLikelihoodScore === 'number' ? cleanedMock.aiLikelihoodScore : null,
-        aiConsequenceScore: typeof cleanedMock.aiConsequenceScore === 'number' ? cleanedMock.aiConsequenceScore : null,
-        
-        employeeName: (typeof cleanedMock.employeeName === 'string' && cleanedMock.employeeName.trim() !== "") ? cleanedMock.employeeName.trim() : null,
-        certificateHeld: (typeof cleanedMock.certificateHeld === 'string' && cleanedMock.certificateHeld.trim() !== "") ? cleanedMock.certificateHeld.trim() : null,
-        requiredCertificate: (typeof cleanedMock.requiredCertificate === 'string' && cleanedMock.requiredCertificate.trim() !== "") ? cleanedMock.requiredCertificate.trim() : null,
-        
-        coDeptHeadSupportExemption: coerceYesNoOptional(cleanedMock.coDeptHeadSupportExemption, 'coDeptHeadSupportExemption', assessmentId),
-        deptHeadConfidentInIndividual: coerceYesNoOptional(cleanedMock.deptHeadConfidentInIndividual, 'deptHeadConfidentInIndividual', assessmentId),
-        deptHeadConfidenceReason: (typeof cleanedMock.deptHeadConfidenceReason === 'string' && cleanedMock.deptHeadConfidenceReason.trim() !== "") ? cleanedMock.deptHeadConfidenceReason.trim() : null,
-        employeeFamiliarizationProvided: coerceYesNoOptional(cleanedMock.employeeFamiliarizationProvided, 'employeeFamiliarizationProvided', assessmentId),
-        workedInDepartmentLast12Months: coerceYesNoOptional(cleanedMock.workedInDepartmentLast12Months, 'workedInDepartmentLast12Months', assessmentId),
-        workedInDepartmentDetails: (typeof cleanedMock.workedInDepartmentDetails === 'string' && cleanedMock.workedInDepartmentDetails.trim() !== "") ? cleanedMock.workedInDepartmentDetails.trim() : null,
-        similarResponsibilityExperience: coerceYesNoOptional(cleanedMock.similarResponsibilityExperience, 'similarResponsibilityExperience', assessmentId),
-        similarResponsibilityDetails: (typeof cleanedMock.similarResponsibilityDetails === 'string' && cleanedMock.similarResponsibilityDetails.trim() !== "") ? cleanedMock.similarResponsibilityDetails.trim() : null,
-        individualHasRequiredSeaService: coerceYesNoOptional(cleanedMock.individualHasRequiredSeaService, 'individualHasRequiredSeaService', assessmentId),
-        individualWorkingTowardsCertification: coerceYesNoOptional(cleanedMock.individualWorkingTowardsCertification, 'individualWorkingTowardsCertification', assessmentId),
-        certificationProgressSummary: (typeof cleanedMock.certificationProgressSummary === 'string' && cleanedMock.certificationProgressSummary.trim() !== "") ? cleanedMock.certificationProgressSummary.trim() : null,
-        
-        requestCausesVacancyElsewhere: coerceYesNoOptional(cleanedMock.requestCausesVacancyElsewhere, 'requestCausesVacancyElsewhere', assessmentId),
-        crewCompositionSufficientForSafety: coerceYesNoOptional(cleanedMock.crewCompositionSufficientForSafety, 'crewCompositionSufficientForSafety', assessmentId),
-        detailedCrewCompetencyAssessment: (typeof cleanedMock.detailedCrewCompetencyAssessment === 'string' && cleanedMock.detailedCrewCompetencyAssessment.trim() !== "") ? cleanedMock.detailedCrewCompetencyAssessment.trim() : null,
-        crewContinuityAsPerProfile: coerceYesNoOptional(cleanedMock.crewContinuityAsPerProfile, 'crewContinuityAsPerProfile', assessmentId),
-        crewContinuityDetails: (typeof cleanedMock.crewContinuityDetails === 'string' && cleanedMock.crewContinuityDetails.trim() !== "") ? cleanedMock.crewContinuityDetails.trim() : null,
-        
-        specialVoyageConsiderations: (typeof cleanedMock.specialVoyageConsiderations === 'string' && cleanedMock.specialVoyageConsiderations.trim() !== "") ? cleanedMock.specialVoyageConsiderations.trim() : null,
-        reductionInVesselProgramRequirements: coerceYesNoOptional(cleanedMock.reductionInVesselProgramRequirements, 'reductionInVesselProgramRequirements', assessmentId),
-        rocNotificationOfLimitations: coerceYesNoOptional(cleanedMock.rocNotificationOfLimitations, 'rocNotificationOfLimitations', assessmentId),
+        patrolStartDate: (typeof cleanedMockInitial.patrolStartDate === 'string' && cleanedMockInitial.patrolStartDate.trim() !== "") ? cleanedMockInitial.patrolStartDate.trim() : null,
+        patrolEndDate: (typeof cleanedMockInitial.patrolEndDate === 'string' && cleanedMockInitial.patrolEndDate.trim() !== "") ? cleanedMockInitial.patrolEndDate.trim() : null,
+        patrolLengthDays: typeof cleanedMockInitial.patrolLengthDays === 'number' ? cleanedMockInitial.patrolLengthDays : null,
 
-        attachments: Array.isArray(cleanedMock.attachments) ? cleanedMock.attachments.map((att: any) => ({
+        voyageDetails: String(cleanedMockInitial.voyageDetails || ''),
+        reasonForRequest: String(cleanedMockInitial.reasonForRequest || ''),
+        personnelShortages: String(cleanedMockInitial.personnelShortages || ''),
+        proposedOperationalDeviations: String(cleanedMockInitial.proposedOperationalDeviations || ''),
+        submittedBy: String(cleanedMockInitial.submittedBy || ''),
+        submissionDate: safeCreateTimestamp(cleanedMockInitial.submissionDate) || serverTimestamp(),
+        status: validateAndCoerceEnum(cleanedMockInitial.status, VALID_STATUSES, 'status', assessmentId, false) || 'Draft', // Status is not optional
+        lastModified: serverTimestamp(), // Use serverTimestamp for lastModified
+
+        aiRiskScore: typeof cleanedMockInitial.aiRiskScore === 'number' ? cleanedMockInitial.aiRiskScore : null,
+        aiGeneratedSummary: (typeof cleanedMockInitial.aiGeneratedSummary === 'string' && cleanedMockInitial.aiGeneratedSummary.trim() !== "") ? cleanedMockInitial.aiGeneratedSummary.trim() : null,
+        aiSuggestedMitigations: (typeof cleanedMockInitial.aiSuggestedMitigations === 'string' && cleanedMockInitial.aiSuggestedMitigations.trim() !== "") ? cleanedMockInitial.aiSuggestedMitigations.trim() : null,
+        aiRegulatoryConsiderations: (typeof cleanedMockInitial.aiRegulatoryConsiderations === 'string' && cleanedMockInitial.aiRegulatoryConsiderations.trim() !== "") ? cleanedMockInitial.aiRegulatoryConsiderations.trim() : null,
+        aiLikelihoodScore: typeof cleanedMockInitial.aiLikelihoodScore === 'number' ? cleanedMockInitial.aiLikelihoodScore : null,
+        aiConsequenceScore: typeof cleanedMockInitial.aiConsequenceScore === 'number' ? cleanedMockInitial.aiConsequenceScore : null,
+
+        employeeName: (typeof cleanedMockInitial.employeeName === 'string' && cleanedMockInitial.employeeName.trim() !== "") ? cleanedMockInitial.employeeName.trim() : null,
+        certificateHeld: (typeof cleanedMockInitial.certificateHeld === 'string' && cleanedMockInitial.certificateHeld.trim() !== "") ? cleanedMockInitial.certificateHeld.trim() : null,
+        requiredCertificate: (typeof cleanedMockInitial.requiredCertificate === 'string' && cleanedMockInitial.requiredCertificate.trim() !== "") ? cleanedMockInitial.requiredCertificate.trim() : null,
+
+        coDeptHeadSupportExemption: coerceYesNoOptional(cleanedMockInitial.coDeptHeadSupportExemption, 'coDeptHeadSupportExemption', assessmentId),
+        deptHeadConfidentInIndividual: coerceYesNoOptional(cleanedMockInitial.deptHeadConfidentInIndividual, 'deptHeadConfidentInIndividual', assessmentId),
+        deptHeadConfidenceReason: (typeof cleanedMockInitial.deptHeadConfidenceReason === 'string' && cleanedMockInitial.deptHeadConfidenceReason.trim() !== "") ? cleanedMockInitial.deptHeadConfidenceReason.trim() : null,
+        employeeFamiliarizationProvided: coerceYesNoOptional(cleanedMockInitial.employeeFamiliarizationProvided, 'employeeFamiliarizationProvided', assessmentId),
+        workedInDepartmentLast12Months: coerceYesNoOptional(cleanedMockInitial.workedInDepartmentLast12Months, 'workedInDepartmentLast12Months', assessmentId),
+        workedInDepartmentDetails: (typeof cleanedMockInitial.workedInDepartmentDetails === 'string' && cleanedMockInitial.workedInDepartmentDetails.trim() !== "") ? cleanedMockInitial.workedInDepartmentDetails.trim() : null,
+        similarResponsibilityExperience: coerceYesNoOptional(cleanedMockInitial.similarResponsibilityExperience, 'similarResponsibilityExperience', assessmentId),
+        similarResponsibilityDetails: (typeof cleanedMockInitial.similarResponsibilityDetails === 'string' && cleanedMockInitial.similarResponsibilityDetails.trim() !== "") ? cleanedMockInitial.similarResponsibilityDetails.trim() : null,
+        individualHasRequiredSeaService: coerceYesNoOptional(cleanedMockInitial.individualHasRequiredSeaService, 'individualHasRequiredSeaService', assessmentId),
+        individualWorkingTowardsCertification: coerceYesNoOptional(cleanedMockInitial.individualWorkingTowardsCertification, 'individualWorkingTowardsCertification', assessmentId),
+        certificationProgressSummary: (typeof cleanedMockInitial.certificationProgressSummary === 'string' && cleanedMockInitial.certificationProgressSummary.trim() !== "") ? cleanedMockInitial.certificationProgressSummary.trim() : null,
+
+        requestCausesVacancyElsewhere: coerceYesNoOptional(cleanedMockInitial.requestCausesVacancyElsewhere, 'requestCausesVacancyElsewhere', assessmentId),
+        crewCompositionSufficientForSafety: coerceYesNoOptional(cleanedMockInitial.crewCompositionSufficientForSafety, 'crewCompositionSufficientForSafety', assessmentId),
+        detailedCrewCompetencyAssessment: (typeof cleanedMockInitial.detailedCrewCompetencyAssessment === 'string' && cleanedMockInitial.detailedCrewCompetencyAssessment.trim() !== "") ? cleanedMockInitial.detailedCrewCompetencyAssessment.trim() : null,
+        crewContinuityAsPerProfile: coerceYesNoOptional(cleanedMockInitial.crewContinuityAsPerProfile, 'crewContinuityAsPerProfile', assessmentId),
+        crewContinuityDetails: (typeof cleanedMockInitial.crewContinuityDetails === 'string' && cleanedMockInitial.crewContinuityDetails.trim() !== "") ? cleanedMockInitial.crewContinuityDetails.trim() : null,
+
+        specialVoyageConsiderations: (typeof cleanedMockInitial.specialVoyageConsiderations === 'string' && cleanedMockInitial.specialVoyageConsiderations.trim() !== "") ? cleanedMockInitial.specialVoyageConsiderations.trim() : null,
+        reductionInVesselProgramRequirements: coerceYesNoOptional(cleanedMockInitial.reductionInVesselProgramRequirements, 'reductionInVesselProgramRequirements', assessmentId),
+        rocNotificationOfLimitations: coerceYesNoOptional(cleanedMockInitial.rocNotificationOfLimitations, 'rocNotificationOfLimitations', assessmentId),
+
+        attachments: Array.isArray(cleanedMockInitial.attachments) ? cleanedMockInitial.attachments.map((att: any) => ({
           id: String(att.id || ''),
           name: String(att.name || ''),
           url: String(att.url || ''),
@@ -201,8 +187,8 @@ async function seedDatabase() {
           uploadedAt: safeCreateTimestamp(att.uploadedAt),
           dataAiHint: (typeof att.dataAiHint === 'string' && att.dataAiHint.trim() !== "") ? att.dataAiHint.trim() : null,
         })) : [],
-        approvalSteps: Array.isArray(cleanedMock.approvalSteps) ? cleanedMock.approvalSteps.map((step: any) => ({
-          level: validateAndCoerceEnum(step.level, VALID_APPROVAL_LEVELS, `approvalSteps[${step.level}].level`, assessmentId, false),
+        approvalSteps: Array.isArray(cleanedMockInitial.approvalSteps) ? cleanedMockInitial.approvalSteps.map((step: any) => ({
+          level: validateAndCoerceEnum(step.level, VALID_APPROVAL_LEVELS, `approvalSteps[${step.level}].level`, assessmentId, false) || 'Crewing Standards and Oversight', // Default if invalid
           decision: validateAndCoerceEnum(step.decision, VALID_APPROVAL_DECISIONS, `approvalSteps[${step.level}].decision`, assessmentId),
           userId: (typeof step.userId === 'string' && step.userId.trim() !== "") ? step.userId.trim() : null,
           userName: (typeof step.userName === 'string' && step.userName.trim() !== "") ? step.userName.trim() : null,
@@ -211,8 +197,7 @@ async function seedDatabase() {
         })) : [],
       };
     }
-    
-    // Final check: ensure no undefined values are sent to Firestore at the top level of dataToSet.
+
     const finalFirestoreData: {[key: string]: any} = {};
     for (const key in dataToSet) {
       if (Object.prototype.hasOwnProperty.call(dataToSet, key)) {
@@ -220,16 +205,15 @@ async function seedDatabase() {
       }
     }
 
-    // Log the object being sent
     const replacerForLog = (key: string, value: any) => {
       if (value instanceof Timestamp) {
         return `FirestoreTimestamp(seconds=${value.seconds}, nanoseconds=${value.nanoseconds})`;
       }
-      if (value instanceof Date) {
+      if (value instanceof Date) { // For native JS Date logging
         return `NativeDate(${value.toISOString()})`;
       }
-      if (value && typeof value === 'object' && value._methodName === 'serverTimestamp') {
-          return 'FieldValue.serverTimestamp()';
+      if (value && typeof value === 'object' && '_methodName' in value && typeof value._methodName === 'string' && value._methodName.includes('timestamp')) {
+          return `FieldValue.serverTimestamp()`;
       }
       return value;
     };
@@ -244,7 +228,7 @@ async function seedDatabase() {
       console.error(`ERROR seeding assessment ${assessmentId}.`);
       console.error("Error message:", error.message);
       if (error.code) console.error("Error code:", error.code);
-      
+      // Log the finalFirestoreData object that was attempted
       console.error("Data object ATTEMPTED for setDoc (from catch block):", JSON.stringify(finalFirestoreData, replacerForLog, 2));
       errorCount++;
     }
@@ -263,5 +247,3 @@ async function seedDatabase() {
 seedDatabase().catch(err => {
   console.error('Unhandled critical error during seeding process:', err);
 });
-
-    
