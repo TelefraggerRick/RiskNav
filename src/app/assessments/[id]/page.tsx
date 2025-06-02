@@ -122,6 +122,7 @@ const T_DETAILS_PAGE = {
   failedToGenerateSummary: { en: "Failed to generate summary.", fr: "Échec de la génération du résumé." },
   aiRiskScoreGenerated: { en: "AI Risk Score & Recommendations Generated", fr: "Score de risque IA et recommandations générés" },
   failedToGenerateRiskScore: { en: "Failed to generate risk score and recommendations.", fr: "Échec de la génération du score de risque et des recommandations." },
+  aiServiceOverloaded: { en: "The AI service may be temporarily overloaded. Please try again in a few moments.", fr: "Le service IA est peut-être temporairement surchargé. Veuillez réessayer dans quelques instants." },
   assessmentActionToastTitle: { en: "Assessment {decision}", fr: "Évaluation {decision}" },
   assessmentActionToastDesc: { en: "The assessment has been {decision} with your notes.", fr: "L'évaluation a été {decision} avec vos notes." },
   failedToUpdateAssessmentToast: { en: "Failed to update assessment.", fr: "Échec de la mise à jour de l'évaluation." },
@@ -229,9 +230,13 @@ export default function AssessmentDetailPage() {
       await updateAssessmentInDB(assessment.id, updates);
       setAssessment(prev => prev ? {...prev, ...updates} : null);
       toast({ title: getTranslation(T_DETAILS_PAGE.aiSummaryGenerated), description: getTranslation(T_DETAILS_PAGE.aiSummaryAdded) });
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Summary Error:", error);
-      toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description: getTranslation(T_DETAILS_PAGE.failedToGenerateSummary), variant: "destructive" });
+      let description = getTranslation(T_DETAILS_PAGE.failedToGenerateSummary);
+      if (error && error.message && error.message.toLowerCase().includes('503')) {
+        description += ` ${getTranslation(T_DETAILS_PAGE.aiServiceOverloaded)}`;
+      }
+      toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description, variant: "destructive" });
     }
     setIsAiLoading(prev => ({...prev, summary: false}));
   }, [assessment, toast, getTranslation]);
@@ -258,9 +263,13 @@ export default function AssessmentDetailPage() {
       await updateAssessmentInDB(assessment.id, updates);
       setAssessment(prev => prev ? {...prev, ...updates} : null);
       toast({ title: getTranslation(T_DETAILS_PAGE.aiRiskScoreGenerated) });
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Risk Score Error:", error);
-      toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description: getTranslation(T_DETAILS_PAGE.failedToGenerateRiskScore), variant: "destructive" });
+      let description = getTranslation(T_DETAILS_PAGE.failedToGenerateRiskScore);
+      if (error && error.message && error.message.toLowerCase().includes('503')) {
+        description += ` ${getTranslation(T_DETAILS_PAGE.aiServiceOverloaded)}`;
+      }
+      toast({ title: getTranslation(T_DETAILS_PAGE.aiError), description, variant: "destructive" });
     }
     setIsAiLoading(prev => ({...prev, riskScore: false}));
   }, [assessment, toast, getTranslation]);
