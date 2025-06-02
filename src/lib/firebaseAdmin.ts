@@ -11,32 +11,33 @@ let storageAdminInstance: admin.storage.Storage | null = null;
 if (!admin.apps.length) {
   try {
     const serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const projectIdFromEnv = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
     if (!serviceAccountPath) {
       console.error('ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. This is required for firebase-admin.');
-      console.error('Please ensure it is set in your .env file and points to your service account key JSON file.');
+    } else if (!projectIdFromEnv) {
+      console.error('ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variable is not set. This is required for explicit projectId initialization.');
     } else {
-      // admin.credential.applicationDefault() will use GOOGLE_APPLICATION_CREDENTIALS
       admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
+        credential: admin.credential.applicationDefault(), // Uses GOOGLE_APPLICATION_CREDENTIALS
+        projectId: projectIdFromEnv, // Explicitly set project ID
       });
 
-      const adminApp = admin.app(); // Get the default app instance
+      const adminApp = admin.app(); 
 
       if (adminApp.options.projectId) {
-        console.log(`Firebase Admin SDK initialized. Detected Project ID: ${adminApp.options.projectId}`);
+        console.log(`Firebase Admin SDK initialized successfully for Project ID: ${adminApp.options.projectId}`);
         try {
           dbAdminInstance = admin.firestore();
           storageAdminInstance = admin.storage();
           console.log('Firestore and Storage admin instances initialized successfully.');
         } catch (e: any) {
-            console.error("Error getting Firestore/Storage admin instances AFTER SDK initialization and project ID detection:", e.message);
+            console.error("Error getting Firestore/Storage admin instances AFTER SDK initialization and project ID confirmation:", e.message);
         }
       } else {
-        // This is the critical path for your current error
-        console.error('ERROR: Firebase Admin SDK initialized, but Project ID could NOT be automatically determined from the credentials.');
-        console.error(`Please VERIFY the content of your service account key file specified by GOOGLE_APPLICATION_CREDENTIALS ("${serviceAccountPath}").`);
-        console.error('Ensure the JSON file is valid, not corrupted, and CONTAINS a valid "project_id" field (e.g., "project_id": "risknav").');
-        console.error('If the file is correct, also ensure the GOOGLE_APPLICATION_CREDENTIALS path in your .env file is accurate.');
+        // This case should ideally not be reached if projectIdFromEnv was provided and valid.
+        console.error('ERROR: Firebase Admin SDK initialized, but Project ID is still not available even after explicit setting.');
+        console.error(`Check if NEXT_PUBLIC_FIREBASE_PROJECT_ID ("${projectIdFromEnv}") in .env is correct and matches your Firebase project.`);
       }
     }
   } catch (error: any) {
@@ -44,11 +45,10 @@ if (!admin.apps.length) {
     console.error('Message:', error.message);
     if (error.stack) console.error('Stack:', error.stack);
     if (error.errorInfo) console.error('Error Info:', error.errorInfo);
-    console.error('This usually indicates a problem with the service account key file path or its content.');
-    console.error('Ensure GOOGLE_APPLICATION_CREDENTIALS in your .env file points to a valid service account key JSON file.');
+    console.error('This usually indicates a problem with the service account key file path, its content, or the explicitly provided projectId.');
+    console.error('Ensure GOOGLE_APPLICATION_CREDENTIALS in your .env file points to a valid service account key JSON file, and NEXT_PUBLIC_FIREBASE_PROJECT_ID is correct.');
   }
 } else {
-  // App already initialized, try to get instances if they weren't set
   const adminApp = admin.app();
   if (adminApp.options.projectId) {
       if (!dbAdminInstance) dbAdminInstance = admin.firestore();
