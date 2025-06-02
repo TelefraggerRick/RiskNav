@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Edit, Building, UserCheck, UserCircle as UserIcon, FileWarning, Globe, Anchor, Cog, Package } from 'lucide-react'; 
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO, isValid } from 'date-fns'; // Added isValid
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { cn } from '@/lib/utils';
 import React from 'react';
@@ -51,6 +51,11 @@ const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = React.memo(({ asse
   const DepartmentIcon = currentDepartmentConfig.icon;
 
   const { getTranslation } = useLanguage(); 
+
+  const submissionDate = parseISO(assessment.submissionDate);
+  const formattedSubmissionDate = isValid(submissionDate) 
+    ? formatDistanceToNow(submissionDate, { addSuffix: true }) 
+    : "Invalid date";
 
   return (
     <Card className={cn(
@@ -105,7 +110,7 @@ const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = React.memo(({ asse
         <div className="flex justify-between items-center w-full">
             <div className="text-xs text-muted-foreground flex items-center gap-1">
                 <CalendarDays className="h-3 w-3" />
-                <span>{formatDistanceToNow(parseISO(assessment.submissionDate), { addSuffix: true })}</span>
+                <span>{formattedSubmissionDate}</span>
             </div>
             <Link href={`/assessments/${assessment.id}`} passHref>
               <Button variant="outline" size="sm" className="bg-card/50 hover:bg-card">

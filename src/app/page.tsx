@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns'; // Added isValid
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,14 +98,14 @@ export default function DashboardPage() {
         } catch (error) {
           console.error("Error parsing localStorage data:", error);
           localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear corrupted data
+          // Fall through to re-initialize with mockData
         }
-      } else {
-        // Initialize localStorage with mock data if it's empty
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
-        return mockRiskAssessments;
       }
+      // Initialize localStorage with mock data if it's empty or was corrupted
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
+      return mockRiskAssessments;
     }
-    return mockRiskAssessments; // Fallback for server-side or if window is not available
+    return mockRiskAssessments; // Fallback for SSR or if window is undefined
   }, []);
 
 
@@ -163,14 +163,20 @@ export default function DashboardPage() {
     const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
       switch (sortKey) {
-        case 'submissionDate':
-          valA = new Date(a.submissionDate).getTime();
-          valB = new Date(b.submissionDate).getTime();
+        case 'submissionDate': {
+          const dateA = parseISO(a.submissionDate);
+          const dateB = parseISO(b.submissionDate);
+          valA = isValid(dateA) ? dateA.getTime() : 0;
+          valB = isValid(dateB) ? dateB.getTime() : 0;
           break;
-        case 'lastModified':
-          valA = new Date(a.lastModified).getTime();
-          valB = new Date(b.lastModified).getTime();
+        }
+        case 'lastModified': {
+          const dateA = parseISO(a.lastModified);
+          const dateB = parseISO(b.lastModified);
+          valA = isValid(dateA) ? dateA.getTime() : 0;
+          valB = isValid(dateB) ? dateB.getTime() : 0;
           break;
+        }
         case 'status':
           valA = a.status;
           valB = b.status;
@@ -189,10 +195,14 @@ export default function DashboardPage() {
 
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      // Fallback sort by submission date if primary sort keys are equal
+      
       if (sortKey !== 'submissionDate') {
-        if (new Date(a.submissionDate).getTime() < new Date(b.submissionDate).getTime()) return 1; // most recent first as default secondary
-        if (new Date(a.submissionDate).getTime() > new Date(b.submissionDate).getTime()) return -1;
+        const subDateA = parseISO(a.submissionDate);
+        const subDateB = parseISO(b.submissionDate);
+        const timeA = isValid(subDateA) ? subDateA.getTime() : 0;
+        const timeB = isValid(subDateB) ? subDateB.getTime() : 0;
+        if (timeA < timeB) return 1; 
+        if (timeA > timeB) return -1;
       }
       return 0;
     });
@@ -240,20 +250,26 @@ export default function DashboardPage() {
     const firstAssessment = assessmentsInGroup[0];
     const { vesselName, patrolStartDate, patrolEndDate } = firstAssessment;
 
+    const formatDateSafe = (dateStr: string | undefined, formatStr: string) => {
+        if (!dateStr) return "...";
+        try {
+            const parsed = parseISO(dateStr);
+            if (isValid(parsed)) return format(parsed, formatStr);
+        } catch (e) { /* fall through */ }
+        return "..."; // Fallback for invalid or unparseable dates
+    };
+    
+    const formattedStartDate = formatDateSafe(patrolStartDate, "MMM d, yyyy");
+    const formattedEndDate = formatDateSafe(patrolEndDate, "MMM d, yyyy");
+
     if (patrolStartDate && patrolEndDate) {
-      try {
-        return `${vesselName} (${getTranslation(T.patrolLabel)} ${format(parseISO(patrolStartDate), "MMM d, yyyy")} - ${format(parseISO(patrolEndDate), "MMM d, yyyy")})`;
-      } catch (e) { /* date parse error, fall through */ }
+        return `${vesselName} (${getTranslation(T.patrolLabel)} ${formattedStartDate} - ${formattedEndDate})`;
     }
     if (patrolStartDate) {
-      try {
-        return `${vesselName} (${getTranslation(T.patrolLabel)} ${format(parseISO(patrolStartDate), "MMM d, yyyy")} - ...)`;
-      } catch (e) { /* date parse error, fall through */ }
+        return `${vesselName} (${getTranslation(T.patrolLabel)} ${formattedStartDate} - ...)`;
     }
-     if (patrolEndDate) {
-      try {
-        return `${vesselName} (... - ${getTranslation(T.patrolLabel)} ${format(parseISO(patrolEndDate), "MMM d, yyyy")})`;
-      } catch (e) { /* date parse error, fall through */ }
+    if (patrolEndDate) {
+        return `${vesselName} (... - ${getTranslation(T.patrolLabel)} ${formattedEndDate})`;
     }
     return `${vesselName} (${getTranslation(T.generalAssessmentsLabel)})`;
   };
