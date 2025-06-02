@@ -19,35 +19,29 @@ if (!admin.apps.length) {
       console.warn(`WARNING: FIRESTORE_EMULATOR_HOST is set to: "${firestoreEmulatorHost}"`);
       console.warn(`The Firebase Admin SDK will attempt to connect to the Firestore emulator.`);
       console.warn(`If you intend to connect to your CLOUD Firestore, please UNSET this environment variable.`);
-      console.warn(`If seeding the emulator, ensure it's running and properly configured.`);
-      console.warn(`This is likely the cause of "5 NOT_FOUND" errors if the emulator is not active or accessible.`);
       console.warn(`--------------------------------------------------------------------`);
     }
 
     if (!serviceAccountPath) {
-      console.error('ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. This is required for firebase-admin to connect to Cloud Firestore. If using emulator, this might be ignorable if emulator is running.');
+      console.error('CRITICAL ERROR: GOOGLE_APPLICATION_CREDENTIALS environment variable is not set.');
+      console.error('This is required for firebase-admin to authenticate.');
+      console.error('Please set it in your .env file to point to your service account key JSON file (e.g., GOOGLE_APPLICATION_CREDENTIALS=./serviceAccountKey.json).');
+      process.exit(1);
     }
     if (!projectIdFromEnv) {
-      console.error('ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variable is not set. This is required for explicit projectId initialization with Cloud Firestore.');
+      console.error('CRITICAL ERROR: NEXT_PUBLIC_FIREBASE_PROJECT_ID environment variable is not set.');
+      console.error('This is required for explicit projectId initialization with firebase-admin.');
+      console.error('Please set it in your .env file (e.g., NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id).');
+      process.exit(1);
     }
 
-    // Initialize with explicit project ID to be certain, especially if not using emulator
-    // or if service account has access to multiple projects.
-    const appOptions: admin.AppOptions = {
-      credential: serviceAccountPath ? admin.credential.applicationDefault() : undefined, // Uses GOOGLE_APPLICATION_CREDENTIALS
+    console.log(`Attempting to initialize Firebase Admin SDK with Project ID: "${projectIdFromEnv}" and Service Account Path: "${serviceAccountPath}"`);
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccountPath),
       projectId: projectIdFromEnv,
-    };
-     // If GOOGLE_APPLICATION_CREDENTIALS is not set, we might be in an environment
-     // where it's implicitly available (like Google Cloud Functions/Run).
-     // If it's not set and projectIdFromEnv is also not set, initialization will likely fail.
-     // If only projectIdFromEnv is set, it might work in GCF/Run if default creds are available.
+    });
 
-    if (!appOptions.credential && !firestoreEmulatorHost) {
-        console.warn("WARNING: GOOGLE_APPLICATION_CREDENTIALS is not set and not targeting an emulator. SDK initialization might rely on implicit credentials (e.g., in GCF/Cloud Run) or fail.");
-    }
-
-
-    admin.initializeApp(appOptions);
     const adminApp = admin.app();
 
     if (adminApp.options.projectId) {
@@ -55,49 +49,59 @@ if (!admin.apps.length) {
       try {
         dbAdminInstance = admin.firestore();
         storageAdminInstance = admin.storage();
-        console.log('Firestore and Storage admin instances initialized successfully.');
+        console.log('Firestore and Storage admin instances obtained.');
 
-        // Diagnostic: Attempt to list collections
         if (dbAdminInstance) {
-          console.log('Attempting diagnostic: List collections...');
+          console.log('Attempting diagnostic: dbAdminInstance.listCollections()');
           dbAdminInstance.listCollections()
             .then(collections => {
-              console.log(`Diagnostic SUCCESS: Found ${collections.length} collections.`);
+              console.log(`DIAGNOSTIC SUCCESS: listCollections() found ${collections.length} collections.`);
+              if (collections.length === 0) {
+                console.log("  It's normal to have 0 collections if the database is new or empty.");
+              }
               collections.forEach(collection => {
-                console.log(`  - Collection ID: ${collection.id}`);
+                console.log(`  - Found Collection ID: ${collection.id}`);
               });
             })
             .catch(listError => {
-              console.error('Diagnostic FAILURE: Error listing collections:');
+              console.error('DIAGNOSTIC FAILURE: dbAdminInstance.listCollections() FAILED.');
               console.error('  Error Message:', listError.message);
               if (listError.code) console.error('  Error Code:', listError.code);
               if (listError.details) console.error('  Error Details:', listError.details);
+              console.error('  This "NOT_FOUND" error on listCollections often means the Firestore database for the project either does NOT exist, or it is NOT in NATIVE mode.');
+              console.error('  PLEASE VERIFY in Firebase Console: Project Settings > Firestore Database > Ensure it is CREATED and in NATIVE mode (not Datastore mode).');
             });
+        } else {
+            console.error("CRITICAL: dbAdminInstance is null even after successful adminApp.options.projectId. This indicates a deeper SDK or environment issue.");
         }
 
       } catch (e: any) {
-          console.error("Error getting Firestore/Storage admin instances AFTER SDK initialization and project ID confirmation:", e.message);
+          console.error("Error obtaining Firestore/Storage admin instances AFTER successful SDK initialization:", e.message);
       }
     } else {
-      console.error('ERROR: Firebase Admin SDK initialized, but Project ID is still not available even after explicit setting.');
-      console.error(`Check if NEXT_PUBLIC_FIREBASE_PROJECT_ID ("${projectIdFromEnv}") in .env is correct and matches your Firebase project.`);
-      console.error(`Also verify your service account key if not using an emulator.`);
+      // This case should ideally be caught by checks for projectIdFromEnv or serviceAccountPath earlier
+      console.error('CRITICAL ERROR: Firebase Admin SDK initialized, but Project ID could not be determined.');
+      console.error(`Ensure NEXT_PUBLIC_FIREBASE_PROJECT_ID ("${projectIdFromEnv}") is correct and GOOGLE_APPLICATION_CREDENTIALS ("${serviceAccountPath}") points to a valid service account key for this project.`);
     }
   } catch (error: any) {
-    console.error('CRITICAL ERROR during Firebase Admin SDK initialization:');
+    console.error('CRITICAL ERROR during Firebase Admin SDK initializeApp call:');
     console.error('Message:', error.message);
     if (error.stack) console.error('Stack:', error.stack);
-    if (error.errorInfo) console.error('Error Info:', error.errorInfo);
-    console.error('This usually indicates a problem with the service account key file path, its content, or the explicitly provided projectId.');
+    console.error('This usually indicates a problem with the service account key file (path, content, permissions) or the projectId.');
+    console.error('Verify the GOOGLE_APPLICATION_CREDENTIALS path in your .env file and the content of the JSON key file.');
   }
 } else {
+  // This block is for when admin.apps.length > 0, meaning it's already initialized.
   const adminApp = admin.app();
   if (adminApp.options.projectId) {
       if (!dbAdminInstance) dbAdminInstance = admin.firestore();
       if (!storageAdminInstance) storageAdminInstance = admin.storage();
+      // console.log('Firebase Admin SDK already initialized. Using existing instances.');
   } else {
-      console.warn('Firebase Admin SDK was already initialized, but still no Project ID detected. Previous initialization likely failed to determine it.');
+      console.warn('Firebase Admin SDK was already initialized, but no Project ID detected. Previous initialization likely failed to determine it.');
   }
 }
 
 export { admin, dbAdminInstance as dbAdmin, storageAdminInstance as storageAdmin };
+
+    
