@@ -98,7 +98,7 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
       } else if (att.uploadedAt instanceof Date) {
         attachmentData.uploadedAt = Timestamp.fromDate(att.uploadedAt) as any;
       }
-      delete attachmentData.file; // Ensure file property is not included when saving to Firestore
+      delete attachmentData.file; 
       return attachmentData;
     });
   }
@@ -117,7 +117,6 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
   
   delete firestoreData.file; 
   
-  // Remove top-level undefined properties AFTER all conversions
   Object.keys(firestoreData).forEach(key => {
     if (firestoreData[key] === undefined) {
       delete firestoreData[key];
@@ -130,19 +129,22 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
 export const addAssessmentToDB = async (
   assessmentData: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified'>
 ): Promise<string> => {
+  console.log("FirestoreService: addAssessmentToDB called with data:", assessmentData);
   try {
     const { id, submissionDate, lastModified, ...dataForFirestore } = assessmentData;
     
     const preparedData = prepareAssessmentDataForFirestore(dataForFirestore as Partial<RiskAssessment>);
+    console.log("FirestoreService: addAssessmentToDB - prepared data for Firestore:", preparedData);
 
     const docRef = await addDoc(collection(db, 'riskAssessments'), {
       ...preparedData,
       submissionDate: serverTimestamp(),
       lastModified: serverTimestamp(),
     });
+    console.log("FirestoreService: addAssessmentToDB - Document written with ID: ", docRef.id);
     return docRef.id;
   } catch (error) {
-    console.error("Error adding new assessment: ", error);
+    console.error("FirestoreService: Error adding new assessment: ", error);
     throw error;
   }
 };
@@ -151,29 +153,28 @@ export const updateAssessmentInDB = async (
   id: string,
   updates: Partial<RiskAssessment>
 ): Promise<void> => {
+  console.log(`FirestoreService: updateAssessmentInDB called for ID: ${id} with updates:`, updates);
   try {
     const assessmentDocRef = doc(db, 'riskAssessments', id);
     const { submissionDate, ...updatesForFirestore } = updates;
     
     const preparedUpdates = prepareAssessmentDataForFirestore(updatesForFirestore);
+    console.log(`FirestoreService: updateAssessmentInDB - prepared updates for Firestore for ID ${id}:`, preparedUpdates);
     
     await updateDoc(assessmentDocRef, {
       ...preparedUpdates,
       lastModified: serverTimestamp(),
     });
+    console.log(`FirestoreService: Successfully updated assessment ${id}`);
   } catch (error) {
-    console.error(`Error updating assessment ${id}: `, error);
+    console.error(`FirestoreService: Error updating assessment ${id}: `, error);
     throw error;
   }
 };
 
-/**
- * Uploads a file to Firebase Storage and returns its download URL.
- * @param file The file to upload.
- * @param storagePath The path in Firebase Storage where the file should be stored (e.g., 'riskAssessments/attachments/some-id/filename.pdf').
- * @returns A promise that resolves with the download URL of the uploaded file.
- */
+
 export const uploadFileToStorage = async (file: File, storagePath: string): Promise<string> => {
+  console.log("FirestoreService: uploadFileToStorage - Starting upload for path:", storagePath, "File:", file.name, "Size:", file.size, "Type:", file.type);
   const storageRef = ref(storage, storagePath);
   const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -181,23 +182,45 @@ export const uploadFileToStorage = async (file: File, storagePath: string): Prom
     uploadTask.on(
       'state_changed',
       (snapshot) => {
-        // Optional: handle progress
-        // const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        // console.log('Upload is ' + progress + '% done');
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(`FirestoreService: Upload is ${progress}% done for ${file.name} (Path: ${storagePath})`);
+        switch (snapshot.state) {
+          case 'paused':
+            console.log(`FirestoreService: Upload is paused for ${file.name}`);
+            break;
+          case 'running':
+            console.log(`FirestoreService: Upload is running for ${file.name}`);
+            break;
+        }
       },
       (error) => {
-        console.error("Upload failed:", error);
+        console.error(`FirestoreService: Upload failed for ${file.name} (Path: ${storagePath})`, error);
+        switch (error.code) {
+          case 'storage/unauthorized':
+            console.error("FirestoreService: User does not have permission to access the object. Check Storage Rules.");
+            break;
+          case 'storage/canceled':
+            console.error("FirestoreService: User canceled the upload.");
+            break;
+          case 'storage/unknown':
+            console.error("FirestoreService: Unknown error occurred, inspect error.serverResponse.");
+            break;
+        }
         reject(error);
       },
       async () => {
+        console.log(`FirestoreService: Upload completed for ${file.name} (Path: ${storagePath}). Getting download URL...`);
         try {
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          console.log(`FirestoreService: Download URL obtained for ${file.name}:`, downloadURL);
           resolve(downloadURL);
         } catch (error) {
-          console.error("Failed to get download URL:", error);
+          console.error(`FirestoreService: Failed to get download URL for ${file.name} (Path: ${storagePath})`, error);
           reject(error);
         }
       }
     );
   });
 };
+
+    

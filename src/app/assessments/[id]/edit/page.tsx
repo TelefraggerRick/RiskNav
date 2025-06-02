@@ -60,12 +60,10 @@ export default function EditAssessmentPage() {
     try {
       const fetchedAssessment = await getAssessmentByIdFromDB(assessmentId);
       if (fetchedAssessment) {
-        // IMPORTANT: Access control check
         if (currentUser.role === 'Admin' || currentUser.name === fetchedAssessment.submittedBy) {
           setAssessment(fetchedAssessment);
           const formValues: Partial<RiskAssessmentFormData> = {
-            ...fetchedAssessment, // Spread all fields from RiskAssessment
-            // Ensure attachments are mapped correctly for the form, including all necessary fields for existing ones
+            ...fetchedAssessment,
             attachments: fetchedAssessment.attachments.map(att => ({
               id: att.id,
               name: att.name,
@@ -74,7 +72,6 @@ export default function EditAssessmentPage() {
               size: att.size,
               uploadedAt: att.uploadedAt,
               dataAiHint: att.dataAiHint,
-              // 'file' property will be undefined for existing attachments from DB
             })),
           };
           setInitialFormValues(formValues);
@@ -121,23 +118,34 @@ export default function EditAssessmentPage() {
   };
 
   const handleSubmit = async (data: RiskAssessmentFormData) => {
-    if (!assessment || !assessment.id) return;
+    console.log("Edit Page: handleSubmit triggered with data:", data);
+    if (!assessment || !assessment.id) {
+        console.error("Edit Page: handleSubmit - No assessment or assessment ID found.");
+        return;
+    }
     if (currentUser.id === 'user-unauth') {
         toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
         return;
     }
 
     setIsSubmitting(true);
+    console.log("Edit Page: handleSubmit - isSubmitting set to true.");
     try {
       const now = new Date();
       const processedAttachments: AttachmentType[] = [];
+      console.log("Edit Page: handleSubmit - Starting attachment processing. Total attachments in form data:", data.attachments?.length);
+
 
       if (data.attachments && data.attachments.length > 0) {
         for (const att of data.attachments) {
+          console.log("Edit Page: handleSubmit - Processing attachment:", att.name, "Has file:", !!att.file);
           if (att.file && att.name) { // New file to upload
+            console.log("Edit Page: handleSubmit - New file detected:", att.name);
             try {
               const storagePath = `riskAssessments/attachments/${assessment.id}/${att.file.name}`;
-              const downloadURL = await uploadFileToStorage(att.file, storagePath);
+              console.log("Edit Page: handleSubmit - Uploading to storagePath:", storagePath);
+              const downloadURL = await uploadFileToStorage(att.file, storagePath); 
+              console.log("Edit Page: handleSubmit - Upload successful, URL:", downloadURL);
               processedAttachments.push({
                 id: doc(collection(db, '_temp')).id,
                 name: att.file.name,
@@ -148,16 +156,18 @@ export default function EditAssessmentPage() {
                 dataAiHint: att.dataAiHint,
               });
             } catch (uploadError) {
-              console.error(`Error uploading new attachment ${att.name}:`, uploadError);
+              console.error(`Edit Page: Error uploading new attachment ${att.name}:`, uploadError);
               toast({
                 title: getTranslation(T_EDIT_PAGE.fileUploadErrorTitle),
                 description: getTranslation(T_EDIT_PAGE.fileUploadErrorDesc).replace('{fileName}', att.name),
                 variant: "destructive",
               });
               setIsSubmitting(false);
+              console.log("Edit Page: handleSubmit - isSubmitting set to false due to upload error.");
               return;
             }
           } else if (att.id && att.url && att.name && att.type && att.size && att.uploadedAt) { // Existing attachment to keep
+            console.log("Edit Page: handleSubmit - Existing file detected:", att.name);
             processedAttachments.push({
               id: att.id,
               name: att.name,
@@ -167,14 +177,17 @@ export default function EditAssessmentPage() {
               uploadedAt: att.uploadedAt,
               dataAiHint: att.dataAiHint,
             });
+          } else {
+            console.warn("Edit Page: handleSubmit - Attachment skipped (neither new nor fully existing):", att.name, att);
           }
         }
       }
+      console.log("Edit Page: handleSubmit - Attachment processing complete. Processed attachments count:", processedAttachments.length);
       
       const fieldsToUpdateFromForm: Partial<RiskAssessment> = {
         vesselName: data.vesselName,
-        imoNumber: data.imoNumber, // Keep empty string if provided, or undefined if not
-        maritimeExemptionNumber: data.maritimeExemptionNumber, // Keep empty string if provided, or undefined if not
+        imoNumber: data.imoNumber, 
+        maritimeExemptionNumber: data.maritimeExemptionNumber, 
         department: data.department,
         region: data.region,
         patrolStartDate: data.patrolStartDate || undefined,
@@ -185,32 +198,33 @@ export default function EditAssessmentPage() {
         proposedOperationalDeviations: data.proposedOperationalDeviations,
         attachments: processedAttachments,
         patrolLengthDays: calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate),
-        employeeName: data.employeeName, // Keep empty string if provided, or undefined if not
-        certificateHeld: data.certificateHeld, // Keep empty string if provided, or undefined if not
-        requiredCertificate: data.requiredCertificate, // Keep empty string if provided, or undefined if not
+        employeeName: data.employeeName, 
+        certificateHeld: data.certificateHeld, 
+        requiredCertificate: data.requiredCertificate, 
         coDeptHeadSupportExemption: data.coDeptHeadSupportExemption,
         deptHeadConfidentInIndividual: data.deptHeadConfidentInIndividual,
-        deptHeadConfidenceReason: data.deptHeadConfidenceReason, // Keep empty string if provided, or undefined if not
+        deptHeadConfidenceReason: data.deptHeadConfidenceReason, 
         employeeFamiliarizationProvided: data.employeeFamiliarizationProvided,
         workedInDepartmentLast12Months: data.workedInDepartmentLast12Months,
-        workedInDepartmentDetails: data.workedInDepartmentDetails, // Keep empty string if provided, or undefined if not
+        workedInDepartmentDetails: data.workedInDepartmentDetails, 
         similarResponsibilityExperience: data.similarResponsibilityExperience,
-        similarResponsibilityDetails: data.similarResponsibilityDetails, // Keep empty string if provided, or undefined if not
+        similarResponsibilityDetails: data.similarResponsibilityDetails, 
         individualHasRequiredSeaService: data.individualHasRequiredSeaService,
         individualWorkingTowardsCertification: data.individualWorkingTowardsCertification,
-        certificationProgressSummary: data.certificationProgressSummary, // Keep empty string if provided, or undefined if not
+        certificationProgressSummary: data.certificationProgressSummary, 
         requestCausesVacancyElsewhere: data.requestCausesVacancyElsewhere,
         crewCompositionSufficientForSafety: data.crewCompositionSufficientForSafety,
-        detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment, // Keep empty string if provided, or undefined if not
+        detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment, 
         crewContinuityAsPerProfile: data.crewContinuityAsPerProfile,
-        crewContinuityDetails: data.crewContinuityDetails, // Keep empty string if provided, or undefined if not
-        specialVoyageConsiderations: data.specialVoyageConsiderations, // Keep empty string if provided, or undefined if not
+        crewContinuityDetails: data.crewContinuityDetails, 
+        specialVoyageConsiderations: data.specialVoyageConsiderations, 
         reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
-        // lastModified will be handled by updateAssessmentInDB with serverTimestamp
       };
-
+      
+      console.log("Edit Page: handleSubmit - Calling updateAssessmentInDB with ID:", assessment.id, "and updates:", fieldsToUpdateFromForm);
       await updateAssessmentInDB(assessment.id, fieldsToUpdateFromForm);
+      console.log("Edit Page: handleSubmit - updateAssessmentInDB complete.");
 
       toast({
         title: getTranslation(T_EDIT_PAGE.updateSuccessTitle),
@@ -218,7 +232,7 @@ export default function EditAssessmentPage() {
       });
       router.push(`/assessments/${assessment.id}`);
     } catch (error) {
-      console.error("Error updating assessment:", error);
+      console.error("Edit Page: Error updating assessment:", error);
       toast({
         title: getTranslation(T_EDIT_PAGE.updateErrorTitle),
         description: getTranslation(T_EDIT_PAGE.updateErrorDesc),
@@ -226,6 +240,7 @@ export default function EditAssessmentPage() {
       });
     } finally {
       setIsSubmitting(false);
+      console.log("Edit Page: handleSubmit - isSubmitting set to false in finally block.");
     }
   };
 
@@ -308,3 +323,5 @@ export default function EditAssessmentPage() {
     </div>
   );
 }
+
+    
