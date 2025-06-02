@@ -1,13 +1,8 @@
-
 // src/scripts/seedDatabase.ts
-
-import { db } from '@/lib/firebase';
+import { admin, dbAdmin } from '@/lib/firebaseAdmin'; // Use firebase-admin
 import { mockRiskAssessments } from '@/lib/mockData';
 import type { RiskAssessment, ApprovalStep, Attachment, YesNoOptional, VesselDepartment, VesselRegion, RiskAssessmentStatus, ApprovalDecision, ApprovalLevel } from '@/lib/types';
-import { doc, setDoc, Timestamp, FieldValue, serverTimestamp } from 'firebase/firestore';
-import { config } from 'dotenv';
-
-config(); // Load environment variables from .env
+import { Timestamp, FieldValue } from 'firebase-admin/firestore'; // Import from firebase-admin/firestore
 
 // --- Helper to safely create Firestore Timestamps from date strings ---
 function safeCreateTimestamp(dateString: string | undefined | null): Timestamp | null {
@@ -21,8 +16,8 @@ function safeCreateTimestamp(dateString: string | undefined | null): Timestamp |
       return null;
     }
     return Timestamp.fromDate(date);
-  } catch (error) {
-    console.warn(`Error parsing date string "${dateString}" for Timestamp:`, error, ". Storing as null.");
+  } catch (error: any) {
+    console.warn(`Error parsing date string "${dateString}" for Timestamp:`, error.message, ". Storing as null.");
     return null;
   }
 }
@@ -34,14 +29,20 @@ function cleanUndefinedRecursively(obj: any): any {
   }
   if (Array.isArray(obj)) {
     return obj.map(item => cleanUndefinedRecursively(item));
-  } else if (obj instanceof Date || obj instanceof Timestamp || (obj && typeof obj === 'object' && '_methodName' in obj && typeof obj._methodName === 'string' && obj._methodName.includes('timestamp'))) {
-    // Do not recurse into Date, Timestamp, or FieldValue objects
+  } else if (obj instanceof Date || obj instanceof Timestamp || (obj && typeof obj === 'object' && obj._methodName && typeof obj._methodName === 'string' && obj._methodName.includes('timestamp'))) {
     return obj;
   } else if (typeof obj === 'object' && obj !== null) {
     const newObj: {[key: string]: any} = {};
     for (const key in obj) {
       if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        newObj[key] = cleanUndefinedRecursively(obj[key]);
+        const cleanedValue = cleanUndefinedRecursively(obj[key]);
+        // Only include the key if the cleaned value is not undefined.
+        // It can be null, which is a valid Firestore value.
+        if (cleanedValue !== undefined) {
+          newObj[key] = cleanedValue;
+        } else {
+           newObj[key] = null; // Explicitly set to null if cleaning results in undefined
+        }
       }
     }
     return newObj;
@@ -55,6 +56,7 @@ const VALID_STATUSES: ReadonlyArray<RiskAssessmentStatus | '' | null | undefined
 const VALID_YES_NO_OPTIONAL: ReadonlyArray<YesNoOptional | '' | null | undefined> = ['Yes', 'No', null, undefined, ''];
 const VALID_APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision | '' | null | undefined> = ['Approved', 'Rejected', 'Needs Information', '', null, undefined];
 const VALID_APPROVAL_LEVELS: ReadonlyArray<ApprovalLevel> = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+
 
 function validateAndCoerceEnum<T extends string>(
   value: any,
@@ -89,34 +91,33 @@ function coerceYesNoOptional(value: any, fieldName: string, assessmentId: string
 
 
 async function seedDatabase() {
-  console.log('Starting database seed process...');
+  console.log('Starting database seed process with firebase-admin...');
   if (!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
-    console.error("Firebase project ID is not configured in .env file. Aborting seed.");
+    console.error("Firebase project ID (NEXT_PUBLIC_FIREBASE_PROJECT_ID) is not configured in .env file. Aborting seed.");
+    return;
+  }
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    console.error("GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. This is required for firebase-admin. Aborting seed.");
+    console.error("Please create a service account key JSON file, place it in your project, and set GOOGLE_APPLICATION_CREDENTIALS to its path (e.g., ./serviceAccountKey.json).");
     return;
   }
   console.log(`Targeting Firebase project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}`);
+  console.log(`Using service account key from: ${process.env.GOOGLE_APPLICATION_CREDENTIALS}`);
+
 
   let successCount = 0;
   let errorCount = 0;
 
-  // Test with only the first assessment as an ultra-minimal, hardcoded document
-  const firstMockAssessment = mockRiskAssessments[0];
-  if (!firstMockAssessment) {
-    console.log("No mock assessments found to process. Exiting.");
-    return;
-  }
-
-  const testDocId = 'test-from-script-001';
-  console.log(`Attempting a single, hardcoded write for document ID: ${testDocId}`);
-
-  const hardcodedDataToSet: any = {
-    testName: "Minimal Script Test",
-    testStatus: "Draft", // Directly using a valid enum string
-    testDate: new Date(), // Native JS Date, SDK will convert
-    serverTimestampField: serverTimestamp() // Using FieldValue.serverTimestamp()
+  // Test with one minimal, hardcoded document first
+  const TEST_DOCUMENT_ID = 'test-from-script-001-admin';
+  let testDataToSet: any = {
+    testName: "Admin SDK Minimal Script Test",
+    testStatus: "Draft",
+    testDate: new Date(), // Native JS Date, Admin SDK will convert
+    serverTimestampField: FieldValue.serverTimestamp() // Use FieldValue from admin SDK
   };
 
-  // Log the object being sent
+  console.log(`Attempting initial test write for document ID: ${TEST_DOCUMENT_ID}`);
   const replacerForLog = (key: string, value: any) => {
     if (value instanceof Timestamp) {
       return `FirestoreTimestamp(seconds=${value.seconds}, nanoseconds=${value.nanoseconds})`;
@@ -124,54 +125,151 @@ async function seedDatabase() {
     if (value instanceof Date) {
       return `NativeDate(${value.toISOString()})`;
     }
-    if (value && typeof value === 'object' && '_methodName' in value && typeof value._methodName === 'string' && (value._methodName.includes('timestamp') || value._methodName.includes('delete') || value._methodName.includes('arrayUnion') || value._methodName.includes('arrayRemove') || value._methodName.includes('increment'))) {
-        return `FieldValue.${value._methodName}()`;
+    if (value && value._methodName && value._methodName.startsWith('FieldValue.')) {
+        return value._methodName;
     }
     return value;
   };
-  console.log(`Attempting to set document ${testDocId} with data:`, JSON.stringify(hardcodedDataToSet, replacerForLog, 2));
+  console.log(`Attempting to set document ${TEST_DOCUMENT_ID} with data:`, JSON.stringify(testDataToSet, replacerForLog, 2));
 
   try {
-    const docRef = doc(db, 'riskAssessments', testDocId);
-    await setDoc(docRef, hardcodedDataToSet);
-    console.log(`SUCCESS: Seeded test document ${testDocId}`);
+    const docRef = dbAdmin.collection('riskAssessments').doc(TEST_DOCUMENT_ID);
+    await docRef.set(testDataToSet);
+    console.log(`SUCCESS: Seeded test document ${TEST_DOCUMENT_ID} using admin SDK.`);
     successCount++;
   } catch (error: any) {
-    console.error(`ERROR seeding test document ${testDocId}.`);
+    console.error(`ERROR seeding test document ${TEST_DOCUMENT_ID} using admin SDK.`);
     console.error("Error message:", error.message);
     if (error.code) console.error("Error code:", error.code);
-    console.error("Data object ATTEMPTED for setDoc (from catch block):", JSON.stringify(hardcodedDataToSet, replacerForLog, 2));
+    if (error.details) console.error("Error details:", error.details);
+    console.error("Data object ATTEMPTED for setDoc (from catch block):", JSON.stringify(testDataToSet, replacerForLog, 2));
     errorCount++;
   }
 
-
-  // The rest of the loop is effectively skipped for this test by focusing on the single hardcoded write above.
-  // If the above hardcoded write works, we can re-enable the loop.
-  if (successCount === 0 && errorCount > 0) {
-     console.log("The initial hardcoded test write failed. Skipping other assessments.");
+  if (errorCount > 0 && successCount === 0) {
+    console.log("Initial test write with admin SDK failed. Aborting seeding of mock data.");
+    console.log('-------------------------------------');
+    console.log('Database Seed Process Finished (with errors).');
+    console.log(`Successfully seeded: ${successCount} assessments.`);
+    console.log(`Failed to seed: ${errorCount} assessments.`);
+    console.log('-------------------------------------');
+    return;
   } else if (successCount > 0) {
-    console.log("Initial hardcoded test write SUCCEEDED. You can now try uncommenting the main loop to seed all data if desired.");
+     console.log("Initial test write with admin SDK SUCCEEDED. Proceeding with mock data...");
   } else {
-     console.log("Initial hardcoded test write seems to have neither succeeded nor explicitly failed in a way caught by the script. This is unexpected.");
+     console.log("Initial test write with admin SDK state is indeterminate. Proceeding with caution for mock data...");
   }
 
-  // Keep the main loop commented out or conditional for now
-  /*
+
   for (const mockAssessment of mockRiskAssessments) {
     const assessmentId = mockAssessment.id;
     console.log(`Processing assessment: ${assessmentId} - ${mockAssessment.vesselName}`);
 
     const cleanedMockInitial = cleanUndefinedRecursively(mockAssessment);
-    let dataToSet: any = {};
+    
+    let dataToSet: any = {
+      // Ensure all fields from RiskAssessment type are mapped or explicitly nulled
+      id: String(cleanedMockInitial.id || assessmentId), // id is part of the mock, ensure it's a string
+      referenceNumber: String(cleanedMockInitial.referenceNumber || ''),
+      maritimeExemptionNumber: cleanedMockInitial.maritimeExemptionNumber ? String(cleanedMockInitial.maritimeExemptionNumber) : null,
+      vesselName: String(cleanedMockInitial.vesselName || ''),
+      imoNumber: cleanedMockInitial.imoNumber ? String(cleanedMockInitial.imoNumber) : null,
+      department: validateAndCoerceEnum(cleanedMockInitial.department, VALID_VESSEL_DEPARTMENTS, 'department', assessmentId),
+      region: validateAndCoerceEnum(cleanedMockInitial.region, VALID_VESSEL_REGIONS, 'region', assessmentId),
+      patrolStartDate: cleanedMockInitial.patrolStartDate ? String(cleanedMockInitial.patrolStartDate) : null, // Keep as string or convert to Timestamp if needed
+      patrolEndDate: cleanedMockInitial.patrolEndDate ? String(cleanedMockInitial.patrolEndDate) : null, // Keep as string or convert to Timestamp if needed
+      patrolLengthDays: typeof cleanedMockInitial.patrolLengthDays === 'number' ? cleanedMockInitial.patrolLengthDays : null,
+      voyageDetails: String(cleanedMockInitial.voyageDetails || ''),
+      reasonForRequest: String(cleanedMockInitial.reasonForRequest || ''),
+      personnelShortages: String(cleanedMockInitial.personnelShortages || ''),
+      proposedOperationalDeviations: String(cleanedMockInitial.proposedOperationalDeviations || ''),
+      submittedBy: String(cleanedMockInitial.submittedBy || ''),
+      submissionDate: safeCreateTimestamp(cleanedMockInitial.submissionDate),
+      status: validateAndCoerceEnum(cleanedMockInitial.status, VALID_STATUSES, 'status', assessmentId, false) || 'Draft',
+      
+      // AI fields
+      aiRiskScore: typeof cleanedMockInitial.aiRiskScore === 'number' ? cleanedMockInitial.aiRiskScore : null,
+      aiGeneratedSummary: cleanedMockInitial.aiGeneratedSummary ? String(cleanedMockInitial.aiGeneratedSummary) : null,
+      aiSuggestedMitigations: cleanedMockInitial.aiSuggestedMitigations ? String(cleanedMockInitial.aiSuggestedMitigations) : null,
+      aiRegulatoryConsiderations: cleanedMockInitial.aiRegulatoryConsiderations ? String(cleanedMockInitial.aiRegulatoryConsiderations) : null,
+      aiLikelihoodScore: typeof cleanedMockInitial.aiLikelihoodScore === 'number' ? cleanedMockInitial.aiLikelihoodScore : null,
+      aiConsequenceScore: typeof cleanedMockInitial.aiConsequenceScore === 'number' ? cleanedMockInitial.aiConsequenceScore : null,
+      
+      lastModified: FieldValue.serverTimestamp(), // Use admin FieldValue
 
-    // ... (rest of the complex data preparation logic from previous versions) ...
-    // This part is skipped if the hardcoded test is the focus.
+      // ExemptionIndividualAssessmentData
+      employeeName: cleanedMockInitial.employeeName ? String(cleanedMockInitial.employeeName) : null,
+      certificateHeld: cleanedMockInitial.certificateHeld ? String(cleanedMockInitial.certificateHeld) : null,
+      requiredCertificate: cleanedMockInitial.requiredCertificate ? String(cleanedMockInitial.requiredCertificate) : null,
+      coDeptHeadSupportExemption: coerceYesNoOptional(cleanedMockInitial.coDeptHeadSupportExemption, 'coDeptHeadSupportExemption', assessmentId),
+      deptHeadConfidentInIndividual: coerceYesNoOptional(cleanedMockInitial.deptHeadConfidentInIndividual, 'deptHeadConfidentInIndividual', assessmentId),
+      deptHeadConfidenceReason: cleanedMockInitial.deptHeadConfidenceReason ? String(cleanedMockInitial.deptHeadConfidenceReason) : null,
+      employeeFamiliarizationProvided: coerceYesNoOptional(cleanedMockInitial.employeeFamiliarizationProvided, 'employeeFamiliarizationProvided', assessmentId),
+      workedInDepartmentLast12Months: coerceYesNoOptional(cleanedMockInitial.workedInDepartmentLast12Months, 'workedInDepartmentLast12Months', assessmentId),
+      workedInDepartmentDetails: cleanedMockInitial.workedInDepartmentDetails ? String(cleanedMockInitial.workedInDepartmentDetails) : null,
+      similarResponsibilityExperience: coerceYesNoOptional(cleanedMockInitial.similarResponsibilityExperience, 'similarResponsibilityExperience', assessmentId),
+      similarResponsibilityDetails: cleanedMockInitial.similarResponsibilityDetails ? String(cleanedMockInitial.similarResponsibilityDetails) : null,
+      individualHasRequiredSeaService: coerceYesNoOptional(cleanedMockInitial.individualHasRequiredSeaService, 'individualHasRequiredSeaService', assessmentId),
+      individualWorkingTowardsCertification: coerceYesNoOptional(cleanedMockInitial.individualWorkingTowardsCertification, 'individualWorkingTowardsCertification', assessmentId),
+      certificationProgressSummary: cleanedMockInitial.certificationProgressSummary ? String(cleanedMockInitial.certificationProgressSummary) : null,
+      
+      // OperationalConsiderationsData
+      requestCausesVacancyElsewhere: coerceYesNoOptional(cleanedMockInitial.requestCausesVacancyElsewhere, 'requestCausesVacancyElsewhere', assessmentId),
+      crewCompositionSufficientForSafety: coerceYesNoOptional(cleanedMockInitial.crewCompositionSufficientForSafety, 'crewCompositionSufficientForSafety', assessmentId),
+      detailedCrewCompetencyAssessment: cleanedMockInitial.detailedCrewCompetencyAssessment ? String(cleanedMockInitial.detailedCrewCompetencyAssessment) : null,
+      crewContinuityAsPerProfile: coerceYesNoOptional(cleanedMockInitial.crewContinuityAsPerProfile, 'crewContinuityAsPerProfile', assessmentId),
+      crewContinuityDetails: cleanedMockInitial.crewContinuityDetails ? String(cleanedMockInitial.crewContinuityDetails) : null,
+      specialVoyageConsiderations: cleanedMockInitial.specialVoyageConsiderations ? String(cleanedMockInitial.specialVoyageConsiderations) : null,
+      reductionInVesselProgramRequirements: coerceYesNoOptional(cleanedMockInitial.reductionInVesselProgramRequirements, 'reductionInVesselProgramRequirements', assessmentId),
+      rocNotificationOfLimitations: coerceYesNoOptional(cleanedMockInitial.rocNotificationOfLimitations, 'rocNotificationOfLimitations', assessmentId),
+
+      attachments: (cleanedMockInitial.attachments || []).map((att: any) => ({
+        id: String(att.id || ''),
+        name: String(att.name || ''),
+        url: String(att.url || '#'), // Default to # if no URL, Firestore needs a string
+        type: String(att.type || ''),
+        size: typeof att.size === 'number' ? att.size : 0,
+        uploadedAt: safeCreateTimestamp(att.uploadedAt),
+        dataAiHint: att.dataAiHint ? String(att.dataAiHint) : null,
+        // Do NOT include 'file' object
+      })).filter(att => att.id && att.name), // Ensure basic fields are present
+
+      approvalSteps: (cleanedMockInitial.approvalSteps || []).map((step: any) => ({
+        level: validateAndCoerceEnum(step.level, VALID_APPROVAL_LEVELS, 'approvalStep.level', assessmentId, false) || 'Crewing Standards and Oversight', // Default if invalid
+        decision: validateAndCoerceEnum(step.decision, VALID_APPROVAL_DECISIONS, 'approvalStep.decision', assessmentId),
+        userId: step.userId ? String(step.userId) : null,
+        userName: step.userName ? String(step.userName) : null,
+        date: safeCreateTimestamp(step.date),
+        notes: step.notes ? String(step.notes) : null,
+      })).filter(step => step.level), // Ensure level is present
+    };
+    
+    // Final check: convert any top-level undefined to null
+    for (const key in dataToSet) {
+      if (dataToSet[key] === undefined) {
+        dataToSet[key] = null;
+      }
+    }
+
+    const docRef = dbAdmin.collection('riskAssessments').doc(assessmentId);
+    console.log(`Attempting to set document ${assessmentId} with data:`, JSON.stringify(dataToSet, replacerForLog, 2).substring(0, 500) + "..."); // Log snippet
+
+    try {
+      await docRef.set(dataToSet);
+      console.log(`SUCCESS: Seeded assessment ${assessmentId} using admin SDK.`);
+      successCount++;
+    } catch (error: any) {
+      console.error(`ERROR seeding assessment ${assessmentId} using admin SDK.`);
+      console.error("Error message:", error.message);
+      if (error.code) console.error("Error code:", error.code);
+      if (error.details) console.error("Error details:", error.details); // Admin SDK might provide more details
+      console.error("Data object ATTEMPTED for setDoc (from catch block):", JSON.stringify(dataToSet, replacerForLog, 2));
+      errorCount++;
+    }
   }
-  */
-
 
   console.log('-------------------------------------');
-  console.log('Database Seed Process Complete (or initial test finished).');
+  console.log('Database Seed Process Complete.');
   console.log(`Successfully seeded: ${successCount} assessments.`);
   console.log(`Failed to seed: ${errorCount} assessments.`);
   if (errorCount > 0) {
@@ -183,4 +281,3 @@ async function seedDatabase() {
 seedDatabase().catch(err => {
   console.error('Unhandled critical error during seeding process:', err);
 });
-
