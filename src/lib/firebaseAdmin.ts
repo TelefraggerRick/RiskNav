@@ -48,8 +48,12 @@ if (!admin.apps.length) {
       console.log(`Firebase Admin SDK initialized successfully for Project ID: ${adminApp.options.projectId}`);
       try {
         dbAdminInstance = admin.firestore();
+        // Set ignoreUndefinedProperties to true
+        dbAdminInstance.settings({ ignoreUndefinedProperties: true });
+        console.log('Firestore admin instance obtained and ignoreUndefinedProperties set to true.');
+        
         storageAdminInstance = admin.storage();
-        console.log('Firestore and Storage admin instances obtained.');
+        console.log('Storage admin instance obtained.');
 
         // Diagnostic: Attempt to list collections
         if (dbAdminInstance) {
@@ -101,7 +105,10 @@ if (!admin.apps.length) {
   // This block is for when admin.apps.length > 0, meaning it's already initialized.
   const adminApp = admin.app();
   if (adminApp.options.projectId) {
-      if (!dbAdminInstance) dbAdminInstance = admin.firestore();
+      if (!dbAdminInstance) {
+        dbAdminInstance = admin.firestore();
+        dbAdminInstance.settings({ ignoreUndefinedProperties: true }); // Also set here for safety
+      }
       if (!storageAdminInstance) storageAdminInstance = admin.storage();
       // console.log('Firebase Admin SDK already initialized. Using existing instances.');
   } else {
