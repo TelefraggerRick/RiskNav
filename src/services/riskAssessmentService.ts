@@ -17,18 +17,19 @@ import {
   // where, // Not currently used, commented out
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import type { RiskAssessment, Attachment, RiskAssessmentFormData } from '@/lib/types';
+import type { RiskAssessment, Attachment, RiskAssessmentFormData, ApprovalStep } from '@/lib/types';
 
 const ASSESSMENTS_COLLECTION = 'riskAssessments';
 
-// Helper to convert Firestore Timestamps to client-friendly types (ISO strings or millis numbers)
+// Helper to convert Firestore Timestamps and handle null/undefined values
 const convertFirestoreTypes = (data: any): any => {
-  if (data === null || data === undefined) return data;
+  if (data === null || data === undefined) {
+    return null; // Explicitly return null for undefined or null inputs
+  }
 
   if (data instanceof Timestamp) {
     // This case is for when convertFirestoreTypes might be called on a Timestamp directly
-    // This specific check might not be hit if iterating object keys, but good for robustness
-    return data.toDate().toISOString(); // Default to ISO string if called directly on a Timestamp
+    return data.toDate().toISOString(); // Default to ISO string
   }
 
   if (Array.isArray(data)) {
@@ -40,29 +41,30 @@ const convertFirestoreTypes = (data: any): any => {
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         const value = data[key];
-        if (value instanceof Timestamp) {
+        if (value === undefined) {
+          newData[key] = null; // Convert undefined fields to null
+        } else if (value instanceof Timestamp) {
           if (key === 'submissionTimestamp' || key === 'lastModifiedTimestamp') {
-            newData[key] = value.toMillis(); // Convert specific fields to Unix milliseconds
+            newData[key] = value.toMillis();
           } else {
-            // Convert other Timestamp fields (e.g., submissionDate, lastModified, approvalStep.date, attachment.uploadedAt) to ISO strings
+            // Covers submissionDate, lastModified, approvalStep.date, attachment.uploadedAt
             newData[key] = value.toDate().toISOString();
           }
         } else if (typeof value === 'object' && value !== null) {
-          newData[key] = convertFirestoreTypes(value); // Recursively convert for nested objects/arrays
+          newData[key] = convertFirestoreTypes(value); // Recursively convert
         } else {
-          newData[key] = value; // Copy other primitive values as is
+          newData[key] = value;
         }
       }
     }
     return newData;
   }
-  return data; // Return primitives if not object/array/timestamp
+  return data;
 };
 
 
 export async function getAllRiskAssessments(): Promise<RiskAssessment[]> {
   try {
-    // Ensure submissionTimestamp in Firestore is a Timestamp for correct ordering
     const q = query(collection(db, ASSESSMENTS_COLLECTION), orderBy('submissionTimestamp', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap =>
@@ -97,8 +99,8 @@ async function uploadAttachmentFile(file: File, assessmentId: string): Promise<P
     url: downloadURL,
     type: file.type,
     size: file.size,
-    uploadedAt: new Date().toISOString(), // Client sets ISO string, Firestore converts to Timestamp on save if field type is Timestamp
-    storagePath: storageRef.fullPath, // Store the full path for potential deletion
+    uploadedAt: new Date().toISOString(),
+    storagePath: storageRef.fullPath,
   };
 }
 
@@ -114,38 +116,81 @@ export async function addRiskAssessment(formData: RiskAssessmentFormData, submit
         if (att.file) {
           const uploadedFileMeta = await uploadAttachmentFile(att.file, tempAssessmentId);
           processedAttachments.push({
-            id: `att_${Date.now()}_${Math.random().toString(36).substring(2,7)}`,
-            ...uploadedFileMeta,
-            uploadedAt: uploadedFileMeta.uploadedAt || now.toISOString(), // Ensure uploadedAt is string
-          } as Attachment);
+            id: `att_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, // Ensure ID is a string
+            name: uploadedFileMeta.name || 'untitled',
+            url: uploadedFileMeta.url || '',
+            type: uploadedFileMeta.type || 'application/octet-stream',
+            size: uploadedFileMeta.size || 0,
+            uploadedAt: uploadedFileMeta.uploadedAt || now.toISOString(),
+            storagePath: uploadedFileMeta.storagePath || undefined,
+          });
         }
       }
     }
+    
+    // Ensure all optional fields are explicitly null if not provided or undefined
+    const cleanFormData = { ...formData };
+    for (const key in cleanFormData) {
+        if (cleanFormData[key as keyof RiskAssessmentFormData] === undefined) {
+            (cleanFormData as any)[key] = null;
+        }
+    }
 
-    const newAssessmentData: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified' | 'submissionTimestamp' | 'lastModifiedTimestamp' | 'status' | 'approvalSteps'> & { status: RiskAssessmentStatus, approvalSteps: any[] } = {
-      ...formData,
+
+    const newAssessmentData = {
+      ...cleanFormData,
       attachments: processedAttachments,
       submittedBy,
-      status: 'Pending Crewing Standards and Oversight', // Initial status
-      approvalSteps: formData.approvalSteps ? formData.approvalSteps.map(step => ({ ...step, date: step.date ? Timestamp.fromDate(new Date(step.date)) : undefined })) : [],
+      status: 'Pending Crewing Standards and Oversight',
+      approvalSteps: formData.approvalSteps ? formData.approvalSteps.map(step => ({ 
+        ...step, 
+        date: step.date ? Timestamp.fromDate(new Date(step.date)) : null,
+        notes: step.notes || null,
+        userId: step.userId || null,
+        userName: step.userName || null,
+        decision: step.decision || null,
+       })) : [],
+      submissionDate: submissionFirestoreTimestamp,
+      lastModified: serverTimestamp(),
+      submissionTimestamp: submissionFirestoreTimestamp,
+      lastModifiedTimestamp: serverTimestamp(),
+      // Ensure explicitly optional fields are null if not present
+      imoNumber: formData.imoNumber || null,
+      maritimeExemptionNumber: formData.maritimeExemptionNumber || null,
+      patrolStartDate: formData.patrolStartDate || null,
+      patrolEndDate: formData.patrolEndDate || null,
+      patrolLengthDays: typeof formData.patrolLengthDays === 'number' ? formData.patrolLengthDays : null,
+      aiRiskScore: typeof formData.aiRiskScore === 'number' ? formData.aiRiskScore : null,
+      aiGeneratedSummary: formData.aiGeneratedSummary || null,
+      aiSuggestedMitigations: formData.aiSuggestedMitigations || null,
+      aiRegulatoryConsiderations: formData.aiRegulatoryConsiderations || null,
+      aiLikelihoodScore: typeof formData.aiLikelihoodScore === 'number' ? formData.aiLikelihoodScore : null,
+      aiConsequenceScore: typeof formData.aiConsequenceScore === 'number' ? formData.aiConsequenceScore : null,
+      employeeName: formData.employeeName || null,
+      certificateHeld: formData.certificateHeld || null,
+      requiredCertificate: formData.requiredCertificate || null,
+      deptHeadConfidenceReason: formData.deptHeadConfidenceReason || null,
+      workedInDepartmentDetails: formData.workedInDepartmentDetails || null,
+      similarResponsibilityDetails: formData.similarResponsibilityDetails || null,
+      certificationProgressSummary: formData.certificationProgressSummary || null,
+      detailedCrewCompetencyAssessment: formData.detailedCrewCompetencyAssessment || null,
+      crewContinuityDetails: formData.crewContinuityDetails || null,
+      specialVoyageConsiderations: formData.specialVoyageConsiderations || null,
     };
+    
+    // Remove referenceNumber if it's in formData, as it should be generated or handled by mock structure if any
+    // The type RiskAssessmentFormData doesn't include id, submissionDate, etc.
+    delete (newAssessmentData as any).referenceNumber; 
 
-    const firestoreReadyData = {
-      ...newAssessmentData,
-      submissionDate: submissionFirestoreTimestamp, // Store as Firestore Timestamp
-      lastModified: serverTimestamp(), // Store as Firestore serverTimestamp
-      submissionTimestamp: submissionFirestoreTimestamp, // For ordering, store as Firestore Timestamp
-      lastModifiedTimestamp: serverTimestamp(), // For ordering or consistency, store as Firestore serverTimestamp
-      attachments: newAssessmentData.attachments.map(att => ({
-        ...att,
-        uploadedAt: Timestamp.fromDate(new Date(att.uploadedAt)), // Store as Timestamp
-      })),
-    };
 
-    const docRef = await addDoc(collection(db, ASSESSMENTS_COLLECTION), firestoreReadyData);
+    const docRef = await addDoc(collection(db, ASSESSMENTS_COLLECTION), newAssessmentData);
     return docRef.id;
   } catch (error) {
     console.error("Error adding risk assessment: ", error);
+    // For more detailed error logging during development:
+    if (error instanceof Error && 'details' in error) {
+        console.error("Firestore Error Details:", (error as any).details);
+    }
     throw new Error("Failed to add risk assessment.");
   }
 }
@@ -156,29 +201,39 @@ export async function updateRiskAssessment(id: string, updates: Partial<RiskAsse
 
     const firestoreUpdates: any = { ...updates };
 
-    // Convert specific string dates from client back to Timestamps if they exist in updates
+    // Convert specific string dates from client back to Timestamps or ensure null
     if (updates.submissionDate && typeof updates.submissionDate === 'string') {
       firestoreUpdates.submissionDate = Timestamp.fromDate(new Date(updates.submissionDate));
+    } else if (updates.hasOwnProperty('submissionDate') && updates.submissionDate === null) {
+      firestoreUpdates.submissionDate = null;
     }
-    if (updates.submissionTimestamp && typeof updates.submissionTimestamp === 'number') { // If client sends number
+    
+    if (updates.submissionTimestamp && typeof updates.submissionTimestamp === 'number') {
         firestoreUpdates.submissionTimestamp = Timestamp.fromMillis(updates.submissionTimestamp);
+    } else if (updates.hasOwnProperty('submissionTimestamp') && updates.submissionTimestamp === null) {
+        firestoreUpdates.submissionTimestamp = null;
     }
 
-    firestoreUpdates.lastModified = serverTimestamp(); // Use server timestamp for actual update time
+
+    firestoreUpdates.lastModified = serverTimestamp();
     firestoreUpdates.lastModifiedTimestamp = serverTimestamp();
 
 
     if (updates.approvalSteps) {
-      firestoreUpdates.approvalSteps = updates.approvalSteps.map(step => ({
-        ...step,
-        date: step.date && typeof step.date === 'string' ? Timestamp.fromDate(new Date(step.date)) : (step.date instanceof Timestamp ? step.date : undefined),
+      firestoreUpdates.approvalSteps = updates.approvalSteps.map((step: Partial<ApprovalStep>) => ({
+        level: step.level, // Assuming level is always present
+        decision: step.decision || null,
+        userId: step.userId || null,
+        userName: step.userName || null,
+        date: step.date && typeof step.date === 'string' ? Timestamp.fromDate(new Date(step.date)) : (step.date instanceof Timestamp ? step.date : null),
+        notes: step.notes || null,
       }));
     }
 
     if (updates.attachments) {
         const updatedAttachments: Omit<Attachment, 'file'>[] = [];
         for (const att of updates.attachments) {
-            if (att.file && !att.id.startsWith('att-storage-')) { // New file to upload
+            if (att.file && (!att.id || !att.id.startsWith('att-storage-'))) { 
                 const uploadedFileMeta = await uploadAttachmentFile(att.file, id);
                 updatedAttachments.push({
                     id: `att-storage-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
@@ -186,35 +241,55 @@ export async function updateRiskAssessment(id: string, updates: Partial<RiskAsse
                     url: uploadedFileMeta.url!,
                     type: uploadedFileMeta.type!,
                     size: uploadedFileMeta.size!,
-                    uploadedAt: Timestamp.fromDate(new Date(uploadedFileMeta.uploadedAt!)), // Store as Timestamp
+                    uploadedAt: Timestamp.fromDate(new Date(uploadedFileMeta.uploadedAt!)),
                     storagePath: uploadedFileMeta.storagePath,
                 });
-            } else { // Existing attachment, ensure date is Timestamp
+            } else { 
                 const { file, ...restOfAtt } = att;
                 updatedAttachments.push({
                     ...restOfAtt,
                     uploadedAt: restOfAtt.uploadedAt && typeof restOfAtt.uploadedAt === 'string'
                         ? Timestamp.fromDate(new Date(restOfAtt.uploadedAt))
-                        : (restOfAtt.uploadedAt instanceof Timestamp ? restOfAtt.uploadedAt : Timestamp.now()), // Fallback if type is wrong
+                        : (restOfAtt.uploadedAt instanceof Timestamp ? restOfAtt.uploadedAt : Timestamp.now()),
                 });
             }
         }
         firestoreUpdates.attachments = updatedAttachments;
     }
-    // Remove id if it's part of updates, as it's the document key
+    
+    // Ensure explicitly optional fields are set to null if they are undefined in updates
+    const optionalFields: (keyof RiskAssessment)[] = [
+        'imoNumber', 'maritimeExemptionNumber', 'patrolStartDate', 'patrolEndDate', 'patrolLengthDays',
+        'aiRiskScore', 'aiGeneratedSummary', 'aiSuggestedMitigations', 'aiRegulatoryConsiderations',
+        'aiLikelihoodScore', 'aiConsequenceScore', 'employeeName', 'certificateHeld',
+        'requiredCertificate', 'deptHeadConfidenceReason', 'workedInDepartmentDetails',
+        'similarResponsibilityDetails', 'certificationProgressSummary', 'detailedCrewCompetencyAssessment',
+        'crewContinuityDetails', 'specialVoyageConsiderations'
+        // Add any other optional fields here
+    ];
+    optionalFields.forEach(field => {
+        if (firestoreUpdates.hasOwnProperty(field) && firestoreUpdates[field] === undefined) {
+            firestoreUpdates[field] = null;
+        }
+    });
+
+
     delete firestoreUpdates.id;
 
     await updateDoc(docRef, firestoreUpdates);
   } catch (error) {
     console.error(`Error updating risk assessment with ID ${id}: `, error);
+    if (error instanceof Error && 'details' in error) {
+        console.error("Firestore Error Details:", (error as any).details);
+    }
     throw new Error("Failed to update risk assessment.");
   }
 }
 
 export async function deleteAttachmentFileByUrl(fileUrl: string): Promise<void> {
   try {
-    if (!fileUrl.startsWith('https://firebasestorage.googleapis.com/')) {
-        console.warn("Not a Firebase Storage URL, skipping delete: ", fileUrl);
+    if (!fileUrl || !fileUrl.startsWith('https://firebasestorage.googleapis.com/')) {
+        console.warn("Not a Firebase Storage URL or URL is empty, skipping delete: ", fileUrl);
         return;
     }
     const fileRef = ref(storage, fileUrl);
@@ -228,3 +303,4 @@ export async function deleteAttachmentFileByUrl(fileUrl: string): Promise<void> 
     }
   }
 }
+
