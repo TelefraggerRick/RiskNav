@@ -3,13 +3,13 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
-import { mockRiskAssessments } from '@/lib/mockData';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns'; // Added isValid
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
+import { format, parseISO, isValid } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,11 +22,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { getAllAssessmentsFromDB } from '@/lib/firestoreService'; // Import Firestore service
+import { useToast } from "@/hooks/use-toast"; // For error notifications
+
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 
 const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date', fr_label: 'Date de soumission' },
@@ -66,6 +69,7 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
+  const { toast } = useToast();
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -86,35 +90,28 @@ export default function DashboardPage() {
     clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
     patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
     generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
-    departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" }
+    departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
+    loadingErrorTitle: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations"},
+    loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."}
   };
 
-  const getAllAssessments = useCallback((): RiskAssessment[] => {
-    if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedData) {
-        try {
-          return JSON.parse(storedData);
-        } catch (error) {
-          console.error("Error parsing localStorage data:", error);
-          localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear corrupted data
-          // Fall through to re-initialize with mockData
-        }
-      }
-      // Initialize localStorage with mock data if it's empty or was corrupted
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
-      return mockRiskAssessments;
-    }
-    return mockRiskAssessments; // Fallback for SSR or if window is undefined
-  }, []);
-
-
-  const loadAssessments = useCallback(() => {
+  const loadAssessments = useCallback(async () => {
     setIsLoading(true);
-    const data = getAllAssessments();
-    setAssessments(data);
-    setIsLoading(false);
-  }, [getAllAssessments]);
+    try {
+      const data = await getAllAssessmentsFromDB();
+      setAssessments(data);
+    } catch (error) {
+      console.error("Failed to load assessments:", error);
+      toast({
+        title: getTranslation(T.loadingErrorTitle),
+        description: getTranslation(T.loadingErrorDesc),
+        variant: "destructive",
+      });
+      setAssessments([]); // Set to empty array on error
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast, getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]);
 
   useEffect(() => {
     loadAssessments();
@@ -162,21 +159,16 @@ export default function DashboardPage() {
 
     const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
+      // Dates are already ISO strings from Firestore service
       switch (sortKey) {
-        case 'submissionDate': {
-          const dateA = parseISO(a.submissionDate);
-          const dateB = parseISO(b.submissionDate);
-          valA = isValid(dateA) ? dateA.getTime() : 0;
-          valB = isValid(dateB) ? dateB.getTime() : 0;
+        case 'submissionDate': 
+          valA = a.submissionDate ? new Date(a.submissionDate).getTime() : 0;
+          valB = b.submissionDate ? new Date(b.submissionDate).getTime() : 0;
           break;
-        }
-        case 'lastModified': {
-          const dateA = parseISO(a.lastModified);
-          const dateB = parseISO(b.lastModified);
-          valA = isValid(dateA) ? dateA.getTime() : 0;
-          valB = isValid(dateB) ? dateB.getTime() : 0;
+        case 'lastModified': 
+          valA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+          valB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
           break;
-        }
         case 'status':
           valA = a.status;
           valB = b.status;
@@ -196,11 +188,9 @@ export default function DashboardPage() {
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       
-      if (sortKey !== 'submissionDate') {
-        const subDateA = parseISO(a.submissionDate);
-        const subDateB = parseISO(b.submissionDate);
-        const timeA = isValid(subDateA) ? subDateA.getTime() : 0;
-        const timeB = isValid(subDateB) ? subDateB.getTime() : 0;
+      if (sortKey !== 'submissionDate' && a.submissionDate && b.submissionDate) {
+        const timeA = new Date(a.submissionDate).getTime();
+        const timeB = new Date(b.submissionDate).getTime();
         if (timeA < timeB) return 1; 
         if (timeA > timeB) return -1;
       }
@@ -253,10 +243,10 @@ export default function DashboardPage() {
     const formatDateSafe = (dateStr: string | undefined, formatStr: string) => {
         if (!dateStr) return "...";
         try {
-            const parsed = parseISO(dateStr);
+            const parsed = parseISO(dateStr); // Dates are ISO strings
             if (isValid(parsed)) return format(parsed, formatStr);
         } catch (e) { /* fall through */ }
-        return "..."; // Fallback for invalid or unparseable dates
+        return "..."; 
     };
     
     const formattedStartDate = formatDateSafe(patrolStartDate, "MMM d, yyyy");
@@ -275,7 +265,12 @@ export default function DashboardPage() {
   };
 
   if (isLoading) {
-    return <div className="flex justify-center items-center h-64">Loading assessments...</div>;
+    return (
+        <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+            <p className="text-xl text-muted-foreground">Loading assessments...</p>
+        </div>
+    );
   }
 
   return (
@@ -432,13 +427,15 @@ export default function DashboardPage() {
           })}
         </div>
       ) : (
-        <Card className="p-10 text-center shadow-sm rounded-lg">
-          <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">{getTranslation(T.noAssessmentsFound)}</h2>
-          <p className="text-muted-foreground">
-            {getTranslation(T.noMatchFilters)}
-          </p>
-        </Card>
+        !isLoading && ( // Only show "No Assessments Found" if not loading
+          <Card className="p-10 text-center shadow-sm rounded-lg">
+            <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-semibold mb-2">{getTranslation(T.noAssessmentsFound)}</h2>
+            <p className="text-muted-foreground">
+              {getTranslation(T.noMatchFilters)}
+            </p>
+          </Card>
+        )
       )}
     </div>
   );
