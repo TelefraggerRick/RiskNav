@@ -4,12 +4,12 @@
 import { db } from '@/lib/firebase';
 import { mockRiskAssessments } from '@/lib/mockData';
 import type { RiskAssessment, ApprovalStep, Attachment, YesNoOptional, VesselDepartment, VesselRegion, RiskAssessmentStatus, ApprovalDecision, ApprovalLevel } from '@/lib/types';
-import { doc, setDoc, Timestamp, FieldValue, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, serverTimestamp, FieldValue } from 'firebase/firestore';
 import { config } from 'dotenv';
 
 config(); // Load environment variables from .env
 
-const DEBUG_SIMPLIFY_RA_001 = true; // Keep this true for now
+const DEBUG_SIMPLIFY_RA_001 = true; // Keep this true for testing
 
 // --- Helper to safely create Firestore Timestamps from date strings ---
 function safeCreateTimestamp(dateString: string | undefined): Timestamp | null {
@@ -18,7 +18,7 @@ function safeCreateTimestamp(dateString: string | undefined): Timestamp | null {
   }
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
+    if (isNaN(date.getTime())) { // Check if date is valid
       console.warn(`Invalid date string encountered for Timestamp: "${dateString}". Storing as null.`);
       return null;
     }
@@ -29,16 +29,37 @@ function safeCreateTimestamp(dateString: string | undefined): Timestamp | null {
   }
 }
 
+// --- Helper to recursively convert undefined to null ---
+function cleanUndefinedRecursively(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefinedRecursively(item));
+  } else if (typeof obj === 'object' && obj !== null) {
+    const newObj: {[key: string]: any} = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        if (value === undefined) {
+          newObj[key] = null; // Convert undefined to null
+        } else {
+          newObj[key] = cleanUndefinedRecursively(value);
+        }
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
+
 const VALID_VESSEL_DEPARTMENTS: ReadonlyArray<VesselDepartment> = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
 const VALID_VESSEL_REGIONS: ReadonlyArray<VesselRegion> = ['Atlantic', 'Central', 'Western', 'Arctic'];
 const VALID_STATUSES: ReadonlyArray<RiskAssessmentStatus> = ['Draft', 'Pending Crewing Standards and Oversight', 'Pending Senior Director', 'Pending Director General', 'Needs Information', 'Approved', 'Rejected'];
-const VALID_YES_NO_OPTIONAL: ReadonlyArray<YesNoOptional | ''> = ['Yes', 'No', undefined, '']; // Allow empty string for initial coercion
-const VALID_APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision | ''> = ['Approved', 'Rejected', 'Needs Information', '']; // Allow empty string
+const VALID_YES_NO_OPTIONAL: ReadonlyArray<YesNoOptional | '' | null | undefined> = ['Yes', 'No', null, undefined, ''];
+const VALID_APPROVAL_DECISIONS: ReadonlyArray<ApprovalDecision | '' | null | undefined> = ['Approved', 'Rejected', 'Needs Information', null, undefined, ''];
 const VALID_APPROVAL_LEVELS: ReadonlyArray<ApprovalLevel> = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 function validateAndCoerceEnum<T extends string>(
-  value: string | undefined,
-  validValues: readonly (T | '' | undefined)[], // Accept '' during coercion
+  value: any, // Value can be anything from mock
+  validValues: readonly (T | '' | null | undefined)[],
   fieldName: string,
   assessmentId: string,
   isOptional: boolean = true
@@ -48,7 +69,7 @@ function validateAndCoerceEnum<T extends string>(
   if (trimmedValue === undefined || trimmedValue === null || (isOptional && trimmedValue === "")) {
     return null;
   }
-  if (validValues.includes(trimmedValue as T)) { // Check if the trimmed value is a valid enum
+  if (validValues.includes(trimmedValue as T)) {
     return trimmedValue as T;
   }
   console.warn(`Invalid value "${value}" (trimmed: "${trimmedValue}") for enum field "${fieldName}" in assessment "${assessmentId}". Storing as null.`);
@@ -61,35 +82,10 @@ function coerceYesNoOptional(value: any, fieldName: string, assessmentId: string
         return trimmedValue;
     }
     if (trimmedValue === undefined || trimmedValue === null || trimmedValue === '') {
-        return null; // Default to null if empty or undefined
+        return null;
     }
     console.warn(`Invalid value "${value}" (trimmed: "${trimmedValue}") for YesNoOptional field "${fieldName}" in assessment "${assessmentId}". Coercing to null.`);
     return null;
-}
-
-function cleanUndefinedRecursively(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(item => cleanUndefinedRecursively(item)).filter(item => item !== undefined); // Filter out undefined items from arrays
-  } else if (typeof obj === 'object' && obj !== null) {
-    const newObj: {[key: string]: any} = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        const value = obj[key];
-        if (value !== undefined) { // Only process if value is not undefined
-            const cleanedValue = cleanUndefinedRecursively(value);
-            if (cleanedValue !== undefined) { // Only add if cleaned value is not undefined
-                 newObj[key] = cleanedValue;
-            } else {
-                 newObj[key] = null; // Convert explicitly undefined nested properties to null
-            }
-        } else {
-            newObj[key] = null; // Convert top-level undefined to null
-        }
-      }
-    }
-    return newObj;
-  }
-  return obj; // Return as is if not array/object or if it's null
 }
 
 
@@ -108,24 +104,39 @@ async function seedDatabase() {
     const assessmentId = mockAssessment.id;
     console.log(`Processing assessment: ${assessmentId} - ${mockAssessment.vesselName}`);
 
+    const cleanedMockInitial = cleanUndefinedRecursively(mockAssessment);
+    
     let dataToSet: any = {};
     
-    // Clean the entire mock assessment object first
-    const cleanedMock = cleanUndefinedRecursively(mockAssessment);
-
     if (DEBUG_SIMPLIFY_RA_001 && assessmentId === 'ra-001') {
-      console.log(`DEBUG: Radically simplifying data for assessment ${assessmentId}.`);
+      console.log(`DEBUG: Radically simplifying data for assessment ${assessmentId} and using native Date objects for timestamps.`);
+      // Attempting to use native JS Date objects. Firestore SDK should convert these.
+      let submissionDateForRA001 : Date | null = null;
+      if (cleanedMockInitial.submissionDate) {
+        const parsedDate = new Date(cleanedMockInitial.submissionDate);
+        if (!isNaN(parsedDate.getTime())) {
+            submissionDateForRA001 = parsedDate;
+        } else {
+            console.warn(`RA-001: Invalid submissionDate string "${cleanedMockInitial.submissionDate}", using current date.`);
+            submissionDateForRA001 = new Date(); // fallback to now
+        }
+      } else {
+        console.warn(`RA-001: Missing submissionDate, using current date.`);
+        submissionDateForRA001 = new Date(); // fallback to now
+      }
+
       dataToSet = {
         id: assessmentId,
-        referenceNumber: String(cleanedMock.referenceNumber || 'REF_MISSING_MOCK'),
-        vesselName: String(cleanedMock.vesselName || 'VESSEL_NAME_MISSING_MOCK'),
-        status: validateAndCoerceEnum(cleanedMock.status, VALID_STATUSES, 'status', assessmentId, false) || 'Draft',
-        submissionDate: safeCreateTimestamp(cleanedMock.submissionDate) || serverTimestamp(),
-        lastModified: serverTimestamp(),
-        // All other fields are deliberately omitted for this debug case
+        referenceNumber: String(cleanedMockInitial.referenceNumber || 'REF_MISSING_MOCK'),
+        vesselName: String(cleanedMockInitial.vesselName || 'VESSEL_NAME_MISSING_MOCK'),
+        status: validateAndCoerceEnum(cleanedMockInitial.status, VALID_STATUSES, 'status', assessmentId, false) || 'Draft',
+        submissionDate: submissionDateForRA001, // Native JS Date
+        lastModified: new Date(), // Native JS Date (instead of serverTimestamp for this specific test)
       };
     } else {
       // Full data construction for other assessments or if debug flag is off
+      const cleanedMock = cleanedMockInitial; // Already cleaned
+
       dataToSet = {
         id: assessmentId,
         referenceNumber: String(cleanedMock.referenceNumber || ''),
@@ -144,9 +155,9 @@ async function seedDatabase() {
         personnelShortages: String(cleanedMock.personnelShortages || ''),
         proposedOperationalDeviations: String(cleanedMock.proposedOperationalDeviations || ''),
         submittedBy: String(cleanedMock.submittedBy || ''),
-        submissionDate: safeCreateTimestamp(cleanedMock.submissionDate),
+        submissionDate: safeCreateTimestamp(cleanedMock.submissionDate) || serverTimestamp(),
         status: validateAndCoerceEnum(cleanedMock.status, VALID_STATUSES, 'status', assessmentId, false),
-        lastModified: serverTimestamp(), // Use serverTimestamp for lastModified
+        lastModified: serverTimestamp(),
 
         aiRiskScore: typeof cleanedMock.aiRiskScore === 'number' ? cleanedMock.aiRiskScore : null,
         aiGeneratedSummary: (typeof cleanedMock.aiGeneratedSummary === 'string' && cleanedMock.aiGeneratedSummary.trim() !== "") ? cleanedMock.aiGeneratedSummary.trim() : null,
@@ -201,7 +212,7 @@ async function seedDatabase() {
       };
     }
     
-    // Ensure no undefined values are sent to Firestore at the top level.
+    // Final check: ensure no undefined values are sent to Firestore at the top level of dataToSet.
     const finalFirestoreData: {[key: string]: any} = {};
     for (const key in dataToSet) {
       if (Object.prototype.hasOwnProperty.call(dataToSet, key)) {
@@ -209,21 +220,23 @@ async function seedDatabase() {
       }
     }
 
+    // Log the object being sent
+    const replacerForLog = (key: string, value: any) => {
+      if (value instanceof Timestamp) {
+        return `FirestoreTimestamp(seconds=${value.seconds}, nanoseconds=${value.nanoseconds})`;
+      }
+      if (value instanceof Date) {
+        return `NativeDate(${value.toISOString()})`;
+      }
+      if (value && typeof value === 'object' && value._methodName === 'serverTimestamp') {
+          return 'FieldValue.serverTimestamp()';
+      }
+      return value;
+    };
+    console.log(`Attempting to set document ${assessmentId} with data:`, JSON.stringify(finalFirestoreData, replacerForLog, 2));
+
     try {
       const docRef = doc(db, 'riskAssessments', assessmentId);
-      
-      // Log the exact data object being sent to Firestore
-      const replacerForLog = (key: string, value: any) => {
-        if (value instanceof Timestamp) {
-          return `Timestamp(${value.toDate().toISOString()})`;
-        }
-        if (value && typeof value === 'object' && typeof value.isEqual === 'function' && value.type === 'serverTimestamp') { // Basic check for FieldValue.serverTimestamp()
-            return 'FieldValue.serverTimestamp()';
-        }
-        return value;
-      };
-      console.log(`Attempting to set document ${assessmentId} with data:`, JSON.stringify(finalFirestoreData, replacerForLog, 2));
-      
       await setDoc(docRef, finalFirestoreData);
       console.log(`SUCCESS: Seeded assessment ${assessmentId}`);
       successCount++;
@@ -232,16 +245,7 @@ async function seedDatabase() {
       console.error("Error message:", error.message);
       if (error.code) console.error("Error code:", error.code);
       
-      const replacer = (key: string, value: any) => {
-        if (value instanceof Timestamp) {
-          return `Timestamp(${value.toDate().toISOString()})`;
-        }
-        if (value && typeof value === 'object' && typeof value.isEqual === 'function' && value.type === 'serverTimestamp') { // Basic check for FieldValue.serverTimestamp()
-            return 'FieldValue.serverTimestamp()';
-        }
-        return value;
-      };
-      console.error("Data object ATTEMPTED for setDoc (from catch block):", JSON.stringify(finalFirestoreData, replacer, 2));
+      console.error("Data object ATTEMPTED for setDoc (from catch block):", JSON.stringify(finalFirestoreData, replacerForLog, 2));
       errorCount++;
     }
   }
@@ -259,3 +263,5 @@ async function seedDatabase() {
 seedDatabase().catch(err => {
   console.error('Unhandled critical error during seeding process:', err);
 });
+
+    
