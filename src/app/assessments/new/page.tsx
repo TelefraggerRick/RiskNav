@@ -9,41 +9,13 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType } from "@/lib/types";
+import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, ApprovalStep } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
-import { mockRiskAssessments } from '@/lib/mockData';
+// mockRiskAssessments and localStorage logic removed
 import { useLanguage } from '@/contexts/LanguageContext';
+import { addAssessmentToDB } from '@/lib/firestoreService'; // Import Firestore service
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
-
-
-const getAllStoredAssessments = (): RiskAssessment[] => {
-  if (typeof window !== 'undefined') {
-    const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedData) {
-      try {
-        return JSON.parse(storedData);
-      } catch (e) {
-        console.error("Error parsing localStorage data, returning empty array:", e);
-        return [];
-      }
-    } else {
-      // Initialize with mock data if nothing is in localStorage
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
-      return mockRiskAssessments;
-    }
-  }
-  return mockRiskAssessments; // Fallback if window is undefined
-};
-
-const addNewAssessmentToStorage = (newAssessment: RiskAssessment) => {
-  if (typeof window !== 'undefined') {
-    const assessments = getAllStoredAssessments();
-    assessments.unshift(newAssessment); // Add to the beginning
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
-  }
-};
 
 export default function NewAssessmentPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -86,26 +58,22 @@ export default function NewAssessmentPage() {
     }
     setIsLoading(true);
 
-    // Simulate async operation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
     try {
       const now = new Date();
-      const newId = `ra-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const referenceNumber = `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
 
-      const newAttachments: AttachmentType[] = (data.attachments || []).map((att, index) => ({
-        id: `att-${newId}-${index}`,
+      // Prepare attachments for Firestore service, keeping File object for potential upload logic later (service strips it for DB)
+      const newAttachmentsForDB: Array<Partial<AttachmentType> & { file?: File }> = (data.attachments || []).map(att => ({
         name: att.file?.name || att.name || "unknown_file",
-        url: att.url || '#', // Placeholder URL, actual upload would happen here
+        url: att.url || '#', // Placeholder URL - actual upload would generate this
         type: att.file?.type || att.type || "unknown",
         size: att.file?.size || att.size || 0,
-        uploadedAt: now.toISOString(),
-        // file: att.file, // Keep the file object if needed for immediate use, but it won't be stored in localStorage
+        uploadedAt: now.toISOString(), // Client-side timestamp for now, service converts to Firestore.Timestamp
+        file: att.file, // Pass the file, service function will handle not storing it.
+        dataAiHint: att.dataAiHint,
       }));
 
-      const newAssessment: RiskAssessment = {
-        id: newId,
+      const assessmentDataForDB: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified'> & { attachments?: Array<Partial<AttachmentType> & { file?: File }> } = {
         referenceNumber,
         maritimeExemptionNumber: data.maritimeExemptionNumber || undefined,
         vesselName: data.vesselName,
@@ -120,11 +88,10 @@ export default function NewAssessmentPage() {
         personnelShortages: data.personnelShortages,
         proposedOperationalDeviations: data.proposedOperationalDeviations,
         submittedBy: currentUser.name,
-        submissionDate: now.toISOString(),
         status: 'Pending Crewing Standards and Oversight', // Initial status
-        attachments: newAttachments,
+        attachments: newAttachmentsForDB,
         approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)), // Initial approval steps
-        lastModified: now.toISOString(),
+        
         // Exemption & Individual Assessment Data
         employeeName: data.employeeName || undefined,
         certificateHeld: data.certificateHeld || undefined,
@@ -140,6 +107,7 @@ export default function NewAssessmentPage() {
         individualHasRequiredSeaService: data.individualHasRequiredSeaService,
         individualWorkingTowardsCertification: data.individualWorkingTowardsCertification,
         certificationProgressSummary: data.certificationProgressSummary || undefined,
+        
         // Operational Considerations
         requestCausesVacancyElsewhere: data.requestCausesVacancyElsewhere,
         crewCompositionSufficientForSafety: data.crewCompositionSufficientForSafety,
@@ -149,9 +117,21 @@ export default function NewAssessmentPage() {
         specialVoyageConsiderations: data.specialVoyageConsiderations || undefined,
         reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
+
+        // AI fields will be undefined initially
+        aiRiskScore: undefined,
+        aiGeneratedSummary: undefined,
+        aiSuggestedMitigations: undefined,
+        aiRegulatoryConsiderations: undefined,
+        aiLikelihoodScore: undefined,
+        aiConsequenceScore: undefined,
       };
 
-      addNewAssessmentToStorage(newAssessment);
+      // Simulate async operation for UX if addAssessmentToDB is very fast
+      // await new Promise(resolve => setTimeout(resolve, 500)); 
+      
+      const newDocId = await addAssessmentToDB(assessmentDataForDB);
+      console.log("New assessment added with ID:", newDocId);
 
       toast({
         title: getTranslation(T.submitSuccessTitle),
@@ -188,3 +168,4 @@ export default function NewAssessmentPage() {
     </div>
   );
 }
+
