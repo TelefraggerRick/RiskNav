@@ -1,10 +1,15 @@
 [
     {
       "origin": ["http://localhost:3000", "https://your-app-domain.web.app", "https://studio--risknav.us-central1.hosted.app"],
-      "method": ["GET", "POST", "PUT", "HEAD", "DELETE"],
+      "method": ["GET", "POST", "PUT", "HEAD", "DELETE", "OPTIONS"],
       "responseHeader": [
         "Content-Type",
         "Authorization",
+        "Origin",
+        "Accept",
+        "Accept-Encoding",
+        "Content-Length",
+        "X-Requested-With",
         "X-Goog-Resumable",
         "X-Goog-Meta-*",
         "X-Goog-Content-Length-Range",
@@ -12,7 +17,8 @@
         "X-Upload-Content-Length",
         "x-goog-if-generation-match",
         "x-goog-if-metageneration-match",
-        "x-firebase-gmpid"
+        "x-firebase-gmpid",
+        "Access-Control-Allow-Origin"
       ],
       "maxAgeSeconds": 3600
     }
