@@ -1,7 +1,7 @@
 
 // src/scripts/seedDatabase.ts
 import { admin, dbAdmin } from '@/lib/firebaseAdmin'; // Use firebase-admin
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { Timestamp } from 'firebase-admin/firestore'; // Ensure admin types are used
 
 async function attemptSingleWrite() {
   console.log('Starting single write attempt with firebase-admin...');
@@ -23,33 +23,27 @@ async function attemptSingleWrite() {
   console.log(`Targeting Firebase project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}`);
   console.log(`Using service account key from path: ${process.env.GOOGLE_APPLICATION_CREDENTIALS}`);
 
-  const TEST_DOCUMENT_ID = 'test-single-write-admin-002'; // Using a new ID for clarity
+  const TEST_DOCUMENT_ID = 'test-single-write-admin-003'; // New ID for clarity
   const testDataToSet = {
-    testName: "Admin SDK Single Write Test",
+    testName: "Admin SDK Ultra Simple Write",
     testStatus: "Draft",
-    testDate: new Date(), // Native JS Date, Admin SDK will convert
-    serverTimestampField: FieldValue.serverTimestamp() // Use FieldValue from admin SDK
+    testDate: new Date().toISOString(), // Using ISO string directly
+    simpleField: "hello world"
   };
 
-  // Helper to log objects with Firestore Timestamps and FieldValues properly
   const replacerForLog = (key: string, value: any) => {
     if (value instanceof Timestamp) {
       return `FirestoreTimestamp(seconds=${value.seconds}, nanoseconds=${value.nanoseconds})`;
     }
-    if (value instanceof Date) {
-      return value.toISOString(); 
-    }
-    if (value && typeof value === 'object' && value._methodName && value._methodName.startsWith('FieldValue.')) {
-        return value._methodName; 
-    }
     return value;
   };
 
-  console.log(`Attempting to write document ID: ${TEST_DOCUMENT_ID}`);
+  console.log(`Attempting to write document ID: ${TEST_DOCUMENT_ID} to collection 'riskAssessments'`);
   console.log(`Data to write:`, JSON.stringify(testDataToSet, replacerForLog, 2));
 
   try {
     const docRef = dbAdmin.collection('riskAssessments').doc(TEST_DOCUMENT_ID);
+    console.log(`DEBUG: Document reference created: ${docRef.path}`);
     await docRef.set(testDataToSet);
     console.log(`SUCCESS: Wrote test document ${TEST_DOCUMENT_ID} using admin SDK.`);
     return { success: true };
@@ -73,15 +67,8 @@ async function main() {
     console.log(`Error details: ${result.error}${result.errorCode ? ` (Code: ${result.errorCode})` : ''}`);
   }
   console.log('-------------------------------------');
-  
-  // Ensure the script exits to prevent hanging if there are open handles from Firebase SDK
-  // This might be aggressive for some use cases, but for a simple seeding script it's often fine.
-  // Alternatively, ensure all async operations are properly awaited and resources closed if applicable.
-  // For now, we'll let it exit naturally after the async operations complete.
-  // If it hangs, admin.app().delete() might be needed before exiting in more complex scenarios.
 }
 
 main().catch(err => {
   console.error('Unhandled critical error during single write attempt:', err);
-  // process.exit(1); // Consider exiting if it's a script context
 });
