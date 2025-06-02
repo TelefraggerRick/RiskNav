@@ -4,19 +4,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Calendar } from "@/components/ui/calendar";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardDescription
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { RiskAssessment } from '@/lib/types';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
+import { mockRiskAssessments } from '@/lib/mockData';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ArrowLeft, CalendarDays, Info, List, Loader2, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
-import { useToast } from "@/hooks/use-toast";
 
-// LOCAL_STORAGE_KEY no longer needed
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
 const T_CALENDAR_PAGE = {
   pageTitle: { en: "Risk Assessment Calendar", fr: "Calendrier des évaluations des risques" },
@@ -28,14 +26,28 @@ const T_CALENDAR_PAGE = {
   patrolPeriod: { en: "Patrol:", fr: "Patrouille :" },
   noPatrolDates: { en: "Patrol dates not set", fr: "Dates de patrouille non définies"},
   loadingAssessments: { en: "Loading assessments...", fr: "Chargement des évaluations..." },
-  errorLoadingAssessments: { en: "Error loading assessments", fr: "Erreur lors du chargement des évaluations"},
-  errorLoadingAssessmentsDesc: { en: "Could not fetch risk assessments for the calendar.", fr: "Impossible de récupérer les évaluations de risques pour le calendrier."},
   noAssessmentsInSystemTitle: { en: "No Assessments in System", fr: "Aucune évaluation dans le système" },
   noAssessmentsInSystemDesc: { en: "There are currently no risk assessments logged. Get started by creating one.", fr: "Aucune évaluation des risques n'est actuellement enregistrée. Commencez par en créer une." },
   createNewAssessment: { en: "Create New Assessment", fr: "Créer une nouvelle évaluation" },
 };
 
-// getAllAssessments from localStorage is no longer needed
+const getAllAssessments = (): RiskAssessment[] => {
+  if (typeof window !== 'undefined') {
+    const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedData) {
+      try {
+        return JSON.parse(storedData);
+      } catch (error) {
+        console.error("Error parsing localStorage data for calendar:", error);
+        return mockRiskAssessments; // Fallback to default mock data
+      }
+    } else {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
+        return mockRiskAssessments;
+    }
+  }
+  return mockRiskAssessments; // Fallback for server-side or if window is not available
+};
 
 export default function AssessmentCalendarPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -44,25 +56,13 @@ export default function AssessmentCalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { getTranslation, currentLanguage } = useLanguage();
-  const { toast } = useToast();
 
-  const loadAssessments = useCallback(async () => {
+  const loadAssessments = useCallback(() => {
     setIsLoading(true);
-    try {
-      const fetchedAssessments = await getAllRiskAssessments();
-      setAssessments(fetchedAssessments);
-    } catch (error) {
-      console.error("Failed to load assessments for calendar:", error);
-      toast({
-        title: getTranslation(T_CALENDAR_PAGE.errorLoadingAssessments),
-        description: getTranslation(T_CALENDAR_PAGE.errorLoadingAssessmentsDesc),
-        variant: "destructive",
-      });
-       setAssessments([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getTranslation, toast]); 
+    const data = getAllAssessments();
+    setAssessments(data);
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     loadAssessments();
@@ -70,7 +70,7 @@ export default function AssessmentCalendarPage() {
 
   const patrolDayMatcher = useMemo(() => {
     if (isLoading || assessments.length === 0) return [];
-    
+
     const daysWithPatrols = new Set<string>();
     assessments.forEach(assessment => {
       if (assessment.patrolStartDate && assessment.patrolEndDate) {
@@ -82,10 +82,10 @@ export default function AssessmentCalendarPage() {
             console.warn(`Invalid date format for assessment ${assessment.id}: StartDate: ${assessment.patrolStartDate}, EndDate: ${assessment.patrolEndDate}`);
             return;
           }
-            
+
           const start = startOfDay(startDate);
           const end = endOfDay(endDate);
-          
+
           if (start <= end) {
             const intervalDates = eachDayOfInterval({ start, end });
             intervalDates.forEach(date => daysWithPatrols.add(format(date, 'yyyy-MM-dd')));
@@ -119,7 +119,7 @@ export default function AssessmentCalendarPage() {
             return start <= end && isWithinInterval(clickedDayStart, { start, end });
           } catch (e) {
             console.error(`Error in handleDayClick for assessment ${assessment.id}:`, e);
-            return false; 
+            return false;
           }
         }
         return false;
@@ -131,11 +131,14 @@ export default function AssessmentCalendarPage() {
   }, [assessments]);
 
   useEffect(() => {
-    if (!isLoading && assessments.length > 0) { // Ensure assessments are loaded before initial day click
-        handleDayClick(new Date());
+    if (selectedDate) {
+      handleDayClick(selectedDate);
+    } else {
+      handleDayClick(new Date()); // Default to today if no date selected
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, assessments, handleDayClick]); // Added assessments to dependencies
+  }, [assessments, selectedDate]); // Re-filter when assessments or selectedDate change
+
 
   const formatPatrolDateRange = (assessment: RiskAssessment) => {
     if (assessment.patrolStartDate && assessment.patrolEndDate) {
@@ -152,7 +155,7 @@ export default function AssessmentCalendarPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" /> 
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
         <p className="text-xl text-muted-foreground">{getTranslation(T_CALENDAR_PAGE.loadingAssessments)}</p>
       </div>
     );
@@ -216,7 +219,7 @@ export default function AssessmentCalendarPage() {
                 },
               }}
               className="w-full"
-              numberOfMonths={currentLanguage === 'fr' ? 1 : 2} 
+              numberOfMonths={currentLanguage === 'fr' ? 1 : 2}
               pagedNavigation
             />
           </CardContent>
@@ -260,4 +263,3 @@ export default function AssessmentCalendarPage() {
     </div>
   );
 }
-

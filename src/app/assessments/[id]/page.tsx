@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
+import { mockRiskAssessments } from '@/lib/mockData';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,11 +23,9 @@ import { cn } from "@/lib/utils";
 import { useUser } from '@/contexts/UserContext';
 import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
-import { useLanguage } from '@/contexts/LanguageContext'; 
-import { getRiskAssessmentById, updateRiskAssessment } from '@/services/riskAssessmentService'; // Import Firestore service
+import { useLanguage } from '@/contexts/LanguageContext';
 
-// LOCAL_STORAGE_KEY no longer needed
-
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 const T_DETAILS_PAGE = {
@@ -124,18 +122,50 @@ const T_DETAILS_PAGE = {
   failedToGenerateRiskScore: { en: "Failed to generate risk score and recommendations.", fr: "Échec de la génération du score de risque et des recommandations." },
   assessmentActionToastTitle: { en: "Assessment {decision}", fr: "Évaluation {decision}" },
   assessmentActionToastDesc: { en: "The assessment has been {decision} with your notes.", fr: "L'évaluation a été {decision} avec vos notes." },
-  na: { en: "N/A", fr: "S.O." },
-  updateError: { en: "Update Error", fr: "Erreur de mise à jour" },
-  failedToUpdateAssessment: { en: "Failed to update assessment in the database.", fr: "Échec de la mise à jour de l'évaluation dans la base de données." },
+  na: { en: "N/A", fr: "S.O." }
 };
 
 
-// Functions like getAllAssessments, getAssessmentById, saveAssessmentUpdate are now handled by riskAssessmentService.ts
+const getAllAssessments = (): RiskAssessment[] => {
+  if (typeof window !== 'undefined') {
+    const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedData) {
+      try { return JSON.parse(storedData); }
+      catch (e) { console.error("Error parsing assessments:", e); return mockRiskAssessments; }
+    }
+  }
+  return mockRiskAssessments; // Fallback
+};
+
+const getAssessmentById = (id: string): RiskAssessment | undefined => {
+  const assessments = getAllAssessments();
+  return assessments.find(assessment => assessment.id === id);
+};
+
+const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
+  if (typeof window !== 'undefined') {
+    let assessments = getAllAssessments();
+    assessments = assessments.map(assessment =>
+      assessment.id === updatedAssessment.id ? updatedAssessment : assessment
+    );
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
+  }
+};
 
 const handleDownloadAttachment = (attachment: Attachment) => {
-  // For Firestore, URL should always be present (Cloud Storage URL)
+  // In a real app, this would trigger a download from a server or cloud storage.
+  // For mock data, we'll just simulate with an alert or log.
   if (attachment.url && attachment.url !== '#') {
-     window.open(attachment.url, '_blank');
+    if (attachment.url.startsWith('data:')) { // For base64 encoded mock images
+        const link = document.createElement('a');
+        link.href = attachment.url;
+        link.download = attachment.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } else {
+      alert(`Simulating download for: ${attachment.name}\nURL (mock): ${attachment.url}`);
+    }
   } else {
     alert(`Download link for ${attachment.name} is not available.`);
   }
@@ -168,7 +198,7 @@ export default function AssessmentDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { currentUser } = useUser();
-  const { getTranslation } = useLanguage(); 
+  const { getTranslation } = useLanguage();
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
@@ -176,32 +206,27 @@ export default function AssessmentDetailPage() {
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
-  const fetchAssessment = useCallback(async () => {
+
+  const fetchAssessment = useCallback(() => {
     if (params.id) {
       setIsLoading(true);
-      try {
-        const foundAssessment = await getRiskAssessmentById(params.id as string);
-        if (foundAssessment) {
-          const populatedAssessment = {
-            ...foundAssessment,
-            approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0 
-              ? foundAssessment.approvalSteps 
-              : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) 
-          };
-          setAssessment(populatedAssessment);
-        } else {
-          toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.assessmentNotFoundToast), variant: "destructive" });
-          router.push('/');
-        }
-      } catch (error) {
-        console.error("Error fetching assessment:", error);
-        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: (error as Error).message, variant: "destructive" });
+      const foundAssessment = getAssessmentById(params.id as string);
+      if (foundAssessment) {
+        // Ensure approvalSteps are always populated for the UI
+        const populatedAssessment = {
+          ...foundAssessment,
+          approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0
+            ? foundAssessment.approvalSteps
+            : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) // Ensure this creates a new array
+        };
+        setAssessment(populatedAssessment);
+      } else {
+        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.assessmentNotFoundToast), variant: "destructive" });
         router.push('/');
-      } finally {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     }
-  }, [params.id, router, toast, getTranslation]); 
+  }, [params.id, router, toast, getTranslation]);
 
   useEffect(() => {
     fetchAssessment();
@@ -218,14 +243,8 @@ export default function AssessmentDetailPage() {
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
       });
-      
-      const updates: Partial<RiskAssessment> = { 
-        aiGeneratedSummary: summaryResult.summary, 
-        lastModified: new Date().toISOString(), // Will be replaced by serverTimestamp by service
-      };
-      await updateRiskAssessment(assessment.id, updates);
-      setAssessment(prev => prev ? {...prev, ...updates, aiGeneratedSummary: summaryResult.summary} : null); // Optimistic update
-      
+      setAssessment(prev => prev ? {...prev, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString()} : null);
+      saveAssessmentUpdate({ ...assessment, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString() });
       toast({ title: getTranslation(T_DETAILS_PAGE.aiSummaryGenerated), description: getTranslation(T_DETAILS_PAGE.aiSummaryAdded) });
     } catch (error) {
       console.error("AI Summary Error:", error);
@@ -233,7 +252,7 @@ export default function AssessmentDetailPage() {
     }
     setIsAiLoading(prev => ({...prev, summary: false}));
   }, [assessment, toast, getTranslation]);
-  
+
   const runAiRiskScoreAndRecommendations = useCallback(async () => {
     if (!assessment) return;
     setIsAiLoading(prev => ({...prev, riskScore: true}));
@@ -243,20 +262,19 @@ export default function AssessmentDetailPage() {
         imoNumber: assessment.imoNumber,
         personnelShortages: assessment.personnelShortages,
         operationalDeviations: assessment.proposedOperationalDeviations,
-        attachedDocuments: assessment.attachments.map(a => a.url || a.name), 
+        attachedDocuments: assessment.attachments.map(a => a.url || a.name),
       });
-      
-      const updates: Partial<RiskAssessment> = { 
+      const updatedAssessment = {
+        ...assessment,
         aiRiskScore: result.riskScore,
         aiLikelihoodScore: result.likelihoodScore,
         aiConsequenceScore: result.consequenceScore,
         aiSuggestedMitigations: result.recommendations,
         aiRegulatoryConsiderations: result.regulatoryConsiderations,
-        lastModified: new Date().toISOString(), // Will be replaced by serverTimestamp
+        lastModified: new Date().toISOString()
       };
-      await updateRiskAssessment(assessment.id, updates);
-      setAssessment(prev => prev ? {...prev, ...updates} : null); // Optimistic update
-
+      setAssessment(updatedAssessment);
+      saveAssessmentUpdate(updatedAssessment);
       toast({ title: getTranslation(T_DETAILS_PAGE.aiRiskScoreGenerated) });
     } catch (error) {
       console.error("AI Risk Score Error:", error);
@@ -267,7 +285,7 @@ export default function AssessmentDetailPage() {
 
   const getCurrentApprovalStepInfo = useCallback(() => {
     if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false, overallStatus: assessment?.status };
-    
+
     let currentLevelToAct: ApprovalLevel | null = null;
     let isHalted = false;
     let overallStatus: RiskAssessmentStatus = assessment.status;
@@ -279,7 +297,7 @@ export default function AssessmentDetailPage() {
         break;
       }
       if (step.decision === 'Rejected' || step.decision === 'Needs Information') {
-        currentLevelToAct = level; 
+        currentLevelToAct = level;
         isHalted = true;
         overallStatus = step.decision === 'Rejected' ? 'Rejected' : 'Needs Information';
         break;
@@ -288,13 +306,13 @@ export default function AssessmentDetailPage() {
      if (!currentLevelToAct && assessment.approvalSteps.every(s => s.decision === 'Approved')) {
       overallStatus = 'Approved';
     }
-    
+
     const userIsApproverForCurrentStep = currentUser.role === currentLevelToAct;
     const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
 
     return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus };
   }, [assessment, currentUser]);
-  
+
   const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted } = getCurrentApprovalStepInfo();
 
   const handleOpenApprovalDialog = useCallback((decision: ApprovalDecision) => {
@@ -329,44 +347,36 @@ export default function AssessmentDetailPage() {
     } else if (currentDecision === 'Needs Information') {
       newStatus = 'Needs Information';
     }
-    
-    const updatesToSave: Partial<RiskAssessment> = {
+
+    const updatedAssessment: RiskAssessment = {
+      ...assessment,
       approvalSteps: updatedApprovalSteps,
       status: newStatus,
-      lastModified: nowISO, // This will be handled by serverTimestamp in service
+      lastModified: nowISO,
     };
 
-    try {
-      await updateRiskAssessment(assessment.id, updatesToSave);
-      setAssessment(prev => prev ? { ...prev, ...updatesToSave, approvalSteps: updatedApprovalSteps, status: newStatus } : null); // Optimistic update
-      
-      toast({
-        title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
-        description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
-      });
-    } catch (error) {
-        console.error("Error updating assessment:", error);
-        toast({
-            title: getTranslation(T_DETAILS_PAGE.updateError),
-            description: getTranslation(T_DETAILS_PAGE.failedToUpdateAssessment),
-            variant: "destructive",
-        });
-    } finally {
-        setIsSubmittingApproval(false);
-        setIsApprovalDialogOpen(false);
-        setCurrentDecision(undefined);
-    }
+    saveAssessmentUpdate(updatedAssessment);
+    setAssessment(updatedAssessment); // Optimistic update
+
+    toast({
+      title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
+      description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
+    });
+
+    setIsSubmittingApproval(false);
+    setIsApprovalDialogOpen(false);
+    setCurrentDecision(undefined);
   }, [assessment, currentLevelToAct, currentUser, currentDecision, toast, getTranslation]);
 
 
-  if (isLoading && !assessment) { // Show loader only if assessment is not yet loaded
+  if (isLoading) {
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" /> 
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
         <p className="text-xl text-muted-foreground">{getTranslation(T_DETAILS_PAGE.loadingAssessment)}</p>
     </div>;
   }
 
-  if (!assessment) { // This case handles if loading finished but assessment is still null (e.g. not found)
+  if (!assessment) {
     return (
       <Alert variant="destructive" className="max-w-2xl mx-auto text-center">
         <AlertTriangle className="h-5 w-5 mx-auto mb-2" />
@@ -389,7 +399,7 @@ export default function AssessmentDetailPage() {
   const currentStatusConfig = statusConfig[assessment.status] || { icon: HelpCircle, badgeClass: 'bg-gray-200 text-gray-800' };
   const StatusIcon = currentStatusConfig.icon;
 
-  const aiRiskColorClass = assessment.aiRiskScore !== undefined 
+  const aiRiskColorClass = assessment.aiRiskScore !== undefined
     ? assessment.aiRiskScore > 70 ? '[&>div]:bg-red-500' : assessment.aiRiskScore > 40 ? '[&>div]:bg-yellow-500' : '[&>div]:bg-green-500'
     : '[&>div]:bg-gray-300';
 
@@ -412,7 +422,7 @@ export default function AssessmentDetailPage() {
       default: return 'text-muted-foreground';
     }
   };
-  
+
   const YesNoIcon = ({ value }: { value?: YesNoOptional }) => {
     if (value === 'Yes') return <CheckSquare className="h-4 w-4 text-green-600 inline-block mr-1" />;
     if (value === 'No') return <Square className="h-4 w-4 text-red-600 inline-block mr-1" />;
@@ -448,7 +458,7 @@ export default function AssessmentDetailPage() {
             <div className="flex flex-col items-start md:items-end gap-2">
                  <Badge className={`text-base px-4 py-2 rounded-full font-medium ${currentStatusConfig.badgeClass}`}>
                     <StatusIcon className="h-5 w-5 mr-2" />
-                    {assessment.status} 
+                    {assessment.status}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
                     {getTranslation(T_DETAILS_PAGE.lastModified)}: {format(parseISO(assessment.lastModified), `MMM d, yyyy '${getTranslation(T_DETAILS_PAGE.at)}' h:mm a`)}
@@ -457,14 +467,14 @@ export default function AssessmentDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-8">
-          
+
           <section>
             <SectionTitle icon={Sailboat} title={getTranslation(T_DETAILS_PAGE.vesselOverview)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label={getTranslation(T_DETAILS_PAGE.submittedBy)} value={assessment.submittedBy} />
               <DetailItem label={getTranslation(T_DETAILS_PAGE.submissionDate)} value={format(parseISO(assessment.submissionDate), "PPP p")} />
               {assessment.imoNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.imoNumber)} value={assessment.imoNumber} icon={Fingerprint} />}
-              {assessment.maritimeExemptionNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)} value={assessment.maritimeExemptionNumber} icon={FileBadge} />}
+              {assessment.maritimeExemptionNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)} value={assessment.maritimeExemptionNumber} icon={FileWarning} />} {/* Placeholder icon, change if better available */}
               <DetailItem label={getTranslation(T_DETAILS_PAGE.department)} value={assessment.department} />
               <DetailItem label={getTranslation(T_DETAILS_PAGE.region)} value={assessment.region} />
               {assessment.patrolStartDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolStartDate)} value={format(parseISO(assessment.patrolStartDate), "PPP")} icon={CalendarClock} />}
@@ -477,7 +487,7 @@ export default function AssessmentDetailPage() {
             </div>
           </section>
           <Separator />
-          
+
           <section>
             <SectionTitle icon={UserCog} title={getTranslation(T_DETAILS_PAGE.exemptionIndividualAssessment)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
@@ -568,7 +578,7 @@ export default function AssessmentDetailPage() {
                 <AlertDescription className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap">{assessment.aiGeneratedSummary}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               {assessment.aiRiskScore !== undefined && (
                 <Card className="my-4 p-4 bg-muted/30 md:col-span-1">
@@ -617,7 +627,7 @@ export default function AssessmentDetailPage() {
                 const stepColor = getStepStatusColor(step.decision);
                 const isLastStep = index === assessment.approvalSteps.length - 1;
                 const isPending = !step.decision;
-                
+
                 return (
                   <div key={step.level}>
                     <Card className={`p-4 ${isPending && step.level === currentLevelToAct && !isHalted ? 'border-primary shadow-md' : 'bg-muted/30'}`}>
@@ -625,24 +635,24 @@ export default function AssessmentDetailPage() {
                         <CardTitle className={`text-md font-semibold flex items-center justify-between ${stepColor}`}>
                           <span className="flex items-center gap-2">
                             <StepIcon className="h-5 w-5" />
-                            {step.level} 
+                            {step.level}
                           </span>
                           {step.decision ? (
                             <Badge
                               variant={
                                 step.decision === 'Rejected' ? 'destructive' :
-                                'outline' 
+                                'outline'
                               }
-                              className={`text-xs px-2 py-0.5 rounded-sm ${ 
+                              className={`text-xs px-2 py-0.5 rounded-sm ${
                                 step.decision === 'Approved' ? 'bg-green-100 text-green-800 border-green-400' :
                                 step.decision === 'Needs Information' ? 'bg-orange-100 text-orange-800 border-orange-400' :
-                                '' 
+                                ''
                               }`}
                             >
-                              {step.decision} 
+                              {step.decision}
                             </Badge>
-                          ) : ( step.level === currentLevelToAct && !isHalted ? 
-                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge> 
+                          ) : ( step.level === currentLevelToAct && !isHalted ?
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge>
                             : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm">{getTranslation(T_DETAILS_PAGE.queued)}</Badge>
                           )}
                         </CardTitle>
@@ -698,7 +708,7 @@ export default function AssessmentDetailPage() {
                   <AlertDescription className="text-green-600">{getTranslation(T_DETAILS_PAGE.assessmentFullyApprovedDesc)}</AlertDescription>
                 </Alert>
             )}
-            {(assessment.status === 'Rejected' && isHalted) && ( 
+            {(assessment.status === 'Rejected' && isHalted) && (
                  <Alert variant="destructive" className="mt-6">
                   <XCircle className="h-5 w-5" />
                   <AlertTitle className="font-semibold">{getTranslation(T_DETAILS_PAGE.assessmentRejected)}</AlertTitle>

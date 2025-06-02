@@ -3,13 +3,13 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
+import { mockRiskAssessments } from '@/lib/mockData';
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
-import { format, parseISO } from 'date-fns'; 
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,13 +22,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
-import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
-import { useToast } from "@/hooks/use-toast";
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
 
-// LOCAL_STORAGE_KEY no longer needed
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 
 const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date', fr_label: 'Date de soumission' },
@@ -39,12 +37,12 @@ const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
 ];
 
 const ALL_STATUSES: RiskAssessmentStatus[] = [
-  'Draft', 
-  'Pending Crewing Standards and Oversight', 
-  'Pending Senior Director', 
-  'Pending Director General', 
-  'Needs Information', 
-  'Approved', 
+  'Draft',
+  'Pending Crewing Standards and Oversight',
+  'Pending Senior Director',
+  'Pending Director General',
+  'Needs Information',
+  'Approved',
   'Rejected'
 ];
 
@@ -68,7 +66,6 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
-  const { toast } = useToast();
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -89,30 +86,35 @@ export default function DashboardPage() {
     clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
     patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
     generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
-    departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
-    loadingAssessments: { en: "Loading assessments...", fr: "Chargement des évaluations..."},
-    errorLoadingAssessments: { en: "Error loading assessments", fr: "Erreur lors du chargement des évaluations"},
-    errorLoadingAssessmentsDesc: { en: "Could not fetch risk assessments from the database.", fr: "Impossible de récupérer les évaluations de risques de la base de données."},
+    departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" }
   };
 
-
-  const loadAssessments = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const fetchedAssessments = await getAllRiskAssessments();
-      setAssessments(fetchedAssessments);
-    } catch (error) {
-      console.error("Failed to load assessments:", error);
-      toast({
-        title: getTranslation(T.errorLoadingAssessments),
-        description: getTranslation(T.errorLoadingAssessmentsDesc),
-        variant: "destructive",
-      });
-      setAssessments([]); // Set to empty array on error
-    } finally {
-      setIsLoading(false);
+  const getAllAssessments = useCallback((): RiskAssessment[] => {
+    if (typeof window !== 'undefined') {
+      const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedData) {
+        try {
+          return JSON.parse(storedData);
+        } catch (error) {
+          console.error("Error parsing localStorage data:", error);
+          localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear corrupted data
+        }
+      } else {
+        // Initialize localStorage with mock data if it's empty
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
+        return mockRiskAssessments;
+      }
     }
-  }, [getTranslation, toast, T.errorLoadingAssessments, T.errorLoadingAssessmentsDesc]); // Added T dependencies for toast
+    return mockRiskAssessments; // Fallback for server-side or if window is not available
+  }, []);
+
+
+  const loadAssessments = useCallback(() => {
+    setIsLoading(true);
+    const data = getAllAssessments();
+    setAssessments(data);
+    setIsLoading(false);
+  }, [getAllAssessments]);
 
   useEffect(() => {
     loadAssessments();
@@ -152,7 +154,7 @@ export default function DashboardPage() {
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter(assessment => selectedStatuses.includes(assessment.status));
     }
-    
+
     if (selectedRegions.length > 0) {
       filtered = filtered.filter(assessment => assessment.region && selectedRegions.includes(assessment.region));
     }
@@ -160,17 +162,15 @@ export default function DashboardPage() {
 
     const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
-      // Use lastModifiedTimestamp for sorting by 'lastModified' and submissionTimestamp for 'submissionDate'
-      // These are numbers and more reliable for sorting than ISO strings directly.
       switch (sortKey) {
         case 'submissionDate':
-          valA = a.submissionTimestamp || 0;
-          valB = b.submissionTimestamp || 0;
+          valA = new Date(a.submissionDate).getTime();
+          valB = new Date(b.submissionDate).getTime();
           break;
         case 'lastModified':
-            valA = a.lastModifiedTimestamp || 0;
-            valB = b.lastModifiedTimestamp || 0;
-            break;
+          valA = new Date(a.lastModified).getTime();
+          valB = new Date(b.lastModified).getTime();
+          break;
         case 'status':
           valA = a.status;
           valB = b.status;
@@ -190,13 +190,13 @@ export default function DashboardPage() {
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       // Fallback sort by submission date if primary sort keys are equal
-      if (sortKey !== 'submissionDate' && a.submissionTimestamp && b.submissionTimestamp) {
-        if (a.submissionTimestamp < b.submissionTimestamp) return 1; 
-        if (a.submissionTimestamp > b.submissionTimestamp) return -1;
+      if (sortKey !== 'submissionDate') {
+        if (new Date(a.submissionDate).getTime() < new Date(b.submissionDate).getTime()) return 1; // most recent first as default secondary
+        if (new Date(a.submissionDate).getTime() > new Date(b.submissionDate).getTime()) return -1;
       }
       return 0;
     });
-    
+
     const groupedByPatrol: Record<string, RiskAssessment[]> = sortedAssessments.reduce((acc, assessment) => {
       const patrolKey = `${assessment.patrolStartDate || 'NO_START_DATE'}-${assessment.patrolEndDate || 'NO_END_DATE'}`;
       const groupKey = `${assessment.vesselName}|${patrolKey}`;
@@ -207,10 +207,10 @@ export default function DashboardPage() {
       return acc;
     }, {} as Record<string, RiskAssessment[]>);
 
-    const sortedPatrolGroups = Object.entries(groupedByPatrol).sort(([keyA], [keyB]) => 
+    const sortedPatrolGroups = Object.entries(groupedByPatrol).sort(([keyA], [keyB]) =>
       keyA.localeCompare(keyB)
     );
-    
+
     return sortedPatrolGroups;
 
   }, [assessments, searchTerm, selectedStatuses, selectedRegions, sortKey, sortDirection]);
@@ -220,13 +220,13 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('asc'); 
+      setSortDirection('asc');
     }
   }, [sortKey]);
 
-  
+
   const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.[currentLanguage === 'fr' ? 'fr_label' : 'label'] || getTranslation(T.sort);
-  
+
   const statusFilterLabel = selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length
     ? getTranslation(T.allStatuses)
     : `${selectedStatuses.length} ${getTranslation(T.selected)}`;
@@ -259,12 +259,7 @@ export default function DashboardPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        <p className="text-xl text-muted-foreground">{getTranslation(T.loadingAssessments)}</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-64">Loading assessments...</div>;
   }
 
   return (
@@ -296,7 +291,7 @@ export default function DashboardPage() {
               </Button>
             )}
           </div>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label={getTranslation(T.filterByStatus)}>
@@ -315,7 +310,7 @@ export default function DashboardPage() {
                   key={status}
                   checked={selectedStatuses.includes(status)}
                   onCheckedChange={() => handleStatusChange(status)}
-                  onSelect={(e) => e.preventDefault()} 
+                  onSelect={(e) => e.preventDefault()}
                 >
                   {status}
                 </DropdownMenuCheckboxItem>
@@ -356,7 +351,7 @@ export default function DashboardPage() {
                 </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="w-full flex justify-between items-center text-sm" aria-label={getTranslation(T.sortBy)}>
@@ -379,7 +374,7 @@ export default function DashboardPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        
+
         <div className="mt-4 pt-3 border-t">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">{getTranslation(T.departmentLegendTitle)}</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -402,7 +397,7 @@ export default function DashboardPage() {
           {groupedAndSortedAssessments.map(([groupKey, patrolAssessments]) => {
             const displayTitle = getGroupDisplayTitle(patrolAssessments);
             const groupId = displayTitle.replace(/\s+/g, '-').toLowerCase();
-            
+
             return (
               <section key={groupKey} aria-labelledby={`patrol-group-${groupId}`}>
                 <div className="flex items-center gap-3 mb-4 pb-2 border-b">

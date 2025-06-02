@@ -11,22 +11,46 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
+import { mockRiskAssessments } from '@/lib/mockData';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { addRiskAssessment } from "@/services/riskAssessmentService"; // Import Firestore service
 
-// LOCAL_STORAGE_KEY no longer needed
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 
-// getAllStoredAssessments and addNewAssessmentToStorage are no longer needed as Firestore is used
+const getAllStoredAssessments = (): RiskAssessment[] => {
+  if (typeof window !== 'undefined') {
+    const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedData) {
+      try {
+        return JSON.parse(storedData);
+      } catch (e) {
+        console.error("Error parsing localStorage data, returning empty array:", e);
+        return [];
+      }
+    } else {
+      // Initialize with mock data if nothing is in localStorage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
+      return mockRiskAssessments;
+    }
+  }
+  return mockRiskAssessments; // Fallback if window is undefined
+};
+
+const addNewAssessmentToStorage = (newAssessment: RiskAssessment) => {
+  if (typeof window !== 'undefined') {
+    const assessments = getAllStoredAssessments();
+    assessments.unshift(newAssessment); // Add to the beginning
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
+  }
+};
 
 export default function NewAssessmentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { currentUser } = useUser();
-  const { getTranslation } = useLanguage(); 
+  const { getTranslation } = useLanguage();
 
   const T = {
     pageTitle: { en: "New Risk Assessment", fr: "Nouvelle évaluation des risques" },
@@ -61,44 +85,91 @@ export default function NewAssessmentPage() {
         return;
     }
     setIsLoading(true);
-    
+
+    // Simulate async operation
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     try {
-        // Reference number can be generated client-side or server-side (e.g., via Cloud Function trigger)
-        // For now, keeping client-side generation.
-        const now = new Date();
-        const referenceNumber = `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
-        
-        // The addRiskAssessment service now handles attachment uploads and data structuring.
-        // We just pass the raw form data and the submitter's name.
-        
-        const assessmentDataWithRef = {
-            ...data,
-            referenceNumber, // Add the generated reference number
-             // patrolLengthDays is calculated by the service or not needed if start/end is enough
-            patrolLengthDays: calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate),
-            status: 'Pending Crewing Standards and Oversight', // Initial status
-            approvalSteps: approvalLevelsOrder.map(level => ({ level })), // Initial approval steps
-        };
+      const now = new Date();
+      const newId = `ra-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const referenceNumber = `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
 
-        await addRiskAssessment(assessmentDataWithRef as RiskAssessmentFormData, currentUser.name);
+      const newAttachments: AttachmentType[] = (data.attachments || []).map((att, index) => ({
+        id: `att-${newId}-${index}`,
+        name: att.file?.name || att.name || "unknown_file",
+        url: att.url || '#', // Placeholder URL, actual upload would happen here
+        type: att.file?.type || att.type || "unknown",
+        size: att.file?.size || att.size || 0,
+        uploadedAt: now.toISOString(),
+        // file: att.file, // Keep the file object if needed for immediate use, but it won't be stored in localStorage
+      }));
 
-        toast({
-          title: getTranslation(T.submitSuccessTitle),
-          description: getTranslation(T.submitSuccessDesc).replace('{vesselName}', data.vesselName),
-          variant: "default",
-        });
-        
-        setTimeout(() => router.push("/"), 2000);
+      const newAssessment: RiskAssessment = {
+        id: newId,
+        referenceNumber,
+        maritimeExemptionNumber: data.maritimeExemptionNumber || undefined,
+        vesselName: data.vesselName,
+        imoNumber: data.imoNumber || undefined,
+        department: data.department,
+        region: data.region,
+        patrolStartDate: data.patrolStartDate || undefined,
+        patrolEndDate: data.patrolEndDate || undefined,
+        patrolLengthDays: calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate),
+        voyageDetails: data.voyageDetails,
+        reasonForRequest: data.reasonForRequest,
+        personnelShortages: data.personnelShortages,
+        proposedOperationalDeviations: data.proposedOperationalDeviations,
+        submittedBy: currentUser.name,
+        submissionDate: now.toISOString(),
+        status: 'Pending Crewing Standards and Oversight', // Initial status
+        attachments: newAttachments,
+        approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)), // Initial approval steps
+        lastModified: now.toISOString(),
+        // Exemption & Individual Assessment Data
+        employeeName: data.employeeName || undefined,
+        certificateHeld: data.certificateHeld || undefined,
+        requiredCertificate: data.requiredCertificate || undefined,
+        coDeptHeadSupportExemption: data.coDeptHeadSupportExemption,
+        deptHeadConfidentInIndividual: data.deptHeadConfidentInIndividual,
+        deptHeadConfidenceReason: data.deptHeadConfidenceReason || undefined,
+        employeeFamiliarizationProvided: data.employeeFamiliarizationProvided,
+        workedInDepartmentLast12Months: data.workedInDepartmentLast12Months,
+        workedInDepartmentDetails: data.workedInDepartmentDetails || undefined,
+        similarResponsibilityExperience: data.similarResponsibilityExperience,
+        similarResponsibilityDetails: data.similarResponsibilityDetails || undefined,
+        individualHasRequiredSeaService: data.individualHasRequiredSeaService,
+        individualWorkingTowardsCertification: data.individualWorkingTowardsCertification,
+        certificationProgressSummary: data.certificationProgressSummary || undefined,
+        // Operational Considerations
+        requestCausesVacancyElsewhere: data.requestCausesVacancyElsewhere,
+        crewCompositionSufficientForSafety: data.crewCompositionSufficientForSafety,
+        detailedCrewCompetencyAssessment: data.detailedCrewCompetencyAssessment || undefined,
+        crewContinuityAsPerProfile: data.crewContinuityAsPerProfile,
+        crewContinuityDetails: data.crewContinuityDetails || undefined,
+        specialVoyageConsiderations: data.specialVoyageConsiderations || undefined,
+        reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
+        rocNotificationOfLimitations: data.rocNotificationOfLimitations,
+      };
+
+      addNewAssessmentToStorage(newAssessment);
+
+      toast({
+        title: getTranslation(T.submitSuccessTitle),
+        description: getTranslation(T.submitSuccessDesc).replace('{vesselName}', data.vesselName),
+        variant: "default",
+      });
+
+      setTimeout(() => router.push("/"), 2000);
 
     } catch (error) {
-        console.error("Error submitting assessment:", error);
-        toast({
-            title: getTranslation(T.submitErrorTitle),
-            description: getTranslation(T.submitErrorDesc),
-            variant: "destructive",
-        });
+      console.error("Error submitting assessment:", error);
+      toast({
+        title: getTranslation(T.submitErrorTitle),
+        description: getTranslation(T.submitErrorDesc),
+        variant: "destructive",
+      });
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   };
 

@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer primary source
+import { mockRiskAssessments } from '@/lib/mockData';
 import type { RiskAssessment, VesselRegion, VesselDepartment, RiskAssessmentStatus } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
@@ -10,10 +10,8 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "
 import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useLanguage } from '@/contexts/LanguageContext'; 
-import { getAllRiskAssessments } from '@/services/riskAssessmentService'; // Import Firestore service
-import { useToast } from "@/hooks/use-toast";
-
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useRouter } from 'next/navigation'; // For redirecting if no data
 
 interface ChartDataItem {
   name: string; // Can be department, region, or status name
@@ -25,6 +23,7 @@ interface DepartmentAvgLengthItem {
   averageLength: number;
 }
 
+const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
 const chartColorHSL = (variable: string) => `hsl(var(--${variable}))`;
 
 const T_STATISTICS_PAGE = {
@@ -56,8 +55,6 @@ const T_STATISTICS_PAGE = {
   Western: { en: 'Western', fr: 'Ouest' },
   Arctic: { en: 'Arctic', fr: 'Arctique' },
   loadingStatistics: { en: "Loading statistics...", fr: "Chargement des statistiques..." },
-  errorLoadingStats: { en: "Error Loading Statistics", fr: "Erreur de chargement des statistiques"},
-  errorLoadingStatsDesc: { en: "Could not fetch data for statistics.", fr: "Impossible de récupérer les données pour les statistiques."},
   noDataForStatisticsTitle: { en: "No Data for Statistics", fr: "Aucune donnée pour les statistiques" },
   noDataForStatisticsDesc: { en: "There are no risk assessments in the system to generate statistics. Please create some assessments first.", fr: "Aucune évaluation des risques dans le système pour générer des statistiques. Veuillez d'abord créer des évaluations." },
   createNewAssessment: { en: "Create New Assessment", fr: "Créer une nouvelle évaluation" },
@@ -74,8 +71,8 @@ export default function StatisticsPage() {
   const [overallAveragePatrolLength, setOverallAveragePatrolLength] = useState<number>(0);
   const [averagePatrolLengthByDepartmentData, setAveragePatrolLengthByDepartmentData] = useState<DepartmentAvgLengthItem[]>([]);
 
-  const { getTranslation } = useLanguage(); 
-  const { toast } = useToast();
+  const { getTranslation } = useLanguage();
+  const router = useRouter();
 
   const processData = useCallback((data: RiskAssessment[]) => {
     setTotalAssessmentsCount(data.length);
@@ -95,13 +92,13 @@ export default function StatisticsPage() {
       }
     });
     setAssessmentsByDepartmentData(Object.entries(departmentCounts).map(([name, total]) => ({ name: getTranslation(T_STATISTICS_PAGE[name.replace(' ', '') as keyof typeof T_STATISTICS_PAGE]), total })).sort((a,b) => b.total - a.total));
-    
+
     const statusCounts: Record<string, number> = {};
     data.forEach(assessment => {
       statusCounts[assessment.status] = (statusCounts[assessment.status] || 0) + 1;
     });
     setAssessmentsByStatusData(Object.entries(statusCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total));
-    
+
     let totalPatrolDays = 0;
     let countWithPatrolLength = 0;
     data.forEach(assessment => {
@@ -111,7 +108,7 @@ export default function StatisticsPage() {
       }
     });
     setOverallAveragePatrolLength(countWithPatrolLength > 0 ? parseFloat((totalPatrolDays / countWithPatrolLength).toFixed(1)) : 0);
-    
+
     const deptPatrolLengths: Record<string, { totalDays: number; count: number }> = {};
     (Object.keys(T_STATISTICS_PAGE) as Array<keyof typeof T_STATISTICS_PAGE>)
         .filter(key => ['Navigation', 'Deck', 'EngineRoom', 'Logistics', 'Other'].includes(key))
@@ -128,10 +125,10 @@ export default function StatisticsPage() {
         }
       }
     });
-    
+
     const avgLengthByDeptData = Object.entries(deptPatrolLengths).map(([deptName, {totalDays, count}]) => ({
       name: deptName,
-      averageLength: count > 0 
+      averageLength: count > 0
         ? parseFloat((totalDays / count).toFixed(1))
         : 0,
     })).sort((a,b) => b.averageLength - a.averageLength);
@@ -140,67 +137,71 @@ export default function StatisticsPage() {
 
 
   useEffect(() => {
-    const fetchAndProcessData = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedAssessments = await getAllRiskAssessments();
-        setAssessments(fetchedAssessments); // Store raw data if needed elsewhere
-        processData(fetchedAssessments);   // Process for statistics
-      } catch (error) {
-        console.error("Error fetching assessments for statistics:", error);
-        toast({
-          title: getTranslation(T_STATISTICS_PAGE.errorLoadingStats),
-          description: getTranslation(T_STATISTICS_PAGE.errorLoadingStatsDesc),
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    let data: RiskAssessment[] = [];
+    if (typeof window !== 'undefined') {
+      const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedData) {
+        try {
+          data = JSON.parse(storedData);
+        } catch (e) {
+          console.error("Error parsing localStorage data:", e);
+          data = mockRiskAssessments; // Fallback to default mock data
+        }
+      } else {
+         // Initialize localStorage with mock data if it's empty
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
+        data = mockRiskAssessments;
       }
-    };
-    fetchAndProcessData();
-  }, [getTranslation, processData, toast]); // processData is memoized by useCallback
+    } else {
+      data = mockRiskAssessments; // Fallback for server-side
+    }
+    setAssessments(data);
+    processData(data);
+    setIsLoading(false);
+  }, [processData]);
 
   const departmentDisplayConfig = useMemo((): ChartConfig => ({
-    [getTranslation(T_STATISTICS_PAGE.Navigation)]: { label: getTranslation(T_STATISTICS_PAGE.Navigation), color: 'hsl(210, 65%, 50%)' }, 
-    [getTranslation(T_STATISTICS_PAGE.Deck)]: { label: getTranslation(T_STATISTICS_PAGE.Deck), color: 'hsl(210, 25%, 35%)' }, 
-    [getTranslation(T_STATISTICS_PAGE.EngineRoom)]: { label: getTranslation(T_STATISTICS_PAGE.EngineRoom), color: 'hsl(270, 50%, 55%)' }, 
-    [getTranslation(T_STATISTICS_PAGE.Logistics)]: { label: getTranslation(T_STATISTICS_PAGE.Logistics), color: 'hsl(120, 50%, 45%)' }, 
-    [getTranslation(T_STATISTICS_PAGE.Other)]: { label: getTranslation(T_STATISTICS_PAGE.Other), color: 'hsl(30, 80%, 55%)' }, 
+    [getTranslation(T_STATISTICS_PAGE.Navigation)]: { label: getTranslation(T_STATISTICS_PAGE.Navigation), color: 'hsl(210, 65%, 50%)' },
+    [getTranslation(T_STATISTICS_PAGE.Deck)]: { label: getTranslation(T_STATISTICS_PAGE.Deck), color: 'hsl(210, 25%, 35%)' },
+    [getTranslation(T_STATISTICS_PAGE.EngineRoom)]: { label: getTranslation(T_STATISTICS_PAGE.EngineRoom), color: 'hsl(270, 50%, 55%)' },
+    [getTranslation(T_STATISTICS_PAGE.Logistics)]: { label: getTranslation(T_STATISTICS_PAGE.Logistics), color: 'hsl(120, 50%, 45%)' },
+    [getTranslation(T_STATISTICS_PAGE.Other)]: { label: getTranslation(T_STATISTICS_PAGE.Other), color: 'hsl(30, 80%, 55%)' },
   }), [getTranslation]);
 
   const regionDisplayConfig = useMemo((): ChartConfig => ({
-    [getTranslation(T_STATISTICS_PAGE.Atlantic)]: { label: getTranslation(T_STATISTICS_PAGE.Atlantic), color: chartColorHSL("chart-1") }, 
-    [getTranslation(T_STATISTICS_PAGE.Central)]: { label: getTranslation(T_STATISTICS_PAGE.Central), color: chartColorHSL("chart-2") },  
-    [getTranslation(T_STATISTICS_PAGE.Western)]: { label: getTranslation(T_STATISTICS_PAGE.Western), color: chartColorHSL("chart-3") },  
-    [getTranslation(T_STATISTICS_PAGE.Arctic)]: { label: getTranslation(T_STATISTICS_PAGE.Arctic), color: chartColorHSL("chart-4") },   
+    [getTranslation(T_STATISTICS_PAGE.Atlantic)]: { label: getTranslation(T_STATISTICS_PAGE.Atlantic), color: chartColorHSL("chart-1") },
+    [getTranslation(T_STATISTICS_PAGE.Central)]: { label: getTranslation(T_STATISTICS_PAGE.Central), color: chartColorHSL("chart-2") },
+    [getTranslation(T_STATISTICS_PAGE.Western)]: { label: getTranslation(T_STATISTICS_PAGE.Western), color: chartColorHSL("chart-3") },
+    [getTranslation(T_STATISTICS_PAGE.Arctic)]: { label: getTranslation(T_STATISTICS_PAGE.Arctic), color: chartColorHSL("chart-4") },
   }), [getTranslation]);
 
   const statusDisplayConfig = useMemo((): ChartConfig => {
     const config: ChartConfig = {};
-    assessmentsByStatusData.forEach((item, index) => { // Use state variable already set
-        config[item.name] = { 
-            label: item.name, 
+    assessmentsByStatusData.forEach((item, index) => {
+        config[item.name] = {
+            label: item.name,
             color: chartColorHSL(`chart-${(index % 5) + 1}` as "chart-1" | "chart-2" | "chart-3" | "chart-4" | "chart-5")
         };
     });
     return config;
-  }, [assessmentsByStatusData]); // Depends on the processed data
-  
-  const avgLengthDataKeyConfig = useMemo((): ChartConfig => ({ 
+  }, [assessmentsByStatusData]);
+
+  const avgLengthDataKeyConfig = useMemo((): ChartConfig => ({
     averageLength: {
       label: getTranslation(T_STATISTICS_PAGE.averageDaysLabel),
-      color: chartColorHSL("chart-2"), 
+      color: chartColorHSL("chart-2"),
     },
   }), [getTranslation]);
 
 
   const renderBarChart = (
-    data: ChartDataItem[] | DepartmentAvgLengthItem[], 
-    titleKey: keyof typeof T_STATISTICS_PAGE, 
+    data: ChartDataItem[] | DepartmentAvgLengthItem[],
+    titleKey: keyof typeof T_STATISTICS_PAGE,
     descriptionKey: keyof typeof T_STATISTICS_PAGE,
     Icon: React.ElementType,
-    chartConfigToUse: ChartConfig, 
-    dataKey: string = "total" 
+    chartConfigToUse: ChartConfig,
+    dataKey: string = "total"
   ) => (
     <Card className="shadow-lg rounded-lg">
       <CardHeader>
@@ -216,11 +217,11 @@ export default function StatisticsPage() {
             <BarChart data={data} layout="vertical" margin={{ right: 20, left: (titleKey === "assessmentsByStatusTitle" || titleKey === "assessmentsByDeptTitle" || titleKey === "averagePatrolLengthByDeptTitle") ? 120 : 100 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" allowDecimals={dataKey === "averageLength"} />
-              <YAxis 
-                dataKey="name" 
-                type="category" 
-                tickLine={false} 
-                axisLine={false} 
+              <YAxis
+                dataKey="name"
+                type="category"
+                tickLine={false}
+                axisLine={false}
                 width={(titleKey === "assessmentsByStatusTitle" || titleKey === "assessmentsByDeptTitle" || titleKey === "averagePatrolLengthByDeptTitle") ? 120 : 100}
                 tick={{ fontSize: 12 }}
                 className="truncate"
@@ -228,7 +229,7 @@ export default function StatisticsPage() {
               <Tooltip
                 cursor={{ fill: "hsl(var(--muted))" }}
                 content={<ChartTooltipContent labelClassName="text-sm" formatter={(value, name, props) => {
-                    if (props.dataKey === "averageLength") { 
+                    if (props.dataKey === "averageLength") {
                         return [`${value} ${getTranslation(T_STATISTICS_PAGE.daysLabel)}`, props.payload?.name || name];
                     }
                     return [value, props.payload?.name || name];
@@ -236,9 +237,9 @@ export default function StatisticsPage() {
               />
               <Bar dataKey={dataKey} radius={4} barSize={30}>
                 {data.map((entry, index) => {
-                    const color = chartConfigToUse[entry.name]?.color || 
-                                  chartConfigToUse[dataKey]?.color ||    
-                                  chartColorHSL("chart-1"); 
+                    const color = chartConfigToUse[entry.name]?.color ||
+                                  chartConfigToUse[dataKey]?.color ||
+                                  chartColorHSL("chart-1");
                     return <Cell key={`cell-${entry.name}-${index}`} fill={color} />;
                 })}
               </Bar>
@@ -335,20 +336,20 @@ export default function StatisticsPage() {
         {renderBarChart(assessmentsByRegionData, "assessmentsByRegionTitle", "assessmentsByRegionDesc", MapPinned, regionDisplayConfig, "total")}
         {renderBarChart(assessmentsByDepartmentData, "assessmentsByDeptTitle", "assessmentsByDeptDesc", Building, departmentDisplayConfig, "total")}
       </div>
-      
+
       {renderBarChart(
-        averagePatrolLengthByDepartmentData, 
-        "averagePatrolLengthByDeptTitle", 
-        "averagePatrolLengthByDeptDesc", 
+        averagePatrolLengthByDepartmentData,
+        "averagePatrolLengthByDeptTitle",
+        "averagePatrolLengthByDeptDesc",
         Clock,
-        departmentDisplayConfig, 
+        departmentDisplayConfig,
         "averageLength"
       )}
 
       {renderBarChart(
-        assessmentsByStatusData, 
-        "assessmentsByStatusTitle", 
-        "assessmentsByStatusDesc", 
+        assessmentsByStatusData,
+        "assessmentsByStatusTitle",
+        "assessmentsByStatusDesc",
         ListChecks,
         statusDisplayConfig,
         "total"
@@ -357,4 +358,3 @@ export default function StatisticsPage() {
     </div>
   );
 }
-

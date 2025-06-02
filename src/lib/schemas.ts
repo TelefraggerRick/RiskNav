@@ -7,19 +7,20 @@ const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'applicatio
 
 
 export const attachmentSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().optional(), // Not required for new attachments before they get an ID
   name: z.string().min(1, "File name is required."),
-  url: z.string().optional(),
-  type: z.string().optional(),
-  size: z.number().optional(),
+  url: z.string().optional(), // URL might not exist until uploaded
+  type: z.string().optional(), // Type might be derived from file
+  size: z.number().optional(), // Size might be derived from file
   file: z.instanceof(File).refine(
     (file) => file.size <= MAX_FILE_SIZE_BYTES,
     `Max file size is ${MAX_FILE_SIZE_MB}MB.`
   ).refine(
     (file) => ALLOWED_FILE_TYPES.includes(file.type),
     "Unsupported file type."
-  ).optional(),
-  uploadedAt: z.string().optional(),
+  ).optional(), // The actual File object, optional if attachment is already uploaded
+  uploadedAt: z.string().optional(), // Date string
+  dataAiHint: z.string().optional(),
 });
 
 export const riskAssessmentFormSchema = z.object({
@@ -66,7 +67,7 @@ export const riskAssessmentFormSchema = z.object({
   detailedCrewCompetencyAssessment: z.string().min(1, "This field is required.").optional(),
   crewContinuityAsPerProfile: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
   crewContinuityDetails: z.string().optional(), // If not, provide details.
-  
+
   specialVoyageConsiderations: z.string().min(1, "This field is required.").optional(),
   reductionInVesselProgramRequirements: z.enum(['Yes', 'No'], { required_error: "This field is required."}).optional(),
   rocNotificationOfLimitations: z.enum(['Yes', 'No']).optional(),
@@ -131,4 +132,3 @@ export const approvalFormSchema = z.object({
 });
 
 export type ApprovalFormData = z.infer<typeof approvalFormSchema>;
-
