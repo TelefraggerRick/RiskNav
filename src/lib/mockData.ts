@@ -9,6 +9,8 @@ const fourDaysAgo = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000);
 const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
 const sixDaysAgo = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
 const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+const eightDaysAgo = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000);
+
 
 const initialApprovalSteps: ApprovalStep[] = [
   { level: 'Crewing Standards and Oversight' },
@@ -115,7 +117,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
     certificationProgressSummary: 'Renewal application submitted to Transport Canada. All supporting docs and medical provided. Awaiting TC processing.',
     requestCausesVacancyElsewhere: 'No',
     crewCompositionSufficientForSafety: 'Yes',
-    detailedCrewCompetencyAssessment: 'All other engine room staff are certified. Second Engineer holds appropriate certification for their substantive role and is familiar with all systems. Remote oversight by Senior CE adds layer of assurance.',
+    detailedCrewCompetencyAssessment: 'All other engine room staff are fully certified. Second Engineer holds appropriate certification for their substantive role and is familiar with all systems. Remote oversight by Senior CE adds layer of assurance.',
     crewContinuityAsPerProfile: 'Yes',
     crewContinuityDetails: '',
     specialVoyageConsiderations: 'Icebreaking operations demand high engine reliability. Constant monitoring planned. Voyage is relatively short.',
@@ -425,5 +427,52 @@ export const mockRiskAssessments: RiskAssessment[] = [
     specialVoyageConsiderations: 'Operations at remote ATON sites with limited immediate resupply options. Weather in Great Lakes can impact small boat transfers for supplies if needed. Focus on ATON work, minimizing other stores consumption.',
     reductionInVesselProgramRequirements: 'No',
     rocNotificationOfLimitations: undefined,
+  },
+  {
+    id: 'ra-009',
+    referenceNumber: 'CCG-RA-2025-009',
+    maritimeExemptionNumber: 'ME-ARC-2025-HV-001',
+    vesselName: 'CCGS Louis S. St-Laurent',
+    department: 'Engine Room',
+    region: 'Arctic',
+    patrolStartDate: '2025-08-10',
+    patrolEndDate: '2025-09-20',
+    patrolLengthDays: 42,
+    voyageDetails: 'Arctic Research and Resupply Mission, Baffin Bay & Nares Strait. High-voltage scientific equipment deployment.',
+    reasonForRequest: 'Electrical Officer awaiting final STCW endorsement for new high-voltage system (Model HVX-3000) critical for mission.',
+    personnelShortages: 'Electrical Officer Richard Butler holds ETO CoC but HVX-3000 specific endorsement from TC is pending administrative review. All coursework and OEM training completed.',
+    proposedOperationalDeviations: 'Chief Engineer (fully HV certified) to directly supervise Mr. Butler during all operations involving the HVX-3000 system. System to be operated at reduced load (75% max) until endorsement received. Daily system checks logged.',
+    submittedBy: 'Arctic Operations',
+    submissionDate: eightDaysAgo.toISOString(),
+    status: 'Pending Crewing Standards and Oversight',
+    attachments: [
+      { id: 'att-014', name: 'Butler_HV_TrainingCert.pdf', url: '#', type: 'application/pdf', size: 130000, uploadedAt: eightDaysAgo.toISOString() },
+      { id: 'att-015', name: 'HVX3000_OEM_Compliance.pdf', url: '#', type: 'application/pdf', size: 250000, uploadedAt: eightDaysAgo.toISOString() },
+    ],
+    approvalSteps: [...initialApprovalSteps],
+    lastModified: eightDaysAgo.toISOString(),
+    employeeName: "Richard Butler",
+    certificateHeld: "Electro-Technical Officer (ETO) CoC, STCW Advanced Firefighting, MED D",
+    requiredCertificate: "ETO CoC with STCW High Voltage (Operational Level) endorsement for HVX-3000 specific systems.",
+    coDeptHeadSupportExemption: 'Yes',
+    deptHeadConfidentInIndividual: 'Yes',
+    deptHeadConfidenceReason: 'Mr. Butler is a highly competent ETO with 10 years experience on CCG icebreakers. He has successfully completed the rigorous OEM training for the HVX-3000 and the generic STCW HV course. The endorsement delay is purely administrative. Chief Engineer is confident in his practical skills under supervision.',
+    employeeFamiliarizationProvided: 'Yes',
+    workedInDepartmentLast12Months: 'Yes',
+    workedInDepartmentDetails: 'Electrical Officer on CCGS Louis S. St-Laurent for past 5 years.',
+    similarResponsibilityExperience: 'Yes',
+    similarResponsibilityDetails: 'Has managed numerous other complex electrical systems and new installations on board. Experienced with high-power diesel-electric propulsion systems.',
+    individualHasRequiredSeaService: 'Yes',
+    individualWorkingTowardsCertification: 'Yes',
+    certificationProgressSummary: 'All TC-recognized HV coursework and HVX-3000 OEM training completed and documented. Application for endorsement submitted to TC 4 weeks ago, awaiting final issuance. All other ETO certifications are current.',
+    requestCausesVacancyElsewhere: 'No',
+    crewCompositionSufficientForSafety: 'Yes',
+    detailedCrewCompetencyAssessment: 'The Chief Engineer holds full HV certification and will provide direct oversight. All other engine room personnel are certified for their roles. The proposed mitigation of reduced load and direct supervision addresses the specific risk of operating the new HV system without the final endorsement.',
+    crewContinuityAsPerProfile: 'Yes',
+    crewContinuityDetails: '',
+    specialVoyageConsiderations: 'Arctic operations are remote. The HVX-3000 is for critical scientific equipment. Failure could impact mission objectives. Vessel has redundant power generation systems. Contingency plan includes isolating HVX-3000 if any issues arise.',
+    reductionInVesselProgramRequirements: 'No',
+    rocNotificationOfLimitations: 'No', // No limitations if operated under proposed mitigations
   }
 ];
+
