@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { RiskAssessment } from '@/lib/types';
-import { mockRiskAssessments } from '@/lib/mockData';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ArrowLeft, CalendarDays, Info, List, Loader2, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getAllAssessmentsFromDB } from '@/lib/firestoreService'; // Firestore service
+import { useToast } from "@/hooks/use-toast";
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 
 const T_CALENDAR_PAGE = {
   pageTitle: { en: "Risk Assessment Calendar", fr: "Calendrier des évaluations des risques" },
@@ -29,25 +31,10 @@ const T_CALENDAR_PAGE = {
   noAssessmentsInSystemTitle: { en: "No Assessments in System", fr: "Aucune évaluation dans le système" },
   noAssessmentsInSystemDesc: { en: "There are currently no risk assessments logged. Get started by creating one.", fr: "Aucune évaluation des risques n'est actuellement enregistrée. Commencez par en créer une." },
   createNewAssessment: { en: "Create New Assessment", fr: "Créer une nouvelle évaluation" },
+  errorLoadingAssessments: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations" },
+  failedToFetchAssessments: { en: "Could not fetch assessments. Please try again later.", fr: "Impossible de charger les évaluations. Veuillez réessayer plus tard." },
 };
 
-const getAllAssessments = (): RiskAssessment[] => {
-  if (typeof window !== 'undefined') {
-    const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedData) {
-      try {
-        return JSON.parse(storedData);
-      } catch (error) {
-        console.error("Error parsing localStorage data for calendar:", error);
-        return mockRiskAssessments; // Fallback to default mock data
-      }
-    } else {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
-        return mockRiskAssessments;
-    }
-  }
-  return mockRiskAssessments; // Fallback for server-side or if window is not available
-};
 
 export default function AssessmentCalendarPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -56,13 +43,25 @@ export default function AssessmentCalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { getTranslation, currentLanguage } = useLanguage();
+  const { toast } = useToast();
 
-  const loadAssessments = useCallback(() => {
+  const loadAssessments = useCallback(async () => {
     setIsLoading(true);
-    const data = getAllAssessments();
-    setAssessments(data);
-    setIsLoading(false);
-  }, []);
+    try {
+        const data = await getAllAssessmentsFromDB();
+        setAssessments(data);
+    } catch (error) {
+        console.error("Error fetching assessments for calendar:", error);
+        toast({
+            title: getTranslation(T_CALENDAR_PAGE.errorLoadingAssessments),
+            description: getTranslation(T_CALENDAR_PAGE.failedToFetchAssessments),
+            variant: "destructive"
+        });
+        setAssessments([]); // Set to empty on error
+    } finally {
+        setIsLoading(false);
+    }
+  }, [toast, getTranslation]);
 
   useEffect(() => {
     loadAssessments();
@@ -263,3 +262,5 @@ export default function AssessmentCalendarPage() {
     </div>
   );
 }
+
+    

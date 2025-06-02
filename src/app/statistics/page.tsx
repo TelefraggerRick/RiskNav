@@ -1,17 +1,19 @@
 
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
-import { mockRiskAssessments } from '@/lib/mockData';
-import type { RiskAssessment, VesselRegion, VesselDepartment, RiskAssessmentStatus } from '@/lib/types';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
+import type { RiskAssessment } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'; // Removed Legend
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation'; // For redirecting if no data
+import { getAllAssessmentsFromDB } from '@/lib/firestoreService'; // Firestore service
+import { useToast } from "@/hooks/use-toast";
 
 interface ChartDataItem {
   name: string; // Can be department, region, or status name
@@ -23,7 +25,7 @@ interface DepartmentAvgLengthItem {
   averageLength: number;
 }
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 const chartColorHSL = (variable: string) => `hsl(var(--${variable}))`;
 
 const T_STATISTICS_PAGE = {
@@ -58,8 +60,9 @@ const T_STATISTICS_PAGE = {
   noDataForStatisticsTitle: { en: "No Data for Statistics", fr: "Aucune donnée pour les statistiques" },
   noDataForStatisticsDesc: { en: "There are no risk assessments in the system to generate statistics. Please create some assessments first.", fr: "Aucune évaluation des risques dans le système pour générer des statistiques. Veuillez d'abord créer des évaluations." },
   createNewAssessment: { en: "Create New Assessment", fr: "Créer une nouvelle évaluation" },
+  errorLoadingStats: { en: "Error Loading Statistics", fr: "Erreur de chargement des statistiques"},
+  failedToFetchStats: { en: "Could not fetch data for statistics. Please try again later.", fr: "Impossible de charger les données pour les statistiques. Veuillez réessayer plus tard."}
 };
-
 
 export default function StatisticsPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -73,6 +76,7 @@ export default function StatisticsPage() {
 
   const { getTranslation } = useLanguage();
   const router = useRouter();
+  const { toast } = useToast();
 
   const processData = useCallback((data: RiskAssessment[]) => {
     setTotalAssessmentsCount(data.length);
@@ -113,7 +117,8 @@ export default function StatisticsPage() {
     (Object.keys(T_STATISTICS_PAGE) as Array<keyof typeof T_STATISTICS_PAGE>)
         .filter(key => ['Navigation', 'Deck', 'EngineRoom', 'Logistics', 'Other'].includes(key))
         .forEach(key => {
-            deptPatrolLengths[getTranslation(T_STATISTICS_PAGE[key as 'Navigation'])] = { totalDays: 0, count: 0 };
+             const translatedDeptName = getTranslation(T_STATISTICS_PAGE[key as 'Navigation']);
+            deptPatrolLengths[translatedDeptName] = { totalDays: 0, count: 0 };
         });
 
     data.forEach(assessment => {
@@ -137,29 +142,27 @@ export default function StatisticsPage() {
 
 
   useEffect(() => {
-    setIsLoading(true);
-    let data: RiskAssessment[] = [];
-    if (typeof window !== 'undefined') {
-      const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedData) {
+    const loadAndProcessData = async () => {
+        setIsLoading(true);
         try {
-          data = JSON.parse(storedData);
-        } catch (e) {
-          console.error("Error parsing localStorage data:", e);
-          data = mockRiskAssessments; // Fallback to default mock data
+            const data = await getAllAssessmentsFromDB();
+            setAssessments(data);
+            processData(data);
+        } catch (error) {
+            console.error("Error loading data for statistics:", error);
+            toast({
+                title: getTranslation(T_STATISTICS_PAGE.errorLoadingStats),
+                description: getTranslation(T_STATISTICS_PAGE.failedToFetchStats),
+                variant: "destructive"
+            });
+            setAssessments([]); // Set to empty on error
+            processData([]); // Process empty data to show "no data" state correctly
+        } finally {
+            setIsLoading(false);
         }
-      } else {
-         // Initialize localStorage with mock data if it's empty
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mockRiskAssessments));
-        data = mockRiskAssessments;
-      }
-    } else {
-      data = mockRiskAssessments; // Fallback for server-side
-    }
-    setAssessments(data);
-    processData(data);
-    setIsLoading(false);
-  }, [processData]);
+    };
+    loadAndProcessData();
+  }, [processData, toast, getTranslation]);
 
   const departmentDisplayConfig = useMemo((): ChartConfig => ({
     [getTranslation(T_STATISTICS_PAGE.Navigation)]: { label: getTranslation(T_STATISTICS_PAGE.Navigation), color: 'hsl(210, 65%, 50%)' },
@@ -358,3 +361,5 @@ export default function StatisticsPage() {
     </div>
   );
 }
+
+    

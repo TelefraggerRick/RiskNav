@@ -4,16 +4,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
-import { mockRiskAssessments } from '@/lib/mockData';
+// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Lock, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
 import { useToast } from '@/hooks/use-toast';
@@ -24,8 +24,9 @@ import { useUser } from '@/contexts/UserContext';
 import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService'; // Firestore service
 
-const LOCAL_STORAGE_KEY = 'riskAssessmentsData';
+// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
 const T_DETAILS_PAGE = {
@@ -114,6 +115,7 @@ const T_DETAILS_PAGE = {
   returnToDashboard: { en: "Return to Dashboard", fr: "Retour au tableau de bord" },
   error: { en: "Error", fr: "Erreur" },
   assessmentNotFoundToast: { en: "Assessment not found.", fr: "Évaluation non trouvée." },
+  failedToFetchAssessmentToast: { en: "Failed to fetch assessment details.", fr: "Échec du chargement des détails de l'évaluation." },
   aiSummaryGenerated: { en: "AI Summary Generated", fr: "Résumé IA généré" },
   aiSummaryAdded: { en: "Summary has been added.", fr: "Le résumé a été ajouté." },
   aiError: { en: "AI Error", fr: "Erreur IA" },
@@ -122,41 +124,15 @@ const T_DETAILS_PAGE = {
   failedToGenerateRiskScore: { en: "Failed to generate risk score and recommendations.", fr: "Échec de la génération du score de risque et des recommandations." },
   assessmentActionToastTitle: { en: "Assessment {decision}", fr: "Évaluation {decision}" },
   assessmentActionToastDesc: { en: "The assessment has been {decision} with your notes.", fr: "L'évaluation a été {decision} avec vos notes." },
+  failedToUpdateAssessmentToast: { en: "Failed to update assessment.", fr: "Échec de la mise à jour de l'évaluation." },
   na: { en: "N/A", fr: "S.O." }
-};
-
-
-const getAllAssessments = (): RiskAssessment[] => {
-  if (typeof window !== 'undefined') {
-    const storedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedData) {
-      try { return JSON.parse(storedData); }
-      catch (e) { console.error("Error parsing assessments:", e); return mockRiskAssessments; }
-    }
-  }
-  return mockRiskAssessments; // Fallback
-};
-
-const getAssessmentById = (id: string): RiskAssessment | undefined => {
-  const assessments = getAllAssessments();
-  return assessments.find(assessment => assessment.id === id);
-};
-
-const saveAssessmentUpdate = (updatedAssessment: RiskAssessment) => {
-  if (typeof window !== 'undefined') {
-    let assessments = getAllAssessments();
-    assessments = assessments.map(assessment =>
-      assessment.id === updatedAssessment.id ? updatedAssessment : assessment
-    );
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(assessments));
-  }
 };
 
 const handleDownloadAttachment = (attachment: Attachment) => {
   // In a real app, this would trigger a download from a server or cloud storage.
-  // For mock data, we'll just simulate with an alert or log.
+  // For mock data / placeholder URLs, we'll just simulate with an alert or log.
   if (attachment.url && attachment.url !== '#') {
-    if (attachment.url.startsWith('data:')) { // For base64 encoded mock images
+    if (attachment.url.startsWith('data:') || attachment.url.startsWith('http')) {
         const link = document.createElement('a');
         link.href = attachment.url;
         link.download = attachment.name;
@@ -206,25 +182,31 @@ export default function AssessmentDetailPage() {
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
 
-
-  const fetchAssessment = useCallback(() => {
-    if (params.id) {
+  const fetchAssessment = useCallback(async () => {
+    const assessmentId = params.id as string;
+    if (assessmentId) {
       setIsLoading(true);
-      const foundAssessment = getAssessmentById(params.id as string);
-      if (foundAssessment) {
-        // Ensure approvalSteps are always populated for the UI
-        const populatedAssessment = {
-          ...foundAssessment,
-          approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0
-            ? foundAssessment.approvalSteps
-            : approvalLevelsOrder.map(level => ({ level } as ApprovalStep)) // Ensure this creates a new array
-        };
-        setAssessment(populatedAssessment);
-      } else {
-        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.assessmentNotFoundToast), variant: "destructive" });
+      try {
+        const foundAssessment = await getAssessmentByIdFromDB(assessmentId);
+        if (foundAssessment) {
+          const populatedAssessment = {
+            ...foundAssessment,
+            approvalSteps: foundAssessment.approvalSteps && foundAssessment.approvalSteps.length > 0
+              ? foundAssessment.approvalSteps
+              : approvalLevelsOrder.map(level => ({ level } as ApprovalStep))
+          };
+          setAssessment(populatedAssessment);
+        } else {
+          toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.assessmentNotFoundToast), variant: "destructive" });
+          router.push('/');
+        }
+      } catch (error) {
+        console.error("Error fetching assessment from DB:", error);
+        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.failedToFetchAssessmentToast), variant: "destructive" });
         router.push('/');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
   }, [params.id, router, toast, getTranslation]);
 
@@ -233,7 +215,7 @@ export default function AssessmentDetailPage() {
   }, [fetchAssessment]);
 
   const runAiSummary = useCallback(async () => {
-    if (!assessment) return;
+    if (!assessment || !assessment.id) return;
     setIsAiLoading(prev => ({...prev, summary: true}));
     try {
       const summaryResult = await generateRiskAssessmentSummary({
@@ -243,8 +225,9 @@ export default function AssessmentDetailPage() {
         proposedOperationalDeviations: assessment.proposedOperationalDeviations,
         additionalDetails: `Voyage: ${assessment.voyageDetails}. Reason: ${assessment.reasonForRequest}`
       });
-      setAssessment(prev => prev ? {...prev, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString()} : null);
-      saveAssessmentUpdate({ ...assessment, aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString() });
+      const updates: Partial<RiskAssessment> = { aiGeneratedSummary: summaryResult.summary, lastModified: new Date().toISOString() };
+      await updateAssessmentInDB(assessment.id, updates);
+      setAssessment(prev => prev ? {...prev, ...updates} : null);
       toast({ title: getTranslation(T_DETAILS_PAGE.aiSummaryGenerated), description: getTranslation(T_DETAILS_PAGE.aiSummaryAdded) });
     } catch (error) {
       console.error("AI Summary Error:", error);
@@ -254,7 +237,7 @@ export default function AssessmentDetailPage() {
   }, [assessment, toast, getTranslation]);
 
   const runAiRiskScoreAndRecommendations = useCallback(async () => {
-    if (!assessment) return;
+    if (!assessment || !assessment.id) return;
     setIsAiLoading(prev => ({...prev, riskScore: true}));
     try {
       const result = await generateRiskScoreAndRecommendations({
@@ -264,8 +247,7 @@ export default function AssessmentDetailPage() {
         operationalDeviations: assessment.proposedOperationalDeviations,
         attachedDocuments: assessment.attachments.map(a => a.url || a.name),
       });
-      const updatedAssessment = {
-        ...assessment,
+      const updates: Partial<RiskAssessment> = {
         aiRiskScore: result.riskScore,
         aiLikelihoodScore: result.likelihoodScore,
         aiConsequenceScore: result.consequenceScore,
@@ -273,8 +255,8 @@ export default function AssessmentDetailPage() {
         aiRegulatoryConsiderations: result.regulatoryConsiderations,
         lastModified: new Date().toISOString()
       };
-      setAssessment(updatedAssessment);
-      saveAssessmentUpdate(updatedAssessment);
+      await updateAssessmentInDB(assessment.id, updates);
+      setAssessment(prev => prev ? {...prev, ...updates} : null);
       toast({ title: getTranslation(T_DETAILS_PAGE.aiRiskScoreGenerated) });
     } catch (error) {
       console.error("AI Risk Score Error:", error);
@@ -321,10 +303,9 @@ export default function AssessmentDetailPage() {
   }, []);
 
   const handleApprovalAction = useCallback(async (notes: string) => {
-    if (!assessment || !currentLevelToAct || !currentUser || !currentDecision) return;
+    if (!assessment || !assessment.id || !currentLevelToAct || !currentUser || !currentDecision) return;
 
     setIsSubmittingApproval(true);
-
     const nowISO = new Date().toISOString();
 
     const updatedApprovalSteps = assessment.approvalSteps.map(step =>
@@ -348,24 +329,27 @@ export default function AssessmentDetailPage() {
       newStatus = 'Needs Information';
     }
 
-    const updatedAssessment: RiskAssessment = {
-      ...assessment,
+    const updates: Partial<RiskAssessment> = {
       approvalSteps: updatedApprovalSteps,
       status: newStatus,
       lastModified: nowISO,
     };
 
-    saveAssessmentUpdate(updatedAssessment);
-    setAssessment(updatedAssessment); // Optimistic update
-
-    toast({
-      title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
-      description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
-    });
-
-    setIsSubmittingApproval(false);
-    setIsApprovalDialogOpen(false);
-    setCurrentDecision(undefined);
+    try {
+        await updateAssessmentInDB(assessment.id, updates);
+        setAssessment(prev => prev ? {...prev, ...updates } : null); // Optimistic update
+        toast({
+            title: getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision),
+            description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
+        });
+    } catch (error) {
+        console.error("Error updating assessment approval:", error);
+        toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.failedToUpdateAssessmentToast), variant: "destructive" });
+    } finally {
+        setIsSubmittingApproval(false);
+        setIsApprovalDialogOpen(false);
+        setCurrentDecision(undefined);
+    }
   }, [assessment, currentLevelToAct, currentUser, currentDecision, toast, getTranslation]);
 
 
@@ -386,7 +370,7 @@ export default function AssessmentDetailPage() {
       </Alert>
     );
   }
-
+  
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
     'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300', progressClass: '[&>div]:bg-gray-500' },
     'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400', progressClass: '[&>div]:bg-yellow-500' },
@@ -429,6 +413,17 @@ export default function AssessmentDetailPage() {
     return <HelpCircle className="h-4 w-4 text-muted-foreground inline-block mr-1" />;
   };
 
+  const formatDateSafe = (dateStr: string | undefined, formatTemplate: string) => {
+    if (!dateStr) return getTranslation(T_DETAILS_PAGE.na);
+    try {
+      const parsedDate = parseISO(dateStr);
+      if (isValid(parsedDate)) {
+        return format(parsedDate, formatTemplate);
+      }
+    } catch (e) { /* fall through */ }
+    return dateStr; // fallback to original string if parsing fails
+  };
+
 
   return (
     <div className="space-y-6 pb-12">
@@ -461,7 +456,7 @@ export default function AssessmentDetailPage() {
                     {assessment.status}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
-                    {getTranslation(T_DETAILS_PAGE.lastModified)}: {format(parseISO(assessment.lastModified), `MMM d, yyyy '${getTranslation(T_DETAILS_PAGE.at)}' h:mm a`)}
+                    {getTranslation(T_DETAILS_PAGE.lastModified)}: {formatDateSafe(assessment.lastModified, `MMM d, yyyy '${getTranslation(T_DETAILS_PAGE.at)}' h:mm a`)}
                 </p>
             </div>
           </div>
@@ -472,13 +467,13 @@ export default function AssessmentDetailPage() {
             <SectionTitle icon={Sailboat} title={getTranslation(T_DETAILS_PAGE.vesselOverview)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               <DetailItem label={getTranslation(T_DETAILS_PAGE.submittedBy)} value={assessment.submittedBy} />
-              <DetailItem label={getTranslation(T_DETAILS_PAGE.submissionDate)} value={format(parseISO(assessment.submissionDate), "PPP p")} />
+              <DetailItem label={getTranslation(T_DETAILS_PAGE.submissionDate)} value={formatDateSafe(assessment.submissionDate, "PPP p")} />
               {assessment.imoNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.imoNumber)} value={assessment.imoNumber} icon={Fingerprint} />}
-              {assessment.maritimeExemptionNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)} value={assessment.maritimeExemptionNumber} icon={FileWarning} />} {/* Placeholder icon, change if better available */}
+              {assessment.maritimeExemptionNumber && <DetailItem label={getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)} value={assessment.maritimeExemptionNumber} icon={FileWarning} />}
               <DetailItem label={getTranslation(T_DETAILS_PAGE.department)} value={assessment.department} />
               <DetailItem label={getTranslation(T_DETAILS_PAGE.region)} value={assessment.region} />
-              {assessment.patrolStartDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolStartDate)} value={format(parseISO(assessment.patrolStartDate), "PPP")} icon={CalendarClock} />}
-              {assessment.patrolEndDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolEndDate)} value={format(parseISO(assessment.patrolEndDate), "PPP")} icon={CalendarClock} />}
+              {assessment.patrolStartDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolStartDate)} value={formatDateSafe(assessment.patrolStartDate, "PPP")} icon={CalendarClock} />}
+              {assessment.patrolEndDate && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolEndDate)} value={formatDateSafe(assessment.patrolEndDate, "PPP")} icon={CalendarClock} />}
               {assessment.patrolLengthDays !== undefined && <DetailItem label={getTranslation(T_DETAILS_PAGE.patrolLength)} value={`${assessment.patrolLengthDays} ${getTranslation(T_DETAILS_PAGE.days)}`} icon={Clock} />}
               <DetailItem label={getTranslation(T_DETAILS_PAGE.voyageDetails)} value={assessment.voyageDetails} isPreformatted fullWidth/>
               <DetailItem label={getTranslation(T_DETAILS_PAGE.reasonForRequest)} value={assessment.reasonForRequest} isPreformatted fullWidth/>
@@ -539,7 +534,7 @@ export default function AssessmentDetailPage() {
                       <div className="overflow-hidden">
                         <span className="font-medium text-sm truncate block" title={att.name}>{att.name}</span>
                         <p className="text-xs text-muted-foreground">
-                          {(att.size / 1024).toFixed(1)} KB - {att.type} - {format(parseISO(att.uploadedAt), "MMM d, yyyy")}
+                          {(att.size / 1024).toFixed(1)} KB - {att.type} - {formatDateSafe(att.uploadedAt, "MMM d, yyyy")}
                         </p>
                       </div>
                     </div>
@@ -660,7 +655,7 @@ export default function AssessmentDetailPage() {
                       {step.decision && (
                         <CardContent className="text-sm space-y-1 pt-2 p-0">
                           {step.userName && <p><strong>{getTranslation(T_DETAILS_PAGE.by)}</strong> {step.userName}</p>}
-                          {step.date && <p><strong>{getTranslation(T_DETAILS_PAGE.date)}</strong> {format(parseISO(step.date), "PPP p")}</p>}
+                          {step.date && <p><strong>{getTranslation(T_DETAILS_PAGE.date)}</strong> {formatDateSafe(step.date, "PPP p")}</p>}
                           {step.notes && <p className="mt-1"><strong>{getTranslation(T_DETAILS_PAGE.notes)}</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
                         </CardContent>
                       )}
@@ -742,3 +737,5 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+
+    
