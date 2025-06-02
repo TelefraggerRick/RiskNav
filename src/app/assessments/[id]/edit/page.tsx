@@ -14,8 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, Loader2, ShieldAlert, Edit as EditPageIcon } from "lucide-react"; // Renamed Edit icon
 import Link from "next/link";
-// Removed: import { doc, collection } from 'firebase/firestore'; // No longer needed for client-side ID generation
-// Removed: import { db } from '@/lib/firebase'; // No longer needed for client-side ID generation
 
 const T_EDIT_PAGE = {
   pageTitle: { en: "Edit Risk Assessment", fr: "Modifier l'évaluation des risques" },
@@ -136,7 +134,15 @@ export default function EditAssessmentPage() {
       const processedAttachments: AttachmentType[] = [];
       console.log("Edit Page: handleSubmit - Starting attachment processing. Total attachments in form data:", data.attachments?.length);
 
-      const submissionYear = new Date(assessment.submissionDate).getFullYear();
+      const submissionDateObj = new Date(assessment.submissionDate);
+      if (isNaN(submissionDateObj.getTime())) {
+        console.error(`Edit Page: Invalid submissionDate on assessment: ${assessment.submissionDate}`);
+        toast({ title: "Error", description: "Invalid submission date for assessment. Cannot determine upload year.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+      }
+      const submissionYear = submissionDateObj.getFullYear();
+
 
       if (data.attachments && data.attachments.length > 0) {
         for (const att of data.attachments) {
@@ -195,8 +201,8 @@ export default function EditAssessmentPage() {
         maritimeExemptionNumber: data.maritimeExemptionNumber, 
         department: data.department,
         region: data.region,
-        patrolStartDate: data.patrolStartDate || undefined,
-        patrolEndDate: data.patrolEndDate || undefined,
+        patrolStartDate: data.patrolStartDate,
+        patrolEndDate: data.patrolEndDate,
         voyageDetails: data.voyageDetails,
         reasonForRequest: data.reasonForRequest,
         personnelShortages: data.personnelShortages,
@@ -244,6 +250,7 @@ export default function EditAssessmentPage() {
         description: getTranslation(T_EDIT_PAGE.updateErrorDesc) + ` (Error: ${error.message})`,
         variant: "destructive",
       });
+      setIsSubmitting(false); // Explicitly set submitting to false in this catch block
     } finally {
       console.log("Edit Page: handleSubmit - In finally block, setting isSubmitting to false.");
       setIsSubmitting(false);
