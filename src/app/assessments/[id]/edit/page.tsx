@@ -118,9 +118,10 @@ export default function EditAssessmentPage() {
   };
 
   const handleSubmit = async (data: RiskAssessmentFormData) => {
-    console.log("Edit Page: handleSubmit triggered with data:", data);
+    console.log("Edit Page: handleSubmit triggered with data:", JSON.parse(JSON.stringify(data))); // Log data cleanly
     if (!assessment || !assessment.id) {
         console.error("Edit Page: handleSubmit - No assessment or assessment ID found.");
+        toast({ title: "Error", description: "Assessment ID missing.", variant: "destructive" });
         return;
     }
     if (currentUser.id === 'user-unauth') {
@@ -128,8 +129,8 @@ export default function EditAssessmentPage() {
         return;
     }
 
+    console.log("Edit Page: handleSubmit - Setting isSubmitting to true.");
     setIsSubmitting(true);
-    console.log("Edit Page: handleSubmit - isSubmitting set to true.");
     try {
       const now = new Date();
       const processedAttachments: AttachmentType[] = [];
@@ -138,14 +139,15 @@ export default function EditAssessmentPage() {
 
       if (data.attachments && data.attachments.length > 0) {
         for (const att of data.attachments) {
-          console.log("Edit Page: handleSubmit - Processing attachment:", att.name, "Has file:", !!att.file);
+          console.log("Edit Page: handleSubmit - Processing attachment candidate:", JSON.parse(JSON.stringify(att)));
           if (att.file && att.name) { // New file to upload
-            console.log("Edit Page: handleSubmit - New file detected:", att.name);
+            console.log(`Edit Page: handleSubmit - New file detected: ${att.name}. Attempting upload.`);
+            const storagePath = `riskAssessments/attachments/${assessment.id}/${att.file.name}`;
+            console.log("Edit Page: handleSubmit - Uploading to storagePath:", storagePath);
             try {
-              const storagePath = `riskAssessments/attachments/${assessment.id}/${att.file.name}`;
-              console.log("Edit Page: handleSubmit - Uploading to storagePath:", storagePath);
+              console.log(`Edit Page: handleSubmit - BEFORE await uploadFileToStorage for: ${att.name}`);
               const downloadURL = await uploadFileToStorage(att.file, storagePath); 
-              console.log("Edit Page: handleSubmit - Upload successful, URL:", downloadURL);
+              console.log(`Edit Page: handleSubmit - AFTER await uploadFileToStorage for: ${att.name}. URL: ${downloadURL}`);
               processedAttachments.push({
                 id: doc(collection(db, '_temp')).id,
                 name: att.file.name,
@@ -155,19 +157,21 @@ export default function EditAssessmentPage() {
                 uploadedAt: now.toISOString(),
                 dataAiHint: att.dataAiHint,
               });
-            } catch (uploadError) {
+              console.log(`Edit Page: handleSubmit - Successfully processed and added new attachment: ${att.name}`);
+            } catch (uploadError: any) {
               console.error(`Edit Page: Error uploading new attachment ${att.name}:`, uploadError);
+              console.error(`Edit Page: Upload error name: ${uploadError.name}, message: ${uploadError.message}, code: ${uploadError.code}, stack: ${uploadError.stack}`);
               toast({
                 title: getTranslation(T_EDIT_PAGE.fileUploadErrorTitle),
-                description: getTranslation(T_EDIT_PAGE.fileUploadErrorDesc).replace('{fileName}', att.name),
+                description: getTranslation(T_EDIT_PAGE.fileUploadErrorDesc).replace('{fileName}', att.name) + ` (Error: ${uploadError.message})`,
                 variant: "destructive",
               });
+              console.log("Edit Page: handleSubmit - Setting isSubmitting to false due to upload error.");
               setIsSubmitting(false);
-              console.log("Edit Page: handleSubmit - isSubmitting set to false due to upload error.");
               return;
             }
           } else if (att.id && att.url && att.name && att.type && att.size && att.uploadedAt) { // Existing attachment to keep
-            console.log("Edit Page: handleSubmit - Existing file detected:", att.name);
+            console.log(`Edit Page: handleSubmit - Existing file detected, keeping: ${att.name}`);
             processedAttachments.push({
               id: att.id,
               name: att.name,
@@ -178,7 +182,7 @@ export default function EditAssessmentPage() {
               dataAiHint: att.dataAiHint,
             });
           } else {
-            console.warn("Edit Page: handleSubmit - Attachment skipped (neither new nor fully existing):", att.name, att);
+            console.warn("Edit Page: handleSubmit - Attachment skipped (neither new nor fully existing):", att.name, JSON.parse(JSON.stringify(att)));
           }
         }
       }
@@ -222,25 +226,26 @@ export default function EditAssessmentPage() {
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
       };
       
-      console.log("Edit Page: handleSubmit - Calling updateAssessmentInDB with ID:", assessment.id, "and updates:", fieldsToUpdateFromForm);
+      console.log("Edit Page: handleSubmit - BEFORE await updateAssessmentInDB. Updates:", JSON.parse(JSON.stringify(fieldsToUpdateFromForm)));
       await updateAssessmentInDB(assessment.id, fieldsToUpdateFromForm);
-      console.log("Edit Page: handleSubmit - updateAssessmentInDB complete.");
+      console.log("Edit Page: handleSubmit - AFTER await updateAssessmentInDB. Update successful.");
 
       toast({
         title: getTranslation(T_EDIT_PAGE.updateSuccessTitle),
         description: getTranslation(T_EDIT_PAGE.updateSuccessDesc).replace('{vesselName}', data.vesselName),
       });
       router.push(`/assessments/${assessment.id}`);
-    } catch (error) {
-      console.error("Edit Page: Error updating assessment:", error);
+    } catch (error: any) {
+      console.error("Edit Page: Error updating assessment in handleSubmit catch block:", error);
+      console.error(`Edit Page: Error name: ${error.name}, message: ${error.message}, code: ${error.code}, stack: ${error.stack}`);
       toast({
         title: getTranslation(T_EDIT_PAGE.updateErrorTitle),
-        description: getTranslation(T_EDIT_PAGE.updateErrorDesc),
+        description: getTranslation(T_EDIT_PAGE.updateErrorDesc) + ` (Error: ${error.message})`,
         variant: "destructive",
       });
     } finally {
+      console.log("Edit Page: handleSubmit - In finally block, setting isSubmitting to false.");
       setIsSubmitting(false);
-      console.log("Edit Page: handleSubmit - isSubmitting set to false in finally block.");
     }
   };
 
@@ -323,5 +328,6 @@ export default function EditAssessmentPage() {
     </div>
   );
 }
+    
 
     
