@@ -1,6 +1,6 @@
 
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, initializeFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { getFirestore, Firestore } from 'firebase/firestore'; // Removed initializeFirestore
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -23,20 +23,9 @@ if (!getApps().length) {
   app = getApps()[0]; // Use the already initialized app
 }
 
-// Recommendation from user tip: Initialize Firestore explicitly if settings might be involved,
-// or simply use getFirestore(app) if no custom settings are ever needed.
-// For robustness, explicitly initialize once.
-try {
-  db = getFirestore(app);
-} catch (e) {
-  // This catch block is to handle potential re-initialization issues if getFirestore was called before.
-  // initializeFirestore is preferred for the first call if settings are involved.
-  // Since we are not passing settings here, getFirestore(app) should be fine.
-  // If issues persist, this area might need further investigation based on specific Firebase SDK version behaviors.
-  console.warn("Firestore already initialized or error during initial getFirestore:", e);
-  db = initializeFirestore(app, {}); // Fallback to initializeFirestore if getFirestore fails initially
-}
-
+// Simplified Firestore initialization:
+// Directly use getFirestore(app) as we are not passing custom settings.
+db = getFirestore(app);
 storage = getStorage(app);
 
 export { app, db, storage };
