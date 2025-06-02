@@ -31,6 +31,25 @@ if (!admin.apps.length) {
           dbAdminInstance = admin.firestore();
           storageAdminInstance = admin.storage();
           console.log('Firestore and Storage admin instances initialized successfully.');
+
+          // Diagnostic: Attempt to list collections
+          if (dbAdminInstance) {
+            console.log('Attempting diagnostic: List collections...');
+            dbAdminInstance.listCollections()
+              .then(collections => {
+                console.log(`Diagnostic SUCCESS: Found ${collections.length} collections.`);
+                collections.forEach(collection => {
+                  console.log(`  - Collection ID: ${collection.id}`);
+                });
+              })
+              .catch(listError => {
+                console.error('Diagnostic FAILURE: Error listing collections:');
+                console.error('  Error Message:', listError.message);
+                if (listError.code) console.error('  Error Code:', listError.code);
+                if (listError.details) console.error('  Error Details:', listError.details);
+              });
+          }
+
         } catch (e: any) {
             console.error("Error getting Firestore/Storage admin instances AFTER SDK initialization and project ID confirmation:", e.message);
         }
@@ -53,7 +72,9 @@ if (!admin.apps.length) {
   if (adminApp.options.projectId) {
       if (!dbAdminInstance) dbAdminInstance = admin.firestore();
       if (!storageAdminInstance) storageAdminInstance = admin.storage();
-      if(dbAdminInstance && storageAdminInstance) console.log('Firebase Admin SDK was already initialized. Re-checked instances.');
+      if(dbAdminInstance && storageAdminInstance) {
+        // console.log('Firebase Admin SDK was already initialized. Re-checked instances.'); // Can be noisy, uncomment if needed
+      }
   } else {
       console.warn('Firebase Admin SDK was already initialized, but still no Project ID detected. Previous initialization likely failed to determine it.');
   }
