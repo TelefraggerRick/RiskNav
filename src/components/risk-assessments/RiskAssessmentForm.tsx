@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { RiskAssessmentFormData } from "@/lib/schemas";
-import { riskAssessmentFormSchema } from "@/lib/schemas";
+import { riskAssessmentFormSchema, attachmentSchema } from "@/lib/schemas"; // Ensure attachmentSchema is imported
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -192,7 +192,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
           return;
         }
 
-        const validationResult = riskAssessmentFormSchema.shape.attachments.element.shape.file.safeParse(file);
+        const validationResult = attachmentSchema.shape.file.safeParse(file);
         if (!validationResult.success) {
             validationResult.error.errors.forEach(err => {
                  if (!errors.includes(`${file.name}: ${err.message}`)) errors.push(`${file.name}: ${err.message}`);
@@ -560,7 +560,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
                           {item.size && <span className="text-xs text-muted-foreground">({(item.size / 1024).toFixed(1)} KB) - {item.type}</span>}
                         </div>
                       </div>
-                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={getTranslation(T_FORM.removeFile).replace('{fileName}', item.name)}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label={getTranslation(T_FORM.removeFile).replace('{fileName}', String(item.name))}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </li>
