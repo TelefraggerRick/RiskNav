@@ -14,8 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ArrowLeft, Loader2, ShieldAlert, Edit as EditPageIcon } from "lucide-react"; // Renamed Edit icon
 import Link from "next/link";
-import { doc, collection } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+// Removed: import { doc, collection } from 'firebase/firestore'; // No longer needed for client-side ID generation
+// Removed: import { db } from '@/lib/firebase'; // No longer needed for client-side ID generation
 
 const T_EDIT_PAGE = {
   pageTitle: { en: "Edit Risk Assessment", fr: "Modifier l'évaluation des risques" },
@@ -118,10 +118,10 @@ export default function EditAssessmentPage() {
   };
 
   const handleSubmit = async (data: RiskAssessmentFormData) => {
-    console.log("Edit Page: handleSubmit triggered with data:", JSON.parse(JSON.stringify(data))); // Log data cleanly
-    if (!assessment || !assessment.id) {
-        console.error("Edit Page: handleSubmit - No assessment or assessment ID found.");
-        toast({ title: "Error", description: "Assessment ID missing.", variant: "destructive" });
+    console.log("Edit Page: handleSubmit triggered with data:", JSON.parse(JSON.stringify(data))); 
+    if (!assessment || !assessment.id || !assessment.referenceNumber || !assessment.submissionDate) {
+        console.error("Edit Page: handleSubmit - No assessment, assessment ID, reference number, or submission date found.");
+        toast({ title: "Error", description: "Assessment ID, reference number, or submission date missing.", variant: "destructive" });
         return;
     }
     if (currentUser.id === 'user-unauth') {
@@ -136,20 +136,21 @@ export default function EditAssessmentPage() {
       const processedAttachments: AttachmentType[] = [];
       console.log("Edit Page: handleSubmit - Starting attachment processing. Total attachments in form data:", data.attachments?.length);
 
+      const submissionYear = new Date(assessment.submissionDate).getFullYear();
 
       if (data.attachments && data.attachments.length > 0) {
         for (const att of data.attachments) {
           console.log("Edit Page: handleSubmit - Processing attachment candidate:", JSON.parse(JSON.stringify(att)));
           if (att.file && att.name) { // New file to upload
             console.log(`Edit Page: handleSubmit - New file detected: ${att.name}. Attempting upload.`);
-            const storagePath = `riskAssessments/attachments/${assessment.id}/${att.file.name}`;
+            const storagePath = `riskAssessments/attachments/${submissionYear}/${assessment.referenceNumber}/${att.file.name}`;
             console.log("Edit Page: handleSubmit - Uploading to storagePath:", storagePath);
             try {
               console.log(`Edit Page: handleSubmit - BEFORE await uploadFileToStorage for: ${att.name}`);
               const downloadURL = await uploadFileToStorage(att.file, storagePath); 
               console.log(`Edit Page: handleSubmit - AFTER await uploadFileToStorage for: ${att.name}. URL: ${downloadURL}`);
               processedAttachments.push({
-                id: doc(collection(db, '_temp')).id,
+                id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 name: att.file.name,
                 url: downloadURL,
                 type: att.file.type,
@@ -328,6 +329,4 @@ export default function EditAssessmentPage() {
     </div>
   );
 }
-    
-
     

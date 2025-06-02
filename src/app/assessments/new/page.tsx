@@ -13,8 +13,8 @@ import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, Appro
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { addAssessmentToDB, uploadFileToStorage } from '@/lib/firestoreService'; // Import Firestore service and uploadFileToStorage
-import { doc, collection } from 'firebase/firestore'; // For generating a client-side unique ID for path
-import { db } from '@/lib/firebase'; // Import db for client-side ID generation
+// Removed: import { doc, collection } from 'firebase/firestore'; // No longer needed for temp path
+// Removed: import { db } from '@/lib/firebase'; // No longer needed for temp path
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
@@ -63,21 +63,19 @@ export default function NewAssessmentPage() {
 
     try {
       const now = new Date();
-      const referenceNumber = `CCG-RA-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
-      // Generate a temporary client-side unique ID for constructing storage paths
-      // This ID is NOT the final Firestore document ID.
-      const tempAssessmentIdForStoragePath = doc(collection(db, '_temp')).id;
-
-
+      const currentYear = now.getFullYear();
+      const referenceNumber = `CCG-RA-${currentYear}-${String(Date.now()).slice(-5)}`;
+      
       const processedAttachments: AttachmentType[] = [];
       if (data.attachments && data.attachments.length > 0) {
         for (const att of data.attachments) {
-          if (att.file && att.name) { // Ensure file and name exist
+          if (att.file && att.name) { 
             try {
-              const storagePath = `riskAssessments/attachments/${tempAssessmentIdForStoragePath}/${att.file.name}`;
+              const storagePath = `riskAssessments/attachments/${currentYear}/${referenceNumber}/${att.file.name}`;
               const downloadURL = await uploadFileToStorage(att.file, storagePath);
               processedAttachments.push({
-                id: doc(collection(db, '_temp')).id, // client-side unique ID for attachment
+                // Generate a unique ID for the attachment metadata itself
+                id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
                 name: att.file.name,
                 url: downloadURL,
                 type: att.file.type,
@@ -93,9 +91,9 @@ export default function NewAssessmentPage() {
                 variant: "destructive",
               });
               setIsLoading(false);
-              return; // Stop submission if a file upload fails
+              return; 
             }
-          } else if (att.url && att.id) { // Handle pre-existing attachments (though less likely for a new form)
+          } else if (att.url && att.id) { 
              processedAttachments.push({
                 id: att.id,
                 name: att.name || "unknown_file",
@@ -125,7 +123,7 @@ export default function NewAssessmentPage() {
         proposedOperationalDeviations: data.proposedOperationalDeviations,
         submittedBy: currentUser.name,
         status: 'Pending Crewing Standards and Oversight',
-        attachments: processedAttachments, // Use processed attachments with Firebase Storage URLs
+        attachments: processedAttachments, 
         approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)),
         
         employeeName: data.employeeName || undefined,
