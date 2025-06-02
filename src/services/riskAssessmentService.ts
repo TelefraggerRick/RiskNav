@@ -1,5 +1,6 @@
+
 // src/services/riskAssessmentService.ts
-'use server'; // For potential use in Server Actions/Components if needed, though primarily client-side for now
+'use server';
 
 import { db, storage } from '@/lib/firebase';
 import {
@@ -13,39 +14,59 @@ import {
   query,
   orderBy,
   serverTimestamp,
-  where,
+  // where, // Not currently used, commented out
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import type { RiskAssessment, Attachment, RiskAssessmentFormData } from '@/lib/types';
 
 const ASSESSMENTS_COLLECTION = 'riskAssessments';
 
-// Helper to convert Firestore Timestamps to ISO strings
-const convertTimestampsToISO = (data: any): any => {
-  if (!data) return data;
-  const newData = { ...data };
-  for (const key in newData) {
-    if (newData[key] instanceof Timestamp) {
-      newData[key] = (newData[key] as Timestamp).toDate().toISOString();
-    } else if (typeof newData[key] === 'object' && newData[key] !== null) {
-      // Recursively convert for nested objects (like approvalSteps)
-      if (Array.isArray(newData[key])) {
-        newData[key] = newData[key].map(convertTimestampsToISO);
-      } else {
-        newData[key] = convertTimestampsToISO(newData[key]);
+// Helper to convert Firestore Timestamps to client-friendly types (ISO strings or millis numbers)
+const convertFirestoreTypes = (data: any): any => {
+  if (data === null || data === undefined) return data;
+
+  if (data instanceof Timestamp) {
+    // This case is for when convertFirestoreTypes might be called on a Timestamp directly
+    // This specific check might not be hit if iterating object keys, but good for robustness
+    return data.toDate().toISOString(); // Default to ISO string if called directly on a Timestamp
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => convertFirestoreTypes(item));
+  }
+
+  if (typeof data === 'object') {
+    const newData: { [key: string]: any } = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        const value = data[key];
+        if (value instanceof Timestamp) {
+          if (key === 'submissionTimestamp' || key === 'lastModifiedTimestamp') {
+            newData[key] = value.toMillis(); // Convert specific fields to Unix milliseconds
+          } else {
+            // Convert other Timestamp fields (e.g., submissionDate, lastModified, approvalStep.date, attachment.uploadedAt) to ISO strings
+            newData[key] = value.toDate().toISOString();
+          }
+        } else if (typeof value === 'object' && value !== null) {
+          newData[key] = convertFirestoreTypes(value); // Recursively convert for nested objects/arrays
+        } else {
+          newData[key] = value; // Copy other primitive values as is
+        }
       }
     }
+    return newData;
   }
-  return newData;
+  return data; // Return primitives if not object/array/timestamp
 };
 
 
 export async function getAllRiskAssessments(): Promise<RiskAssessment[]> {
   try {
+    // Ensure submissionTimestamp in Firestore is a Timestamp for correct ordering
     const q = query(collection(db, ASSESSMENTS_COLLECTION), orderBy('submissionTimestamp', 'desc'));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap =>
-      convertTimestampsToISO({ ...docSnap.data(), id: docSnap.id }) as RiskAssessment
+      convertFirestoreTypes({ ...docSnap.data(), id: docSnap.id }) as RiskAssessment
     );
   } catch (error) {
     console.error("Error fetching all risk assessments: ", error);
@@ -58,7 +79,7 @@ export async function getRiskAssessmentById(id: string): Promise<RiskAssessment 
     const docRef = doc(db, ASSESSMENTS_COLLECTION, id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return convertTimestampsToISO({ ...docSnap.data(), id: docSnap.id }) as RiskAssessment;
+      return convertFirestoreTypes({ ...docSnap.data(), id: docSnap.id }) as RiskAssessment;
     }
     return null;
   } catch (error) {
@@ -76,63 +97,52 @@ async function uploadAttachmentFile(file: File, assessmentId: string): Promise<P
     url: downloadURL,
     type: file.type,
     size: file.size,
-    uploadedAt: new Date().toISOString(), // Or use serverTimestamp from Firestore if preferred for metadata
+    uploadedAt: new Date().toISOString(), // Client sets ISO string, Firestore converts to Timestamp on save if field type is Timestamp
+    storagePath: storageRef.fullPath, // Store the full path for potential deletion
   };
 }
 
 export async function addRiskAssessment(formData: RiskAssessmentFormData, submittedBy: string): Promise<string> {
   try {
     const now = new Date();
-    const submissionTimestamp = Timestamp.fromDate(now); // Firestore Timestamp
+    const submissionFirestoreTimestamp = Timestamp.fromDate(now);
 
-    // Handle attachments: Upload files and get their URLs
     const processedAttachments: Attachment[] = [];
     if (formData.attachments && formData.attachments.length > 0) {
-      // Temporarily use a placeholder ID for uploads, or generate one
-      const tempAssessmentId = `temp_${Date.now()}`; 
+      const tempAssessmentId = `temp_upload_${Date.now()}`;
       for (const att of formData.attachments) {
         if (att.file) {
           const uploadedFileMeta = await uploadAttachmentFile(att.file, tempAssessmentId);
           processedAttachments.push({
-            id: `att_${Date.now()}_${Math.random().toString(36).substring(2,7)}`, // client-side unique enough ID for the array
+            id: `att_${Date.now()}_${Math.random().toString(36).substring(2,7)}`,
             ...uploadedFileMeta,
+            uploadedAt: uploadedFileMeta.uploadedAt || now.toISOString(), // Ensure uploadedAt is string
           } as Attachment);
-        } else if (att.url) { // Should not happen for new assessments, but good practice
-          processedAttachments.push(att as Attachment);
         }
       }
     }
-    
-    const newAssessmentData: Omit<RiskAssessment, 'id'> = {
+
+    const newAssessmentData: Omit<RiskAssessment, 'id' | 'submissionDate' | 'lastModified' | 'submissionTimestamp' | 'lastModifiedTimestamp' | 'status' | 'approvalSteps'> & { status: RiskAssessmentStatus, approvalSteps: any[] } = {
       ...formData,
       attachments: processedAttachments,
       submittedBy,
-      submissionDate: now.toISOString(),
-      submissionTimestamp: submissionTimestamp.toMillis(), // Store as millis for easier client-side sorting if needed
-      lastModified: now.toISOString(),
-      lastModifiedTimestamp: submissionTimestamp.toMillis(),
-      // Firestore specific fields if needed (e.g. serverTimestamp() for lastModified)
-      // For example: lastModified: serverTimestamp() // this would be a Firestore specific type
+      status: 'Pending Crewing Standards and Oversight', // Initial status
+      approvalSteps: formData.approvalSteps ? formData.approvalSteps.map(step => ({ ...step, date: step.date ? Timestamp.fromDate(new Date(step.date)) : undefined })) : [],
     };
-    
-    // Replace client-side timestamps with server timestamps before writing
+
     const firestoreReadyData = {
       ...newAssessmentData,
-      submissionTimestamp: submissionTimestamp, // Actual Firestore Timestamp
-      lastModifiedTimestamp: serverTimestamp(), // Use server timestamp for lastModified
-      approvalSteps: newAssessmentData.approvalSteps.map(step => ({
-        ...step,
-        date: step.date ? Timestamp.fromDate(new Date(step.date)) : undefined,
+      submissionDate: submissionFirestoreTimestamp, // Store as Firestore Timestamp
+      lastModified: serverTimestamp(), // Store as Firestore serverTimestamp
+      submissionTimestamp: submissionFirestoreTimestamp, // For ordering, store as Firestore Timestamp
+      lastModifiedTimestamp: serverTimestamp(), // For ordering or consistency, store as Firestore serverTimestamp
+      attachments: newAssessmentData.attachments.map(att => ({
+        ...att,
+        uploadedAt: Timestamp.fromDate(new Date(att.uploadedAt)), // Store as Timestamp
       })),
     };
 
-
     const docRef = await addDoc(collection(db, ASSESSMENTS_COLLECTION), firestoreReadyData);
-    
-    // If we used a tempAssessmentId for uploads, we might want to rename the storage folder,
-    // but for simplicity, keeping it as is. Or, upload after getting the docRef.id.
-    // For now, temp ID in path is acceptable for prototyping.
-
     return docRef.id;
   } catch (error) {
     console.error("Error adding risk assessment: ", error);
@@ -143,42 +153,56 @@ export async function addRiskAssessment(formData: RiskAssessmentFormData, submit
 export async function updateRiskAssessment(id: string, updates: Partial<RiskAssessment>): Promise<void> {
   try {
     const docRef = doc(db, ASSESSMENTS_COLLECTION, id);
-    
+
     const firestoreUpdates: any = { ...updates };
 
-    // Convert specific string dates back to Timestamps if they exist in updates
-    if (updates.submissionDate) {
-      firestoreUpdates.submissionTimestamp = Timestamp.fromDate(new Date(updates.submissionDate));
+    // Convert specific string dates from client back to Timestamps if they exist in updates
+    if (updates.submissionDate && typeof updates.submissionDate === 'string') {
+      firestoreUpdates.submissionDate = Timestamp.fromDate(new Date(updates.submissionDate));
     }
-    firestoreUpdates.lastModified = new Date().toISOString(); // Keep as ISO string for display
-    firestoreUpdates.lastModifiedTimestamp = serverTimestamp(); // Use server timestamp for actual update time
+    if (updates.submissionTimestamp && typeof updates.submissionTimestamp === 'number') { // If client sends number
+        firestoreUpdates.submissionTimestamp = Timestamp.fromMillis(updates.submissionTimestamp);
+    }
+
+    firestoreUpdates.lastModified = serverTimestamp(); // Use server timestamp for actual update time
+    firestoreUpdates.lastModifiedTimestamp = serverTimestamp();
+
 
     if (updates.approvalSteps) {
       firestoreUpdates.approvalSteps = updates.approvalSteps.map(step => ({
         ...step,
-        date: step.date ? Timestamp.fromDate(new Date(step.date)) : undefined,
+        date: step.date && typeof step.date === 'string' ? Timestamp.fromDate(new Date(step.date)) : (step.date instanceof Timestamp ? step.date : undefined),
       }));
     }
 
-    // Handle attachment updates (more complex: involves checking for new files, deleted files)
-    // For simplicity, this example assumes 'updates.attachments' replaces the entire array
-    // A more robust solution would compare old and new attachment arrays.
     if (updates.attachments) {
-        const updatedAttachments: Attachment[] = [];
+        const updatedAttachments: Omit<Attachment, 'file'>[] = [];
         for (const att of updates.attachments) {
             if (att.file && !att.id.startsWith('att-storage-')) { // New file to upload
                 const uploadedFileMeta = await uploadAttachmentFile(att.file, id);
                 updatedAttachments.push({
-                    id: `att-storage-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, // Indicate it's from storage
-                    ...uploadedFileMeta,
-                } as Attachment);
-            } else { // Existing attachment
-                updatedAttachments.push(att);
+                    id: `att-storage-${Date.now()}-${Math.random().toString(36).substring(2,7)}`,
+                    name: uploadedFileMeta.name!,
+                    url: uploadedFileMeta.url!,
+                    type: uploadedFileMeta.type!,
+                    size: uploadedFileMeta.size!,
+                    uploadedAt: Timestamp.fromDate(new Date(uploadedFileMeta.uploadedAt!)), // Store as Timestamp
+                    storagePath: uploadedFileMeta.storagePath,
+                });
+            } else { // Existing attachment, ensure date is Timestamp
+                const { file, ...restOfAtt } = att;
+                updatedAttachments.push({
+                    ...restOfAtt,
+                    uploadedAt: restOfAtt.uploadedAt && typeof restOfAtt.uploadedAt === 'string'
+                        ? Timestamp.fromDate(new Date(restOfAtt.uploadedAt))
+                        : (restOfAtt.uploadedAt instanceof Timestamp ? restOfAtt.uploadedAt : Timestamp.now()), // Fallback if type is wrong
+                });
             }
         }
         firestoreUpdates.attachments = updatedAttachments;
     }
-
+    // Remove id if it's part of updates, as it's the document key
+    delete firestoreUpdates.id;
 
     await updateDoc(docRef, firestoreUpdates);
   } catch (error) {
@@ -187,7 +211,6 @@ export async function updateRiskAssessment(id: string, updates: Partial<RiskAsse
   }
 }
 
-// Example of how you might delete an attachment file from storage (if needed)
 export async function deleteAttachmentFileByUrl(fileUrl: string): Promise<void> {
   try {
     if (!fileUrl.startsWith('https://firebasestorage.googleapis.com/')) {
@@ -197,7 +220,6 @@ export async function deleteAttachmentFileByUrl(fileUrl: string): Promise<void> 
     const fileRef = ref(storage, fileUrl);
     await deleteObject(fileRef);
   } catch (error) {
-    // It's okay if the file doesn't exist (e.g., already deleted)
     if ((error as any).code === 'storage/object-not-found') {
       console.warn(`File not found for deletion: ${fileUrl}`);
     } else {

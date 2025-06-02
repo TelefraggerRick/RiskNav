@@ -7,7 +7,7 @@ export interface Attachment {
   url: string; // Cloud Storage URL after upload
   type: string;
   size: number; // in bytes
-  uploadedAt: string; // ISO date string (client-generated or from Firestore Timestamp)
+  uploadedAt: string; // ISO date string
   file?: File; // For new uploads not yet persisted, removed after upload
   storagePath?: string; // Optional: to help with deleting from Cloud Storage
 }
@@ -51,9 +51,9 @@ export type ApprovalLevel = 'Crewing Standards and Oversight' | 'Senior Director
 export interface ApprovalStep {
   level: ApprovalLevel;
   decision?: ApprovalDecision;
-  userId?: string; 
-  userName?: string; 
-  date?: string | Timestamp; // ISO date string from client, Timestamp from Firestore
+  userId?: string;
+  userName?: string;
+  date?: string; // ISO date string
   notes?: string;
 }
 
@@ -63,8 +63,8 @@ export type RiskAssessmentStatus =
   | 'Pending Senior Director'
   | 'Pending Director General'
   | 'Needs Information'
-  | 'Approved' 
-  | 'Rejected'; 
+  | 'Approved'
+  | 'Rejected';
 
 export type VesselDepartment = 'Navigation' | 'Deck' | 'Engine Room' | 'Logistics' | 'Other';
 export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
@@ -72,9 +72,9 @@ export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string; // Firestore document ID
   referenceNumber: string;
-  maritimeExemptionNumber?: string; 
+  maritimeExemptionNumber?: string;
   vesselName: string;
-  imoNumber?: string; 
+  imoNumber?: string;
   department?: VesselDepartment;
   region?: VesselRegion;
   voyageDetails: string;
@@ -82,7 +82,7 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   personnelShortages: string;
   proposedOperationalDeviations: string;
   submittedBy: string;
-  submissionDate: string | Timestamp; // ISO string from client, Timestamp from Firestore
+  submissionDate: string; // ISO string
   status: RiskAssessmentStatus;
   attachments: Attachment[];
   approvalSteps: ApprovalStep[];
@@ -90,13 +90,13 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   aiGeneratedSummary?: string;
   aiSuggestedMitigations?: string;
   aiRegulatoryConsiderations?: string;
-  aiLikelihoodScore?: number; 
-  aiConsequenceScore?: number; 
-  lastModified: string | Timestamp; // ISO string from client, serverTimestamp() on write, Timestamp from Firestore
-  submissionTimestamp: number; // Unix millis - derived from submissionDate for client-side sort
-  lastModifiedTimestamp: number; // Unix millis - derived from lastModified for client-side sort
-  patrolStartDate?: string; 
-  patrolEndDate?: string; 
+  aiLikelihoodScore?: number;
+  aiConsequenceScore?: number;
+  lastModified: string; // ISO string
+  submissionTimestamp: number; // Unix millis
+  lastModifiedTimestamp: number; // Unix millis
+  patrolStartDate?: string;
+  patrolEndDate?: string;
   patrolLengthDays?: number;
 }
 
@@ -107,7 +107,7 @@ export interface RiskAssessmentFormData extends Omit<RiskAssessment, 'id' | 'sub
   patrolStartDate?: string;
   patrolEndDate?: string;
   // Fields from RiskAssessment that are set by system/workflow
-  referenceNumber?: string; 
+  referenceNumber?: string;
   status?: RiskAssessmentStatus;
   approvalSteps?: ApprovalStep[];
 }
@@ -126,7 +126,7 @@ export type UserRole =
 export interface User {
   id: string;
   name: string;
-  email?: string; 
+  email?: string;
   role: UserRole;
 }
 
