@@ -104,12 +104,10 @@ export interface RiskAssessmentFormData extends Omit<RiskAssessment, 'id' | 'ref
 
 
 export type UserRole =
-  | ApprovalLevel 
-  | 'Atlantic Region Submitter'
-  | 'Central Region Submitter'
-  | 'Western Region Submitter'
-  | 'Arctic Region Submitter' 
-  | 'Generic Submitter'
+  | 'Submitter'
+  | 'CSO Officer'
+  | 'Senior Director'
+  | 'Director General'
   | 'Admin'
   | 'Unauthenticated';
 
@@ -122,3 +120,4 @@ export interface AppUser {
 }
 
 export type Language = 'en' | 'fr';
+

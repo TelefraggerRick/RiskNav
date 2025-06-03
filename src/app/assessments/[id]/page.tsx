@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional } from '@/lib/types';
+import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional, UserRole } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -303,8 +303,20 @@ export default function AssessmentDetailPage() {
      if (!currentLevelToAct && assessment.approvalSteps.every(s => s.decision === 'Approved')) {
       overallStatus = 'Approved';
     }
-
-    const userIsApproverForCurrentStep = currentUser.role === currentLevelToAct;
+    
+    let userIsApproverForCurrentStep = false;
+    if (currentUser.role && currentLevelToAct) {
+        if (currentLevelToAct === 'Crewing Standards and Oversight' && currentUser.role === 'CSO Officer') {
+            userIsApproverForCurrentStep = true;
+        } else if (currentLevelToAct === 'Senior Director' && currentUser.role === 'Senior Director') {
+            userIsApproverForCurrentStep = true;
+        } else if (currentLevelToAct === 'Director General' && currentUser.role === 'Director General') {
+            userIsApproverForCurrentStep = true;
+        } else if (currentUser.role === 'Admin') { // Admins can act on any step
+            userIsApproverForCurrentStep = true;
+        }
+    }
+    
     const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
 
     return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus };
@@ -762,3 +774,4 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+
