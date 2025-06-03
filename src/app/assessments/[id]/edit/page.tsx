@@ -155,15 +155,18 @@ export default function EditAssessmentPage() {
               console.log(`Edit Page: handleSubmit - BEFORE await uploadFileToStorage for: ${att.name}`);
               const downloadURL = await uploadFileToStorage(att.file, storagePath); 
               console.log(`Edit Page: handleSubmit - AFTER await uploadFileToStorage for: ${att.name}. URL: ${downloadURL}`);
-              processedAttachments.push({
+              const newAttachment: AttachmentType = {
                 id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 name: att.file.name,
                 url: downloadURL,
                 type: att.file.type,
                 size: att.file.size,
                 uploadedAt: now.toISOString(),
-                dataAiHint: att.dataAiHint,
-              });
+              };
+              if (att.dataAiHint) {
+                newAttachment.dataAiHint = att.dataAiHint;
+              }
+              processedAttachments.push(newAttachment);
               console.log(`Edit Page: handleSubmit - Successfully processed and added new attachment: ${att.name}`);
             } catch (uploadError: any) {
               console.error(`Edit Page: Error uploading new attachment ${att.name}:`, uploadError);
@@ -179,15 +182,18 @@ export default function EditAssessmentPage() {
             }
           } else if (att.id && att.url && att.name && att.type && att.size && att.uploadedAt) { // Existing attachment to keep
             console.log(`Edit Page: handleSubmit - Existing file detected, keeping: ${att.name}`);
-            processedAttachments.push({
+            const existingAttachment: AttachmentType = {
               id: att.id,
               name: att.name,
               url: att.url,
               type: att.type,
               size: att.size,
               uploadedAt: att.uploadedAt,
-              dataAiHint: att.dataAiHint,
-            });
+            };
+            if (att.dataAiHint) {
+              existingAttachment.dataAiHint = att.dataAiHint;
+            }
+            processedAttachments.push(existingAttachment);
           } else {
             console.warn("Edit Page: handleSubmit - Attachment skipped (neither new nor fully existing):", att.name, JSON.parse(JSON.stringify(att)));
           }
@@ -250,7 +256,7 @@ export default function EditAssessmentPage() {
         description: getTranslation(T_EDIT_PAGE.updateErrorDesc) + ` (Error: ${error.message})`,
         variant: "destructive",
       });
-      setIsSubmitting(false); // Explicitly set submitting to false in this catch block
+      setIsSubmitting(false); 
     } finally {
       console.log("Edit Page: handleSubmit - In finally block, setting isSubmitting to false.");
       setIsSubmitting(false);

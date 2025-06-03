@@ -99,6 +99,9 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
         attachmentData.uploadedAt = Timestamp.fromDate(att.uploadedAt) as any;
       }
       delete attachmentData.file; 
+      if (attachmentData.dataAiHint === undefined) { // Safeguard: remove undefined dataAiHint
+        delete attachmentData.dataAiHint;
+      }
       return attachmentData;
     });
   }
@@ -239,6 +242,4 @@ export const uploadFileToStorage = async (file: File, storagePath: string): Prom
     console.log(`FirestoreService: uploadFileToStorage - Listeners attached for ${file.name}`);
   });
 };
-    
-
     

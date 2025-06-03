@@ -12,9 +12,7 @@ import Link from "next/link";
 import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, ApprovalStep } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from '@/contexts/LanguageContext';
-import { addAssessmentToDB, uploadFileToStorage } from '@/lib/firestoreService'; // Import Firestore service and uploadFileToStorage
-// Removed: import { doc, collection } from 'firebase/firestore'; // No longer needed for temp path
-// Removed: import { db } from '@/lib/firebase'; // No longer needed for temp path
+import { addAssessmentToDB, uploadFileToStorage } from '@/lib/firestoreService'; 
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
@@ -73,16 +71,18 @@ export default function NewAssessmentPage() {
             try {
               const storagePath = `riskAssessments/attachments/${currentYear}/${referenceNumber}/${att.file.name}`;
               const downloadURL = await uploadFileToStorage(att.file, storagePath);
-              processedAttachments.push({
-                // Generate a unique ID for the attachment metadata itself
+              const newAttachment: AttachmentType = {
                 id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
                 name: att.file.name,
                 url: downloadURL,
                 type: att.file.type,
                 size: att.file.size,
                 uploadedAt: now.toISOString(),
-                dataAiHint: att.dataAiHint,
-              });
+              };
+              if (att.dataAiHint) {
+                newAttachment.dataAiHint = att.dataAiHint;
+              }
+              processedAttachments.push(newAttachment);
             } catch (uploadError) {
               console.error(`Error uploading attachment ${att.name}:`, uploadError);
               toast({
@@ -94,15 +94,18 @@ export default function NewAssessmentPage() {
               return; 
             }
           } else if (att.url && att.id) { 
-             processedAttachments.push({
+             const existingAttachment: AttachmentType = {
                 id: att.id,
                 name: att.name || "unknown_file",
                 url: att.url,
                 type: att.type || "unknown",
                 size: att.size || 0,
                 uploadedAt: att.uploadedAt || now.toISOString(),
-                dataAiHint: att.dataAiHint,
-            });
+            };
+            if (att.dataAiHint) {
+                existingAttachment.dataAiHint = att.dataAiHint;
+            }
+            processedAttachments.push(existingAttachment);
           }
         }
       }
