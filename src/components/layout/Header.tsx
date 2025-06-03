@@ -20,25 +20,21 @@ import { rtdb } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database'; 
 import { cn } from '@/lib/utils';
 
-// Canadian Flag SVG component - Updated with a more standard representation
-const CanadaFlagIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+// Renamed component for clarity, now represents CCG Strike
+const CcgStrikeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 600 300" // Standard 2:1 aspect ratio for the flag
+    viewBox="0 0 40 20" // Adjusted viewBox for a 2:1 aspect ratio
     {...props}
   >
-    <title>Flag of Canada</title>
-    {/* Left red bar */}
-    <rect width="150" height="300" fill="#D8262C"/>
-    {/* Central white pale */}
-    <rect x="150" width="300" height="300" fill="#FFFFFF"/>
-    {/* Right red bar */}
-    <rect x="450" width="150" height="300" fill="#D8262C"/>
-    {/* 11-point Maple Leaf, centered in the white pale. Path data should be for an 11-point leaf. */}
-    <path 
-      fill="#D8262C" 
-      d="m300 105.6-18.9 38.1-47.1-10.3 20.3 42.5-47 10.6 47 10.6-20.3 42.5 47.1-10.3L300 263.4l18.9-38.1 47.1 10.3-20.3-42.5 47-10.6-47-10.6 20.3-42.5-47.1 10.3L300 105.6z"
-    />
+    <title>Canadian Coast Guard Strike</title>
+    {/* Maple Leaf (scaled and centered) */}
+    <g transform="translate(20, 10) scale(0.065) translate(-300, -184.5)" fill="#D8262C">
+      <path d="m300 105.6-18.9 38.1-47.1-10.3 20.3 42.5-47 10.6 47 10.6-20.3 42.5 47.1-10.3L300 263.4l18.9-38.1 47.1 10.3-20.3-42.5 47-10.6-47-10.6 20.3-42.5-47.1 10.3L300 105.6z"/>
+    </g>
+    {/* Horizontal Bars */}
+    <rect x="13" y="6.25" width="14" height="1.5" fill="#D8262C"/>
+    <rect x="13" y="12.25" width="14" height="1.5" fill="#D8262C"/>
   </svg>
 );
 
@@ -101,8 +97,8 @@ export default function Header() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex h-12 items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="h-5 w-10"> {/* h-5 (20px), w-10 (40px) for 1:2 aspect ratio */}
-              <CanadaFlagIcon className="h-full w-full" />
+            <div className="h-5 w-10"> {/* Container for the CCG Strike icon */}
+              <CcgStrikeIcon className="h-full w-full" />
             </div>
             <span className="text-sm font-semibold text-foreground">
               {getTranslation(T.govCanada)} / <span className="font-normal">{currentLanguage === 'en' ? T.govCanada.fr : T.govCanada.en}</span>
@@ -217,8 +213,6 @@ export default function Header() {
     </header>
   );
 }
-    
-
     
 
     
