@@ -80,11 +80,11 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
 ];
 
 const departmentLegendItems: { department: VesselDepartment; colorClass: string; icon: React.ElementType; translations: { en: string; fr: string} }[] = [
-  { department: 'Navigation', colorClass: 'bg-blue-50 border-blue-200', icon: GlobeIcon, translations: { en: 'Navigation', fr: 'Navigation'} },
-  { department: 'Deck', colorClass: 'bg-slate-50 border-slate-200', icon: Anchor, translations: { en: 'Deck', fr: 'Pont'} },
-  { department: 'Engine Room', colorClass: 'bg-purple-50 border-purple-200', icon: Cog, translations: { en: 'Engine Room', fr: 'Salle des machines'} },
-  { department: 'Logistics', colorClass: 'bg-green-50 border-green-200', icon: Package, translations: { en: 'Logistics', fr: 'Logistique'} },
-  { department: 'Other', colorClass: 'bg-orange-50 border-orange-200', icon: Info, translations: { en: 'Other', fr: 'Autre'} },
+  { department: 'Navigation', colorClass: 'bg-blue-100 border-blue-300', icon: GlobeIcon, translations: { en: 'Navigation', fr: 'Navigation'} },
+  { department: 'Deck', colorClass: 'bg-slate-100 border-slate-300', icon: Anchor, translations: { en: 'Deck', fr: 'Pont'} },
+  { department: 'Engine Room', colorClass: 'bg-purple-100 border-purple-300', icon: Cog, translations: { en: 'Engine Room', fr: 'Salle des machines'} },
+  { department: 'Logistics', colorClass: 'bg-green-100 border-green-300', icon: Package, translations: { en: 'Logistics', fr: 'Logistique'} },
+  { department: 'Other', colorClass: 'bg-orange-100 border-orange-300', icon: Info, translations: { en: 'Other', fr: 'Autre'} },
 ];
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region' | 'patrolStartDate';
