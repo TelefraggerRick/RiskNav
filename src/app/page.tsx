@@ -7,7 +7,7 @@ import { ALL_VESSEL_REGIONS } from '@/lib/types';
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Ensure CardTitle and CardDescription are imported
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2, CalendarClock } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import {
@@ -58,9 +58,9 @@ const T = {
 
 
 const sortOptions: { value: SortKey; labelKey: keyof typeof T; }[] = [
+  { value: 'patrolStartDate', labelKey: 'patrolStartDateSort' },
   { value: 'submissionDate', labelKey: 'submissionDateSort' },
   { value: 'lastModified', labelKey: 'lastModifiedSort' },
-  { value: 'patrolStartDate', labelKey: 'patrolStartDateSort' },
   { value: 'status', labelKey: 'statusSort' },
   { value: 'vesselName', labelKey: 'vesselNameSort' },
   { value: 'region', labelKey: 'regionSort' },
@@ -94,8 +94,8 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<RiskAssessmentStatus[]>([]);
   const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>('lastModified');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortKey, setSortKey] = useState<SortKey>('patrolStartDate');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { getTranslation, currentLanguage } = useLanguage();
 
 
@@ -117,8 +117,7 @@ export default function DashboardPage() {
       console.log("DashboardPage: loadAssessments - FINALLY block. Setting isLoading to false.");
       setIsLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getTranslation]); // T.loadingErrorTitle, T.loadingErrorDesc removed as T is now stable
+  }, [getTranslation]);
 
   useEffect(() => {
     console.log("DashboardPage: Initial useEffect to call loadAssessments.");
@@ -147,7 +146,7 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('desc'); 
+      setSortDirection('desc');
     }
   }, [sortKey]);
 
@@ -172,115 +171,123 @@ export default function DashboardPage() {
     const generalAssessments = filteredAssessments.filter(a => !a.patrolStartDate || !isValid(parseISO(a.patrolStartDate)));
     const finalResult: [string, RiskAssessment[]][] = [];
 
-    const sortAssessments = (arr: RiskAssessment[], currentSortKey: SortKey, currentSortDirection: SortDirection) => {
-      return [...arr].sort((a, b) => {
-        let comparisonResult = 0;
-        const valA = a[currentSortKey as keyof RiskAssessment];
-        const valB = b[currentSortKey as keyof RiskAssessment];
+    const sortFunction = (a: RiskAssessment, b: RiskAssessment, currentSortKey: SortKey, currentSortDirection: SortDirection) => {
+      let valA = a[currentSortKey as keyof RiskAssessment];
+      let valB = b[currentSortKey as keyof RiskAssessment];
+      let comparisonResult = 0;
 
-        if (currentSortKey === 'status' || currentSortKey === 'vesselName' || currentSortKey === 'region') {
-            const strValA = String(valA || '').toLowerCase();
-            const strValB = String(valB || '').toLowerCase();
-            comparisonResult = strValA.localeCompare(strValB);
-        } else { 
-            const dateA = valA ? parseISO(String(valA)) : null;
-            const dateB = valB ? parseISO(String(valB)) : null;
-
-            if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
-                comparisonResult = dateA.getTime() - dateB.getTime();
-            } else if (dateA && isValid(dateA)) comparisonResult = -1; 
-            else if (dateB && isValid(dateB)) comparisonResult = 1;
-            else comparisonResult = 0; 
+      if (currentSortKey === 'patrolStartDate') {
+        const dateA = a.patrolStartDate ? parseISO(a.patrolStartDate) : null;
+        const dateB = b.patrolStartDate ? parseISO(b.patrolStartDate) : null;
+        if (dateA && dateB && isValid(dateA) && isValid(dateB)) comparisonResult = dateA.getTime() - dateB.getTime();
+        else if (dateA && isValid(dateA)) comparisonResult = -1;
+        else if (dateB && isValid(dateB)) comparisonResult = 1;
+        if (comparisonResult === 0) { // Tie-break by vessel name then patrol end date
+          comparisonResult = a.vesselName.localeCompare(b.vesselName);
+          if (comparisonResult === 0) {
+            const endDateA = a.patrolEndDate ? parseISO(a.patrolEndDate) : null;
+            const endDateB = b.patrolEndDate ? parseISO(b.patrolEndDate) : null;
+            if (endDateA && endDateB && isValid(endDateA) && isValid(endDateB)) comparisonResult = endDateA.getTime() - endDateB.getTime();
+            else if (endDateA && isValid(endDateA)) comparisonResult = -1;
+            else if (endDateB && isValid(endDateB)) comparisonResult = 1;
+          }
         }
-        return currentSortDirection === 'asc' ? comparisonResult : -comparisonResult;
-      });
+      } else if (currentSortKey === 'submissionDate' || currentSortKey === 'lastModified') {
+        const dateA = valA ? parseISO(String(valA)) : null;
+        const dateB = valB ? parseISO(String(valB)) : null;
+        if (dateA && dateB && isValid(dateA) && isValid(dateB)) comparisonResult = dateA.getTime() - dateB.getTime();
+        else if (dateA && isValid(dateA)) comparisonResult = -1;
+        else if (dateB && isValid(dateB)) comparisonResult = 1;
+      } else if (currentSortKey === 'status' || currentSortKey === 'vesselName' || currentSortKey === 'region') {
+        const strValA = String(valA || '').toLowerCase();
+        const strValB = String(valB || '').toLowerCase();
+        comparisonResult = strValA.localeCompare(strValB);
+      }
+      return currentSortDirection === 'asc' ? comparisonResult : -comparisonResult;
     };
-    
-    const sortedGeneral = sortAssessments(generalAssessments, (sortKey === 'patrolStartDate' ? 'lastModified' : sortKey), (sortKey === 'patrolStartDate' ? 'desc' : sortDirection));
+
+    const sortedGeneralAssessments = [...generalAssessments].sort((a, b) =>
+        sortFunction(a, b, sortKey === 'patrolStartDate' ? 'lastModified' : sortKey, sortKey === 'patrolStartDate' ? 'desc' : sortDirection)
+    );
 
     const patrolGroups: Record<string, RiskAssessment[]> = {};
     patrolAssessments.forEach(assessment => {
-      const startDate = parseISO(assessment.patrolStartDate!);
-      const endDate = assessment.patrolEndDate ? parseISO(assessment.patrolEndDate) : null;
-      
-      let dateRangeString = format(startDate, 'MMM d, yyyy');
-      if (endDate && isValid(endDate)) {
-          dateRangeString += ` - ${format(endDate, 'MMM d, yyyy')}`;
-      }
-      const groupKey = `${assessment.vesselName} (Patrol: ${dateRangeString})`;
-      
-      if (!patrolGroups[groupKey]) {
-        patrolGroups[groupKey] = [];
-      }
-      patrolGroups[groupKey].push(assessment);
+        const startDate = parseISO(assessment.patrolStartDate!);
+        const endDate = assessment.patrolEndDate ? parseISO(assessment.patrolEndDate) : null;
+        
+        let dateRangeString = format(startDate, 'MMM d, yyyy');
+        if (endDate && isValid(endDate)) {
+            dateRangeString += ` ${getTranslation(T.to)} ${format(endDate, 'MMM d, yyyy')}`;
+        }
+        const groupKey = `${assessment.vesselName} (Patrol: ${dateRangeString})`;
+        
+        if (!patrolGroups[groupKey]) {
+            patrolGroups[groupKey] = [];
+        }
+        patrolGroups[groupKey].push(assessment);
     });
 
     Object.keys(patrolGroups).forEach(key => {
-        patrolGroups[key] = sortAssessments(patrolGroups[key], (sortKey === 'patrolStartDate' ? 'vesselName' : sortKey) , sortDirection);
-    });
-
-    let sortedPatrolEntries = Object.entries(patrolGroups).sort(([keyA], [keyB]) => {
-        const extractStartDate = (key: string): Date | null => {
-            const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
-            if (match && match[1]) {
-                try {
-                    return parseISO(format(new Date(match[1]), 'yyyy-MM-dd')); // Ensure parsing in consistent format
-                } catch { return null; }
-            }
-            return null;
-        };
-        const dateA = extractStartDate(keyA);
-        const dateB = extractStartDate(keyB);
-        let comparison = 0;
-        if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
-            comparison = dateA.getTime() - dateB.getTime();
-        } else if (dateA && isValid(dateA)) comparison = -1;
-        else if (dateB && isValid(dateB)) comparison = 1;
-
-        if (comparison === 0) { // If start dates are the same, sort by vessel name from the key
-            const vesselNameA = keyA.split(' (Patrol:')[0];
-            const vesselNameB = keyB.split(' (Patrol:')[0];
-            comparison = vesselNameA.localeCompare(vesselNameB);
-        }
-        return sortDirection === 'asc' ? comparison : -comparison; // Apply main sort direction to groups when sorting by patrol start date
+        patrolGroups[key].sort((a, b) => sortFunction(a, b, sortKey, sortDirection));
     });
     
-    if (sortKey !== 'patrolStartDate') {
-        // If not sorting by patrol start date, groups should remain chronological by their start date
-        // but internal sorting is dictated by user's choice.
-        // The group sorting should always be ascending by date if not primary sort.
-         sortedPatrolEntries.sort(([keyA], [keyB]) => {
+    let sortedPatrolEntries = Object.entries(patrolGroups);
+
+    if (sortKey === 'patrolStartDate') {
+        sortedPatrolEntries.sort(([keyA], [keyB]) => {
             const extractStartDate = (key: string): Date | null => {
                 const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
                 if (match && match[1]) {
-                    try { return parseISO(format(new Date(match[1]), 'yyyy-MM-dd')); } catch { return null; }
+                    try { return parseISO(format(new Date(match[1].split(` ${getTranslation(T.to)} `)[0]), 'yyyy-MM-dd')); } catch { return null; }
+                }
+                return null;
+            };
+            const dateA = extractStartDate(keyA);
+            const dateB = extractStartDate(keyB);
+            let comparison = 0;
+            if (dateA && dateB && isValid(dateA) && isValid(dateB)) comparison = dateA.getTime() - dateB.getTime();
+            else if (dateA && isValid(dateA)) comparison = -1;
+            else if (dateB && isValid(dateB)) comparison = 1;
+
+            if (comparison === 0) {
+                const vesselNameA = keyA.split(' (Patrol:')[0];
+                const vesselNameB = keyB.split(' (Patrol:')[0];
+                comparison = vesselNameA.localeCompare(vesselNameB);
+            }
+            return sortDirection === 'asc' ? comparison : -comparison;
+        });
+    } else {
+        // Default group sorting by patrol start date (chronological) if not sorting by patrol start date
+        sortedPatrolEntries.sort(([keyA], [keyB]) => {
+             const extractStartDate = (key: string): Date | null => {
+                const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
+                 if (match && match[1]) {
+                    try { return parseISO(format(new Date(match[1].split(` ${getTranslation(T.to)} `)[0]), 'yyyy-MM-dd')); } catch { return null; }
                 }
                 return null;
             };
             const dateA = extractStartDate(keyA);
             const dateB = extractStartDate(keyB);
             if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
-                return dateA.getTime() - dateB.getTime(); // Always ascending for group order
+                return dateA.getTime() - dateB.getTime(); // Always ascending for group display order
             }
-            return keyA.localeCompare(keyB); // Fallback if dates are weird
+            return keyA.localeCompare(keyB);
         });
     }
 
-
     finalResult.push(...sortedPatrolEntries);
-
-    if (sortedGeneral.length > 0) {
-      finalResult.push([getTranslation(T.generalAssessmentsLabel), sortedGeneral]);
+    if (sortedGeneralAssessments.length > 0) {
+      finalResult.push([getTranslation(T.generalAssessmentsLabel), sortedGeneralAssessments]);
     }
     return finalResult;
 
-  }, [filteredAssessments, sortKey, sortDirection, getTranslation, currentLanguage]);
+  }, [filteredAssessments, sortKey, sortDirection, getTranslation, T.to, T.generalAssessmentsLabel]);
 
 
   const currentSortLabel = useMemo(() => {
     const option = sortOptions.find(opt => opt.value === sortKey);
     return option ? getTranslation(T[option.labelKey]) : getTranslation(T.sort);
-  }, [sortKey, getTranslation, currentLanguage]);
+  }, [sortKey, getTranslation, T]);
 
 
   const statusFilterLabel = selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length
@@ -300,7 +307,7 @@ export default function DashboardPage() {
         </div>
     );
   }
-  
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between pb-4 border-b">
@@ -436,7 +443,7 @@ export default function DashboardPage() {
           {groupedAndSortedAssessments.map(([groupKey, assessmentsInGroup]) => {
             const isGeneralAssessmentsGroup = groupKey === getTranslation(T.generalAssessmentsLabel);
             const IconToUse = groupKey.includes("(Patrol:") ? CalendarClock : (isGeneralAssessmentsGroup ? Info : ShipIcon);
-            
+
             return (
               <section key={groupKey} aria-labelledby={`group-${groupKey.replace(/\s+/g, '-').toLowerCase()}`}>
                 <div className="flex items-center gap-3 mb-4 pb-2 border-b">
