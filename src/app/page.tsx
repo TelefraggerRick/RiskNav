@@ -4,10 +4,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
 import { ALL_VESSEL_REGIONS } from '@/lib/types';
-// import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard'; // Temporarily removed
+import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardTitle, CardDescription } from '@/components/ui/card'; // Ensured CardTitle and CardDescription are imported
+import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
 import { format, parseISO, isValid, isBefore, isEqual, isAfter } from 'date-fns';
 import {
@@ -55,6 +56,7 @@ const departmentLegendItems: { department: VesselDepartment; colorClass: string;
   { department: 'Other', colorClass: 'bg-orange-50 border-orange-200', icon: Info, translations: { en: 'Other', fr: 'Autre'} },
 ];
 
+// T object moved outside the component to ensure stable references
 const T = {
   dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
   searchPlaceholder: { en: "Search assessments...", fr: "Rechercher des évaluations..." },
@@ -109,7 +111,7 @@ export default function DashboardPage() {
       console.log("DashboardPage: loadAssessments - FINALLY block. Setting isLoading to false.");
       setIsLoading(false);
     }
-  }, [getTranslation]); // T.loadingErrorTitle and T.loadingErrorDesc are now stable as T is outside
+  }, [getTranslation]);
 
   useEffect(() => {
     console.log("DashboardPage: Initial useEffect to call loadAssessments.");
@@ -138,9 +140,93 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('desc'); 
+      setSortDirection('desc');
     }
   }, [sortKey]);
+
+  const filteredAssessments = useMemo(() => {
+    return assessments.filter(assessment => {
+      const searchTermMatch = searchTerm.trim() === '' ||
+        assessment.vesselName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        assessment.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (assessment.imoNumber && assessment.imoNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (assessment.maritimeExemptionNumber && assessment.maritimeExemptionNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        assessment.reasonForRequest.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(assessment.status);
+      const regionMatch = selectedRegions.length === 0 || (assessment.region && selectedRegions.includes(assessment.region));
+
+      return searchTermMatch && statusMatch && regionMatch;
+    });
+  }, [assessments, searchTerm, selectedStatuses, selectedRegions]);
+
+  const groupedAndSortedAssessments = useMemo(() => {
+    const patrolAssessments = filteredAssessments.filter(a => a.patrolStartDate && a.patrolEndDate);
+    const generalAssessments = filteredAssessments.filter(a => !a.patrolStartDate || !a.patrolEndDate);
+
+    const sortedPatrols = patrolAssessments.sort((a, b) => {
+      const dateA = a.patrolStartDate ? parseISO(a.patrolStartDate) : new Date(0);
+      const dateB = b.patrolStartDate ? parseISO(b.patrolStartDate) : new Date(0);
+      if (!isValid(dateA) || !isValid(dateB)) return 0;
+      const comparison = sortDirection === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+      if (comparison !== 0) return comparison;
+      return a.vesselName.localeCompare(b.vesselName);
+    });
+
+    const sortedGeneral = generalAssessments.sort((a, b) => {
+      let comparisonResult = 0;
+      const dateA = a[sortKey] ? parseISO(String(a[sortKey])) : new Date(0);
+      const dateB = b[sortKey] ? parseISO(String(b[sortKey])) : new Date(0);
+
+      if (sortKey === 'status' || sortKey === 'vesselName' || sortKey === 'region') {
+        const valA = String(a[sortKey] || '').toLowerCase();
+        const valB = String(b[sortKey] || '').toLowerCase();
+        comparisonResult = valA.localeCompare(valB);
+      } else if (isValid(dateA) && isValid(dateB)) { // Date comparison for submissionDate, lastModified
+        comparisonResult = dateA.getTime() - dateB.getTime();
+      } else {
+         // Fallback for invalid dates or other types
+        const valA = String(a[sortKey] || '');
+        const valB = String(b[sortKey] || '');
+        comparisonResult = valA.localeCompare(valB);
+      }
+      return sortDirection === 'asc' ? comparisonResult : -comparisonResult;
+    });
+
+
+    const groups: Record<string, RiskAssessment[]> = {};
+    sortedPatrols.forEach(assessment => {
+      const startDate = assessment.patrolStartDate ? parseISO(assessment.patrolStartDate) : null;
+      let groupKey = getTranslation(T.generalAssessmentsLabel); // Fallback
+      if (startDate && isValid(startDate)) {
+        const now = new Date();
+        if (isEqual(startDate, now) || isAfter(startDate, now)) {
+           groupKey = `${getTranslation(T.patrolLabel)} ${format(startDate, 'MMMM yyyy')}`;
+        } else if (isBefore(startDate, now)) {
+           groupKey = `${getTranslation(T.patrolLabel)} ${format(startDate, 'MMMM yyyy')} (Past)`;
+        }
+      }
+      if (!groups[groupKey]) groups[groupKey] = [];
+      groups[groupKey].push(assessment);
+    });
+
+    const groupedPatrols = Object.entries(groups).sort(([keyA], [keyB]) => {
+        if (keyA.includes('(Past)') && !keyB.includes('(Past)')) return 1;
+        if (!keyA.includes('(Past)') && keyB.includes('(Past)')) return -1;
+        const dateA = parseISO(keyA.replace(`${getTranslation(T.patrolLabel)} `, '').replace(' (Past)', ''));
+        const dateB = parseISO(keyB.replace(`${getTranslation(T.patrolLabel)} `, '').replace(' (Past)', ''));
+        if (isValid(dateA) && isValid(dateB)) return dateA.getTime() - dateB.getTime();
+        return keyA.localeCompare(keyB);
+    });
+
+    if (sortedGeneral.length > 0) {
+      groupedPatrols.push([getTranslation(T.generalAssessmentsLabel), sortedGeneral]);
+    }
+
+    return groupedPatrols;
+
+  }, [filteredAssessments, sortKey, sortDirection, getTranslation]);
+
 
   const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.[currentLanguage === 'fr' ? 'fr_label' : 'label'] || getTranslation(T.sort);
 
@@ -161,6 +247,30 @@ export default function DashboardPage() {
         </div>
     );
   }
+
+  const getGroupDisplayTitle = (assessmentsInGroup: RiskAssessment[]) => {
+    if (assessmentsInGroup.length === 0) return getTranslation(T.generalAssessmentsLabel);
+    
+    const firstAssessment = assessmentsInGroup[0];
+    if (firstAssessment.patrolStartDate && isValid(parseISO(firstAssessment.patrolStartDate))) {
+      const startDate = parseISO(firstAssessment.patrolStartDate);
+      const now = new Date();
+      let title = `${getTranslation(T.patrolLabel)} ${format(startDate, 'MMMM yyyy')}`;
+      if (isBefore(startDate, now) && !isEqual(startOfDay(startDate), startOfDay(now))) {
+         title += ' (Past)';
+      }
+      return title;
+    }
+    return getTranslation(T.generalAssessmentsLabel);
+  };
+  
+  // Helper function to get the start of the day for date comparisons
+  const startOfDay = (date: Date) => {
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+    return newDate;
+  };
+
 
   return (
     <div className="space-y-6">
@@ -292,25 +402,6 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* Simplified rendering for diagnostics */}
-      <Card className="p-6">
-        <CardTitle>Assessments Loaded</CardTitle>
-        <CardDescription>
-          Number of assessments fetched: {assessments.length}
-        </CardDescription>
-        {assessments.length === 0 && !isLoading && (
-            <div className="mt-4">
-                <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <h2 className="text-xl font-semibold mb-2">{getTranslation(T.noAssessmentsFound)}</h2>
-                <p className="text-muted-foreground">
-                {getTranslation(T.noMatchFilters)}
-                </p>
-            </div>
-        )}
-      </Card>
-
-      {/* 
-      // Temporarily removed complex rendering
       {groupedAndSortedAssessments.length > 0 ? (
         <div className="space-y-8">
           {groupedAndSortedAssessments.map(([groupKey, patrolAssessments]) => {
@@ -327,8 +418,8 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {patrolAssessments.map(assessment => (
-                    <RiskAssessmentCard 
-                        key={assessment.id} 
+                    <RiskAssessmentCard
+                        key={assessment.id}
                         assessment={assessment}
                     />
                   ))}
@@ -347,11 +438,7 @@ export default function DashboardPage() {
             </p>
           </Card>
         )
-      )} 
-      */}
+      )}
     </div>
   );
 }
-    
-
-    
