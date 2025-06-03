@@ -36,19 +36,19 @@ const T_STATUS_CARD = {
   csoLevel: { en: "Crewing Standards & Oversight", fr: "Bureau de la conformité et des normes" },
   sdLevel: { en: "Senior Director", fr: "Directeur Principal" },
   dgLevel: { en: "Director General", fr: "Directeur Général" },
-  decision: { en: "Decision", fr: "Décision" }, 
-  userName: { en: "User", fr: "Utilisateur" }, 
-  date: { en: "Date", fr: "Date" }, 
+  decision: { en: "Decision", fr: "Décision" },
+  userName: { en: "User", fr: "Utilisateur" },
+  date: { en: "Date", fr: "Date" },
 };
 
 const statusConfig: Record<RiskAssessment['status'], { icon: React.ElementType, badgeClass: string }> = {
-    'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border-gray-300' },
-    'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border-yellow-400' },
-    'Pending Senior Director': { icon: UserCheck, badgeClass: 'bg-cyan-100 text-cyan-800 border-cyan-400' },
-    'Pending Director General': { icon: UserCircleIcon, badgeClass: 'bg-purple-100 text-purple-800 border-purple-400' },
-    'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-800 border-orange-400' },
-    'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-800 border-green-400' },
-    'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-800 border-red-400' },
+    'Draft': { icon: Edit, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300' },
+    'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400' },
+    'Pending Senior Director': { icon: UserCheck, badgeClass: 'bg-cyan-100 text-cyan-800 border border-cyan-400' },
+    'Pending Director General': { icon: UserCircleIcon, badgeClass: 'bg-purple-100 text-purple-800 border border-purple-400' },
+    'Needs Information': { icon: FileWarning, badgeClass: 'bg-orange-100 text-orange-800 border border-orange-400' },
+    'Approved': { icon: CheckCircle2, badgeClass: 'bg-green-100 text-green-800 border border-green-400' },
+    'Rejected': { icon: XCircle, badgeClass: 'bg-red-100 text-red-800 border border-red-400' },
   };
 
 const decisionIcons: Record<ApprovalDecision | 'Pending', React.ElementType> = {
@@ -140,7 +140,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <TooltipProvider delayDuration={100}>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 md:gap-3 overflow-x-auto py-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 md:gap-2 overflow-x-auto py-2">
             {approvalLevelsOrder.map((level, index) => {
                 const step = assessment.approvalSteps.find(s => s.level === level);
                 const decision = step?.decision || 'Pending';
@@ -158,9 +158,9 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 
                 const stageElement = (
                     <div className={cn(
-                        "flex-1 min-w-[180px] sm:min-w-0 flex flex-col items-center p-2.5 rounded-md border",
+                        "flex-1 min-w-[150px] sm:min-w-0 flex flex-col items-center p-2 rounded-md border", // Reduced p-2.5 to p-2, min-w-[180px] to min-w-[150px]
                         isHighlighted ? 'ring-2 ring-primary shadow-md bg-background' : 'bg-muted/40 hover:bg-muted/70 transition-colors',
-                        badgeConfig.textClass?.includes('bg-') ? '' : badgeConfig.textClass 
+                        badgeConfig.textClass?.includes('bg-') ? '' : badgeConfig.textClass
                     )}>
                         <Icon className={cn("h-5 w-5 mb-1", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')} />
                         <h4 className={cn("text-xs text-center font-medium mb-1 truncate w-full", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')}>{getLevelTranslation(level)}</h4>
@@ -184,7 +184,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
                     )}
 
                     {index < approvalLevelsOrder.length - 1 && (
-                    <div className="flex-none flex items-center justify-center px-1 sm:px-2">
+                    <div className="flex-none flex items-center justify-center px-1 sm:px-1.5"> {/* Reduced gap here too */}
                         <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
                     </div>
                     )}
@@ -206,3 +206,4 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 };
 
 export default WorkflowStatusCard;
+
