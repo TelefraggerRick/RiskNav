@@ -33,7 +33,7 @@ const unauthenticatedAppUser: AppUser = {
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<AppUser>(unauthenticatedAppUser);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthUser | null>(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true); // Initialize to true
   const router = useRouter();
   const { getTranslation } = useLanguage();
 
@@ -63,12 +63,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error(getTranslation(T_USER_CONTEXT.notificationPermissionError));
       }
     }
-  }, [getTranslation, T_USER_CONTEXT.notificationPermissionError]); // Removed success toast to reduce noise
+  }, [getTranslation, T_USER_CONTEXT.notificationPermissionError]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setIsLoadingAuth(true); // Start loading when Firebase user object is available
+        // setIsLoadingAuth(true); // Already true or set by login function
         setFirebaseUser(user);
         const userDocRef = doc(db, 'users', user.uid);
         try {
@@ -76,9 +76,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (userDocSnap.exists()) {
               const appUser = { uid: user.uid, ...userDocSnap.data() } as AppUser;
               setCurrentUser(appUser);
-              await setupNotifications(user.uid); // Await this critical step
+              await setupNotifications(user.uid); 
               
-              // RTDB logic for online presence (run non-blockingly after core auth is settled)
               if (rtdb) {
                 const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
                 const isOfflineForDatabase = { isOnline: false, lastChanged: rtdbServerTimestamp() };
@@ -92,28 +91,20 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               } else {
                 console.warn(getTranslation(T_USER_CONTEXT.rtdbUnavailableWarn));
               }
+              setIsLoadingAuth(false); // Set loading to false after all async operations for auth user
             } else {
               console.warn(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
               toast.error(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
               await signOut(auth); // This will re-trigger onAuthStateChanged with user=null
-              // isLoadingAuth will be set to false in the subsequent call to this listener
+              // isLoadingAuth will be set to false in the subsequent call (user === null)
               return; 
             }
         } catch (error) {
             console.error("Error fetching user profile from Firestore:", error);
             toast.error("Error loading user profile. Logging out.");
             await signOut(auth); // Re-trigger onAuthStateChanged with user=null
-            // isLoadingAuth will be set to false in the subsequent call to this listener
+             // isLoadingAuth will be set to false in the subsequent call (user === null)
             return; 
-        } finally {
-            // Only set isLoadingAuth to false here if we haven't early-returned (which means signOut was called)
-            // The signOut will trigger a new onAuthStateChanged event that will set isLoadingAuth=false correctly.
-            // So, if we are still in this execution path, it means user was found.
-            const stillAuthenticated = auth.currentUser; // Check if user is still auth'd (didn't get signed out above)
-            if (stillAuthenticated && stillAuthenticated.uid === user.uid) {
-                 setIsLoadingAuth(false);
-            }
-            // If signOut was called, the *next* run of onAuthStateChanged will handle setting isLoadingAuth to false.
         }
       } else { // User is null (logged out or never logged in)
         setFirebaseUser(null);
@@ -127,20 +118,20 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
   const login = useCallback(async (email: string, passwordAttempt: string): Promise<boolean> => {
-    setIsLoadingAuth(true); // Set loading true immediately on login attempt
+    setIsLoadingAuth(true); 
     try {
       await signInWithEmailAndPassword(auth, email, passwordAttempt);
-      // onAuthStateChanged will handle setting currentUser and isLoadingAuth to false after profile fetch
+      // onAuthStateChanged will handle setting currentUser and eventually setIsLoadingAuth to false after profile fetch
       return true;
     } catch (error) {
       console.error("Login failed:", error);
-      setIsLoadingAuth(false); // Ensure loading is false on login failure
+      setIsLoadingAuth(false); // Ensure loading is false on login failure if onAuthStateChanged doesn't run quickly enough
       return false;
     }
   }, []);
 
   const logout = useCallback(async () => {
-    setIsLoadingAuth(true); // Indicate state change is happening
+    setIsLoadingAuth(true); 
     if (firebaseUser && rtdb) { 
       const userStatusDatabaseRef = ref(rtdb, `/status/${firebaseUser.uid}`);
       try {
@@ -156,20 +147,19 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     try {
       await signOut(auth);
-      // onAuthStateChanged will set currentUser, firebaseUser, and isLoadingAuth to false
+      // onAuthStateChanged will set currentUser to unauth, firebaseUser to null, and isLoadingAuth to false
       router.push('/login');
     } catch (error) {
        console.error("Error during sign out:", error);
+       // Manually reset state in case onAuthStateChanged doesn't fire or is delayed
        setFirebaseUser(null);
        setCurrentUser(unauthenticatedAppUser);
-       setIsLoadingAuth(false); // Ensure loading is false even if signOut has an issue
+       setIsLoadingAuth(false);
        router.push('/login');
     }
-  }, [router, firebaseUser]);
+  }, [router, firebaseUser]); // Added firebaseUser to dependencies
   
-  if (isLoadingAuth && currentUser.uid === 'user-unauth' && !firebaseUser) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading authentication...</div>;
-  }
+  // Removed the initial loading screen div from here as it's better handled by consuming components
 
   return (
     <UserContext.Provider value={{ 
