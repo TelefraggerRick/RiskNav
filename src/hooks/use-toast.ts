@@ -10,7 +10,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000 // This is a very long delay
+const TOAST_REMOVE_DELAY = 1000 // Changed from 1000000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -94,6 +94,8 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
+      // If toastId is provided, mark that specific toast as closed.
+      // If no toastId, mark all toasts as closed.
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -158,15 +160,17 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       onOpenChange: (isOpenByPrimitive) => {
-        const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
-        // If the toast is no longer in our central state (e.g., removed by TOAST_LIMIT), do nothing.
-        if (!currentToastInGlobalState) {
-          return;
+        // If the Radix primitive is signalling it's closing
+        if (!isOpenByPrimitive) {
+          // Check our central state for this toast
+          const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
+          // If our state still thinks it's open, then this is a legitimate "close" event to process
+          if (currentToastInGlobalState && currentToastInGlobalState.open) {
+            dismiss(); // This will set open: false in memoryState and schedule removal
+          }
         }
-        // If the primitive signals it's closing AND our central state still thinks it's open, then dismiss it.
-        if (!isOpenByPrimitive && currentToastInGlobalState.open) {
-          dismiss();
-        }
+        // We don't generally care about isOpenByPrimitive === true here,
+        // as our state primarily drives the 'open' prop.
       },
     },
   })
