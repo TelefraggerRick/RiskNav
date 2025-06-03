@@ -7,7 +7,7 @@ import { ALL_VESSEL_REGIONS } from '@/lib/types'; // Import from types.ts
 // import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard'; // Temporarily removed
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardTitle, CardDescription } from '@/components/ui/card'; // Added CardTitle and CardDescription
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
 import { format, parseISO, isValid, isBefore, isEqual, isAfter } from 'date-fns';
 import {
@@ -349,4 +349,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+    
+
     
