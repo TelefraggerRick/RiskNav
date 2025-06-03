@@ -195,7 +195,7 @@ export default function AssessmentDetailPage() {
   const generatePdf = async () => {
     if (!assessment) return;
     setIsPrinting(true);
-    toast.info("Generating PDF, please wait...", { duration: 5000 });
+    toast.info(getTranslation(T_DETAILS_PAGE.generatingPdf), { duration: 5000 });
 
     const input = document.getElementById('assessment-print-area');
     if (!input) {
@@ -205,71 +205,77 @@ export default function AssessmentDetailPage() {
     }
 
     try {
+      // Ensure all content is rendered before capturing, especially images or dynamically loaded elements
+      await new Promise(resolve => setTimeout(resolve, 200)); // Small delay for rendering
+
       const canvas = await html2canvas(input, {
         scale: 2, // Increase scale for better resolution
         useCORS: true, // For external images if any
-        logging: true,
+        logging: true, // For debugging html2canvas issues
+        width: input.scrollWidth, // Capture full scrollable width
+        height: input.scrollHeight, // Capture full scrollable height
+        scrollX: 0, // Ensure capture starts from the left edge of the element
+        scrollY: 0, // Ensure capture starts from the top edge of the element
+        windowWidth: input.scrollWidth, // Tell html2canvas the "viewport" width for rendering
+        windowHeight: input.scrollHeight, // Tell html2canvas the "viewport" height
         onclone: (document) => {
-          // This function is called after the document is cloned but before it's rendered.
-          // Useful for making temporary DOM changes for printing that shouldn't affect the live page.
-          // For example, ensuring all content is visible, removing scrollbars from specific elements, etc.
-          // document.body.style.setProperty('overflow', 'visible', 'important'); // Example
+            // You can make temporary DOM changes here specifically for printing
+            // e.g., document.body.style.setProperty('font-size', '10px', 'important');
         }
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/png'); // Use PNG for better text quality
       const pdf = new jsPDF('p', 'mm', 'a4'); // Portrait, millimeters, A4
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = imgWidth / imgHeight;
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const canvasOriginalWidth = imgProps.width;
+      const canvasOriginalHeight = imgProps.height;
 
-      let imgHeightInPdf = pdfWidth / ratio;
-      let yPosition = 0;
-      let heightLeft = imgHeightInPdf;
+      // Calculate how much of the canvas height fits on one PDF page, maintaining aspect ratio based on PDF width
+      const scaledCanvasHeightForPdfWidth = (canvasOriginalHeight * pdfWidth) / canvasOriginalWidth;
+      
+      let currentYPositionInCanvas = 0; // Current Y position on the source canvas (in original canvas pixels)
+      let pages = 0;
 
-      if (imgHeightInPdf <= pdfHeight) { // Fits on one page
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeightInPdf);
-      } else { // Multi-page
-        let page = 1;
-        while (heightLeft > 0) {
-          if (page > 1) {
-            pdf.addPage();
-          }
-          // Calculate the portion of the image to draw on this page
-          // The source arguments for addImage (sx, sy, sw, sh) would be complex here
-          // A simpler approach for html2canvas is to slice the canvas image itself,
-          // or re-render sections, but that's much more complex.
-          // For now, jsPDF's addImage will clip if the image height exceeds page height.
-          // Let's try a more direct approach for splitting:
-          const pageCanvas = document.createElement('canvas');
-          const pageCtx = pageCanvas.getContext('2d');
-          
-          // Calculate the height of the slice for the current PDF page in canvas pixels
-          const sliceHeightCanvas = (pdfHeight / pdfWidth) * imgWidth * (imgHeightInPdf / imgHeight); 
-          // Correction: sliceHeightCanvas should be based on remaining canvas height or pdf page capacity
-          const sourceY = (page - 1) * sliceHeightCanvas;
-          const sourceHeight = Math.min(sliceHeightCanvas, imgHeight - sourceY);
+      while (currentYPositionInCanvas < canvasOriginalHeight) {
+        if (pages > 0) {
+          pdf.addPage();
+        }
+        
+        // Calculate the height of the segment of the canvas to draw on this PDF page (in original canvas pixels)
+        // This is the pdfHeight (in mm) converted to canvas pixels using the scale factor (canvasOriginalWidth / pdfWidth)
+        const segmentHeightInCanvas = pdfHeight * (canvasOriginalWidth / pdfWidth);
+        const actualSegmentHeight = Math.min(segmentHeightInCanvas, canvasOriginalHeight - currentYPositionInCanvas);
 
-          if (sourceHeight <=0) break;
+        if (actualSegmentHeight <= 0) break;
 
+        // Add the image segment
+        pdf.addImage(
+          imgData,                // The full image data
+          'PNG',                  // Format
+          0,                      // PDF X position (mm)
+          0,                      // PDF Y position (mm) - always top of current page
+          pdfWidth,               // PDF width to draw image (mm) - full width
+          (actualSegmentHeight * pdfWidth) / canvasOriginalWidth, // PDF height to draw (mm) - scaled from segment
+          undefined,              // Alias
+          'NONE',                 // Compression
+          0,                      // Rotation
+          // Source rectangle (from original canvas, in pixels)
+          0,                      // Source X
+          currentYPositionInCanvas, // Source Y - where to start slicing from the tall canvas
+          canvasOriginalWidth,    // Source Width - full width of the canvas
+          actualSegmentHeight     // Source Height - height of the slice for this page
+        );
+        
+        currentYPositionInCanvas += actualSegmentHeight;
+        pages++;
 
-          pageCanvas.width = imgWidth;
-          pageCanvas.height = sourceHeight;
-          
-          pageCtx?.drawImage(canvas, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight);
-          const pageImgData = pageCanvas.toDataURL('image/png');
-
-          pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, (sourceHeight / imgWidth) * pdfWidth);
-          
-          heightLeft -= (sourceHeight / imgWidth) * pdfWidth;
-          page++;
-           if (page > 20) { // Safety break for very long content
-            toast.warning("PDF generation stopped after 20 pages to prevent performance issues.");
-            break;
-          }
+        if (pages > 20) { // Safety break for very long content
+          toast.warning("PDF generation stopped after 20 pages to prevent performance issues.");
+          break;
         }
       }
       
@@ -709,7 +715,7 @@ export default function AssessmentDetailPage() {
                 </Button>
               </div>
             </div>
-            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore)) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse print-hide`} />}
+            {((isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore))) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse print-hide`} />}
 
             {assessment.aiGeneratedSummary && (
               <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700 card-print-styles">
