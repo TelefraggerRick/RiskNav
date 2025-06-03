@@ -33,7 +33,11 @@ export async function createNewUserAction(formData: {
   try {
     const validation = CreateUserSchema.safeParse(formData);
     if (!validation.success) {
-      return { success: false, message: "Invalid form data: " + validation.error.flatten().fieldErrors };
+      const errorMessages = Object.values(validation.error.flatten().fieldErrors)
+        .flat()
+        .filter(Boolean) // Ensure no undefined/null messages
+        .join('. ');
+      return { success: false, message: "Invalid form data: " + errorMessages };
     }
 
     const { email, password, name, role } = validation.data;
@@ -52,19 +56,17 @@ export async function createNewUserAction(formData: {
         if (error.code !== 'auth/user-not-found') {
             // Different error, re-throw or handle as Firebase Auth error
             console.error("Error checking existing user in Auth:", error);
-            return { success: false, message: "Error checking for existing user: " + error.message };
+            return { success: false, message: "Error checking for existing user in Auth: " + error.message };
         }
         // If 'auth/user-not-found', it's good, we can proceed to create
     }
     
-    // Check if user document already exists in Firestore (e.g. if Auth user was deleted but FS doc remained)
-    const firestoreUserDoc = await db.collection("users").doc(email.toLowerCase()).get(); // Using email as temp ID before UID
-     if (firestoreUserDoc.exists()) {
-        // Heuristic: if a doc exists with this email as ID, it's likely a remnant or conflict.
-        // More robust would be to query by email field if you store email as a field.
-        // For this example, let's assume email is not the doc ID for users.
-        // If using UID as doc ID (which is standard), this check is less relevant here,
-        // as we don't have UID yet. The createUser will give us the UID.
+    // Check if a user document with this email already exists in Firestore
+    const usersRef = db.collection('users');
+    const existingUserQuery = await usersRef.where('email', '==', email.toLowerCase()).limit(1).get();
+
+    if (!existingUserQuery.empty) {
+        return { success: false, message: `A user profile with the email ${email} already exists in the database.` };
     }
 
 
@@ -79,7 +81,7 @@ export async function createNewUserAction(formData: {
     const userProfile = {
       uid: userRecord.uid,
       name,
-      email,
+      email: email.toLowerCase(), // Store email consistently, e.g., lowercase
       role,
     };
 
@@ -100,3 +102,4 @@ export async function createNewUserAction(formData: {
     return { success: false, message: errorMessage };
   }
 }
+
