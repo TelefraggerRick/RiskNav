@@ -1,3 +1,4 @@
+
 "use client"
 
 // Inspired by react-hot-toast library
@@ -159,7 +160,28 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       onOpenChange: (open) => {
-        if (!open) dismiss()
+        const currentToast = memoryState.toasts.find(t => t.id === id);
+        if (!open) {
+          // If the primitive is signaling it's closed:
+          // Only call dismiss if our internal state for this toast is still 'open'.
+          // This prevents re-calling dismiss if dismiss() itself caused the onOpenChange.
+          if (currentToast && currentToast.open) {
+            dismiss();
+          } else if (currentToast && !currentToast.open) {
+            // Our state already knows it's closed, but the primitive might be
+            // calling onOpenChange again (e.g. on unmount or if prop changes rapidly).
+            // Ensure it's in the remove queue.
+            addToRemoveQueue(id);
+          } else if (!currentToast) {
+            // The toast was already removed from state (e.g., by TOAST_LIMIT),
+            // but the primitive might still call onOpenChange on unmount.
+            // We can ensure its timeout is cleared if it exists.
+            if (toastTimeouts.has(id)) {
+              clearTimeout(toastTimeouts.get(id));
+              toastTimeouts.delete(id);
+            }
+          }
+        }
       },
     },
   })
