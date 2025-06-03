@@ -7,9 +7,9 @@ import type { RiskAssessment, ApprovalLevel, ApprovalDecision, ApprovalStep } fr
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  Hourglass, ThumbsUp, ThumbsDown, MessageSquare, CheckCircle2, XCircle, AlertTriangle, Info,
+  Hourglass, ThumbsUp, ThumbsDown, MessageSquare, CheckCircle2, XCircle, Info,
   ChevronRight, Building, UserCheck, UserCircle as UserCircleIcon, FileWarning, Edit, HelpCircle, Users
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
@@ -36,6 +36,9 @@ const T_STATUS_CARD = {
   csoLevel: { en: "Crewing Standards & Oversight", fr: "Bureau de la conformité et des normes" },
   sdLevel: { en: "Senior Director", fr: "Directeur Principal" },
   dgLevel: { en: "Director General", fr: "Directeur Général" },
+  decision: { en: "Decision", fr: "Décision" }, // For tooltip
+  userName: { en: "User", fr: "Utilisateur" }, // For tooltip
+  date: { en: "Date", fr: "Date" }, // For tooltip
 };
 
 const statusConfig: Record<RiskAssessment['status'], { icon: React.ElementType, badgeClass: string }> = {
@@ -55,18 +58,12 @@ const decisionIcons: Record<ApprovalDecision | 'Pending', React.ElementType> = {
   'Pending': Hourglass,
 };
 
-const decisionColors: Record<ApprovalDecision | 'Pending', string> = {
-  'Approved': 'text-green-600 bg-green-50 border-green-200',
-  'Rejected': 'text-red-600 bg-red-50 border-red-200',
-  'Needs Information': 'text-orange-600 bg-orange-50 border-orange-200',
-  'Pending': 'text-muted-foreground bg-muted/50 border-dashed',
+const decisionBadgeConfig: Record<ApprovalDecision | 'Pending', { variant: 'default' | 'secondary' | 'destructive' | 'outline', textClass?: string }> = {
+  'Approved': { variant: 'default', textClass: 'text-green-700 bg-green-100 border-green-300 hover:bg-green-200' },
+  'Rejected': { variant: 'destructive', textClass: 'text-red-700 bg-red-100 border-red-300 hover:bg-red-200' },
+  'Needs Information': { variant: 'secondary', textClass: 'text-orange-700 bg-orange-100 border-orange-300 hover:bg-orange-200' },
+  'Pending': { variant: 'outline', textClass: 'text-muted-foreground' },
 };
-const decisionTextColors: Record<ApprovalDecision | 'Pending', string> = {
-    'Approved': 'text-green-700',
-    'Rejected': 'text-red-700',
-    'Needs Information': 'text-orange-700',
-    'Pending': 'text-muted-foreground',
-  };
 
 
 const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) => {
@@ -82,16 +79,45 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
   const overallStatusInfo = statusConfig[assessment.status] || { icon: HelpCircle, badgeClass: 'bg-gray-200 text-gray-800' };
   const OverallStatusIcon = overallStatusInfo.icon;
 
-  const formatDateSafe = (dateStr: string | undefined) => {
+  const formatDateSafe = (dateStr: string | undefined, template: string = `MMM d, yyyy '${getTranslation(T_STATUS_CARD.at)}' HH:mm`) => {
     if (!dateStr) return '';
     try {
       const parsedDate = parseISO(dateStr);
       if (isValid(parsedDate)) {
-        return format(parsedDate, `MMM d, yyyy '${getTranslation(T_STATUS_CARD.at)}' HH:mm`);
+        return format(parsedDate, template);
       }
     } catch (e) { /* fall through */ }
     return dateStr;
   };
+
+  const renderTooltipContent = (step: ApprovalStep) => {
+    if (!step.decision) return null;
+
+    const complianceItems: string[] = [];
+    if (step.level === 'Crewing Standards and Oversight') {
+        if (step.isAgainstFSM) complianceItems.push(getTranslation(T_STATUS_CARD.fsmNonCompliance));
+        if (step.isAgainstMPR) complianceItems.push(getTranslation(T_STATUS_CARD.mprNonCompliance));
+        if (step.isAgainstCrewingProfile) complianceItems.push(getTranslation(T_STATUS_CARD.crewingProfileDeviation));
+    }
+
+    return (
+        <div className="text-xs space-y-1 p-1">
+            <p><strong>{getTranslation(T_STATUS_CARD.decision)}:</strong> {step.decision}</p>
+            {step.userName && <p><strong>{getTranslation(T_STATUS_CARD.by)}</strong> {step.userName}</p>}
+            {step.date && <p><strong>{getTranslation(T_STATUS_CARD.date)}:</strong> {formatDateSafe(step.date, 'PPpp')}</p>}
+            {step.notes && <p className="mt-1"><strong>{getTranslation(T_STATUS_CARD.notes)}</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
+            {complianceItems.length > 0 && (
+                 <div className="mt-1 pt-1 border-t">
+                    <p className="font-semibold">{getTranslation(T_STATUS_CARD.complianceFlags)}</p>
+                    <ul className="list-disc list-inside pl-1">
+                        {complianceItems.map(item => <li key={item}>{item}</li>)}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+  };
+
 
   return (
     <Card className="shadow-md rounded-lg overflow-hidden">
@@ -113,70 +139,62 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
         </div>
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          {approvalLevelsOrder.map((level, index) => {
-            const step = assessment.approvalSteps.find(s => s.level === level);
-            const decision = step?.decision || 'Pending';
-            const Icon = decisionIcons[decision];
-            const colorClass = decisionColors[decision];
-            const textColorClass = decisionTextColors[decision];
+        <TooltipProvider delayDuration={100}>
+            <div className="space-y-2">
+            {approvalLevelsOrder.map((level, index) => {
+                const step = assessment.approvalSteps.find(s => s.level === level);
+                const decision = step?.decision || 'Pending';
+                const Icon = decisionIcons[decision];
+                const badgeConfig = decisionBadgeConfig[decision];
 
-            let isHighlighted = false;
-            if (assessment.status.startsWith('Pending') && assessment.status.includes(level)) {
-                isHighlighted = true;
-            } else if (assessment.status === 'Needs Information' && step?.decision === 'Needs Information') {
-                isHighlighted = true;
-            } else if (assessment.status === 'Rejected' && step?.decision === 'Rejected' && (level === 'Senior Director' || level === 'Director General')) {
-                 isHighlighted = true;
-            }
+                let isHighlighted = false;
+                if (assessment.status.startsWith('Pending') && assessment.status.includes(level)) {
+                    isHighlighted = true;
+                } else if (assessment.status === 'Needs Information' && step?.decision === 'Needs Information') {
+                    isHighlighted = true;
+                } else if (assessment.status === 'Rejected' && step?.decision === 'Rejected' && (level === 'Senior Director' || level === 'Director General')) {
+                    isHighlighted = true;
+                }
 
-
-            return (
-              <React.Fragment key={level}>
-                <div className={cn("p-3 rounded-md border relative", colorClass, isHighlighted ? 'ring-2 ring-primary shadow-lg' : 'opacity-80 md:opacity-100')}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className={cn("h-5 w-5", textColorClass)} />
-                    <h4 className={cn("text-sm font-semibold", textColorClass)}>{getLevelTranslation(level)}</h4>
-                  </div>
-                  {step?.decision ? (
-                    <div className="text-xs space-y-0.5">
-                      <p><strong>{step.decision}</strong></p>
-                      {step.userName && <p>{getTranslation(T_STATUS_CARD.by)} {step.userName}</p>}
-                      {step.date && <p>{formatDateSafe(step.date)}</p>}
-                      {step.notes && (
-                        <p className="mt-1 pt-1 border-t border-dashed italic">
-                            {getTranslation(T_STATUS_CARD.notes)} <span className="whitespace-pre-wrap">{step.notes}</span>
-                        </p>
-                      )}
-                       {step.level === 'Crewing Standards and Oversight' && (step.isAgainstFSM || step.isAgainstMPR || step.isAgainstCrewingProfile) && (
-                        <div className="mt-1 pt-1 border-t border-dashed">
-                            <p className="text-xs font-semibold text-orange-700">{getTranslation(T_STATUS_CARD.complianceFlags)}</p>
-                            <div className="flex flex-col gap-0.5 mt-0.5">
-                                {step.isAgainstFSM && <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 bg-orange-50/50 py-0 px-1">{getTranslation(T_STATUS_CARD.fsmNonCompliance)}</Badge>}
-                                {step.isAgainstMPR && <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 bg-orange-50/50 py-0 px-1">{getTranslation(T_STATUS_CARD.mprNonCompliance)}</Badge>}
-                                {step.isAgainstCrewingProfile && <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 bg-orange-50/50 py-0 px-1">{getTranslation(T_STATUS_CARD.crewingProfileDeviation)}</Badge>}
-                            </div>
+                const stageElement = (
+                    <div className={cn(
+                        "flex items-center justify-between p-2.5 rounded-md border",
+                        isHighlighted ? 'ring-2 ring-primary shadow-md bg-background' : 'bg-muted/40 hover:bg-muted/70 transition-colors',
+                        badgeConfig.textClass?.includes('bg-') ? '' : badgeConfig.textClass // Avoid double bg
+                    )}>
+                        <div className="flex items-center gap-2">
+                        <Icon className={cn("h-5 w-5", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')} />
+                        <h4 className={cn("text-sm font-medium", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')}>{getLevelTranslation(level)}</h4>
                         </div>
-                      )}
+                        <Badge variant={badgeConfig.variant} className={cn("text-xs px-1.5 py-0.5", badgeConfig.textClass)}>
+                            {step?.decision || getTranslation(T_STATUS_CARD.pending)}
+                        </Badge>
                     </div>
-                  ) : (
-                    <p className="text-xs italic">{getTranslation(T_STATUS_CARD.pending)}</p>
-                  )}
-                </div>
-                {index < approvalLevelsOrder.length - 1 && (
-                  <div className="hidden md:flex items-center justify-center">
-                    <ChevronRight className="h-6 w-6 text-muted-foreground/70" />
-                  </div>
-                )}
-                {index < approvalLevelsOrder.length - 1 && (
-                    <div className="flex md:hidden items-center justify-center my-2">
-                        <ChevronRight className="h-5 w-5 text-muted-foreground/70 rotate-90" />
+                );
+
+                return (
+                <React.Fragment key={level}>
+                    {step?.decision ? (
+                    <Tooltip>
+                        <TooltipTrigger asChild>{stageElement}</TooltipTrigger>
+                        <TooltipContent className="max-w-xs sm:max-w-sm md:max-w-md" side="bottom" align="start">
+                            {renderTooltipContent(step)}
+                        </TooltipContent>
+                    </Tooltip>
+                    ) : (
+                    stageElement
+                    )}
+
+                    {index < approvalLevelsOrder.length - 1 && (
+                    <div className="flex justify-center my-1">
+                        <ChevronRight className="h-5 w-5 text-muted-foreground/60 rotate-90" />
                     </div>
-                )}
-              </React.Fragment>
-            );
-          })}
-        </div>
+                    )}
+                </React.Fragment>
+                );
+            })}
+            </div>
+        </TooltipProvider>
         <div className="mt-6 text-right">
           <Button variant="outline" size="sm" asChild>
             <Link href={`/assessments/${assessment.id}`}>
@@ -190,3 +208,4 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 };
 
 export default WorkflowStatusCard;
+
