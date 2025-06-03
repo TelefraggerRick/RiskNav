@@ -697,66 +697,68 @@ export default function AssessmentDetailPage() {
             )}
           </section>
           <Separator className="separator-print-styles"/>
-
-          <section >
-            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
-              <SectionTitle icon={Bot} title={getTranslation(T_DETAILS_PAGE.aiInsights)} className="mb-0"/>
-              <div className="flex flex-wrap gap-2 print-hide">
-                <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
-                  {isAiLoading.summary ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.generating)}</> : (assessment.aiGeneratedSummary ? getTranslation(T_DETAILS_PAGE.summaryGenerated) : getTranslation(T_DETAILS_PAGE.generateSummary))}
-                </Button>
-                <Button onClick={runAiRiskScoreAndRecommendations} disabled={isAiLoading.riskScore || (!!assessment.aiRiskScore && !!assessment.aiLikelihoodScore)} variant="outline" size="sm">
-                  {isAiLoading.riskScore ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.analyzing)}</> : ((assessment.aiRiskScore && assessment.aiLikelihoodScore) ? getTranslation(T_DETAILS_PAGE.analysisComplete) : getTranslation(T_DETAILS_PAGE.assessRiskMitigations))}
-                </Button>
+          
+          {!isLoadingAuth && currentUser && currentUser.uid !== 'user-unauth' && (
+            <section >
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
+                <SectionTitle icon={Bot} title={getTranslation(T_DETAILS_PAGE.aiInsights)} className="mb-0"/>
+                <div className="flex flex-wrap gap-2 print-hide">
+                  <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
+                    {isAiLoading.summary ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.generating)}</> : (assessment.aiGeneratedSummary ? getTranslation(T_DETAILS_PAGE.summaryGenerated) : getTranslation(T_DETAILS_PAGE.generateSummary))}
+                  </Button>
+                  <Button onClick={runAiRiskScoreAndRecommendations} disabled={isAiLoading.riskScore || (!!assessment.aiRiskScore && !!assessment.aiLikelihoodScore)} variant="outline" size="sm">
+                    {isAiLoading.riskScore ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.analyzing)}</> : ((assessment.aiRiskScore && assessment.aiLikelihoodScore) ? getTranslation(T_DETAILS_PAGE.analysisComplete) : getTranslation(T_DETAILS_PAGE.assessRiskMitigations))}
+                  </Button>
+                </div>
               </div>
-            </div>
-            {((isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore))) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse print-hide`} />}
+              {((isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore))) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse print-hide`} />}
 
-            {assessment.aiGeneratedSummary && (
-              <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700 card-print-styles">
-                <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">{getTranslation(T_DETAILS_PAGE.aiGeneratedSummary)}</AlertTitle>
-                <AlertDescription className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap">{assessment.aiGeneratedSummary}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              {assessment.aiRiskScore !== undefined && (
-                <Card className="my-4 p-4 bg-muted/30 md:col-span-1 card-print-styles">
-                  <CardHeader className="p-0 pb-2 card-header-print-styles">
-                      <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T_DETAILS_PAGE.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                      <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass} progress-print-styles`} />
-                      {assessment.aiSuggestedMitigations && (
-                          <div className="mt-2">
-                              <h4 className="font-semibold text-sm">{getTranslation(T_DETAILS_PAGE.suggestedMitigations)}</h4>
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiSuggestedMitigations}</p>
-                          </div>
-                      )}
-                      {assessment.aiRegulatoryConsiderations && (
-                          <div className="mt-3 pt-3 border-t">
-                              <h4 className="font-semibold text-sm">{getTranslation(T_DETAILS_PAGE.regulatoryConsiderations)}</h4>
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiRegulatoryConsiderations}</p>
-                          </div>
-                      )}
-                  </CardContent>
-                </Card>
+              {assessment.aiGeneratedSummary && (
+                <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700 card-print-styles">
+                  <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">{getTranslation(T_DETAILS_PAGE.aiGeneratedSummary)}</AlertTitle>
+                  <AlertDescription className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap">{assessment.aiGeneratedSummary}</AlertDescription>
+                </Alert>
               )}
 
-              {(assessment.aiLikelihoodScore !== undefined && assessment.aiConsequenceScore !== undefined) && (
-                 <div className="my-4 md:col-span-1 risk-matrix-print-container">
-                    <RiskMatrix likelihoodScore={assessment.aiLikelihoodScore} consequenceScore={assessment.aiConsequenceScore} />
-                 </div>
-              )}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                {assessment.aiRiskScore !== undefined && (
+                  <Card className="my-4 p-4 bg-muted/30 md:col-span-1 card-print-styles">
+                    <CardHeader className="p-0 pb-2 card-header-print-styles">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T_DETAILS_PAGE.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass} progress-print-styles`} />
+                        {assessment.aiSuggestedMitigations && (
+                            <div className="mt-2">
+                                <h4 className="font-semibold text-sm">{getTranslation(T_DETAILS_PAGE.suggestedMitigations)}</h4>
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiSuggestedMitigations}</p>
+                            </div>
+                        )}
+                        {assessment.aiRegulatoryConsiderations && (
+                            <div className="mt-3 pt-3 border-t">
+                                <h4 className="font-semibold text-sm">{getTranslation(T_DETAILS_PAGE.regulatoryConsiderations)}</h4>
+                                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{assessment.aiRegulatoryConsiderations}</p>
+                            </div>
+                        )}
+                    </CardContent>
+                  </Card>
+                )}
 
-            {!assessment.aiRiskScore && !assessment.aiLikelihoodScore && !assessment.aiGeneratedSummary && !isAiLoading.summary && !isAiLoading.riskScore &&
-              <Alert variant="default" className="border-dashed card-print-styles print-hide">
-                <BarChartBig className="h-4 w-4" />
-                <AlertDescription>{getTranslation(T_DETAILS_PAGE.runAiTools)}</AlertDescription>
-              </Alert>
-            }
-          </section>
+                {(assessment.aiLikelihoodScore !== undefined && assessment.aiConsequenceScore !== undefined) && (
+                  <div className="my-4 md:col-span-1 risk-matrix-print-container">
+                      <RiskMatrix likelihoodScore={assessment.aiLikelihoodScore} consequenceScore={assessment.aiConsequenceScore} />
+                  </div>
+                )}
+              </div>
+
+              {!assessment.aiRiskScore && !assessment.aiLikelihoodScore && !assessment.aiGeneratedSummary && !isAiLoading.summary && !isAiLoading.riskScore &&
+                <Alert variant="default" className="border-dashed card-print-styles print-hide">
+                  <BarChartBig className="h-4 w-4" />
+                  <AlertDescription>{getTranslation(T_DETAILS_PAGE.runAiTools)}</AlertDescription>
+                </Alert>
+              }
+            </section>
+          )}
           <Separator className="separator-print-styles"/>
 
           <section>
@@ -882,5 +884,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-
-    
