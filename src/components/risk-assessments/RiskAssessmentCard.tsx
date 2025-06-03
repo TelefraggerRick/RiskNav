@@ -6,14 +6,16 @@ import type { RiskAssessment, RiskAssessmentStatus, VesselDepartment } from '@/l
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Ship, CalendarDays, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Edit, Building, UserCheck, UserCircle as UserIcon, FileWarning, Globe, Anchor, Cog, Package } from 'lucide-react'; 
-import { formatDistanceToNow, parseISO, isValid } from 'date-fns'; // Added isValid
+import { formatDistanceToNow, parseISO, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { cn } from '@/lib/utils';
 import React from 'react';
 
 interface RiskAssessmentCardProps {
   assessment: RiskAssessment;
+  hasFsmOverlapWarning?: boolean;
 }
 
 const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string }> = {
@@ -38,10 +40,11 @@ const T_CARD = {
     reason: { en: "Reason:", fr: "Raison :" },
     proposedDeviations: { en: "Proposed Deviations:", fr: "Dérogations proposées :" },
     viewDetails: { en: "View Details", fr: "Voir les détails" },
-    department: { en: "Department:", fr: "Département :" }
+    department: { en: "Department:", fr: "Département :" },
+    fsmOverlapWarning: { en: "FSM Conflict: Overlapping patrol dates with another assessment for this vessel & department.", fr: "Conflit MSF : Chevauchement des dates de patrouille avec une autre évaluation pour ce navire et ce département."}
   };
 
-const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = React.memo(({ assessment }) => {
+const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = React.memo(({ assessment, hasFsmOverlapWarning }) => {
   const currentStatusConfig = statusConfig[assessment.status] || { icon: Info, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300' };
   const StatusIcon = currentStatusConfig.icon;
   
@@ -93,6 +96,14 @@ const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = React.memo(({ asse
         )}
       </CardHeader>
       <CardContent className="flex-grow space-y-2 text-sm py-3">
+        {hasFsmOverlapWarning && (
+            <Alert variant="destructive" className="py-2 px-3 mb-2 bg-red-100/70 border-red-300 text-red-700">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-xs !pl-6">
+                 {getTranslation(T_CARD.fsmOverlapWarning)}
+                </AlertDescription>
+            </Alert>
+        )}
         <div className="space-y-1">
             <p className="font-medium">{getTranslation(T_CARD.reason)}</p>
             <p className="line-clamp-2 text-muted-foreground" title={assessment.reasonForRequest}>

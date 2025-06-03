@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, isBefore, isEqual, isAfter } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,8 +47,6 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
   'Rejected'
 ];
 
-// No longer need a local ALL_REGIONS, use the one from types.ts for consistency
-
 const departmentLegendItems: { department: VesselDepartment; colorClass: string; icon: React.ElementType; translations: { en: string; fr: string} }[] = [
   { department: 'Navigation', colorClass: 'bg-blue-50 border-blue-200', icon: GlobeIcon, translations: { en: 'Navigation', fr: 'Navigation'} },
   { department: 'Deck', colorClass: 'bg-slate-50 border-slate-200', icon: Anchor, translations: { en: 'Deck', fr: 'Pont'} },
@@ -67,6 +65,7 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
+  const [fsmOverlappingIds, setFsmOverlappingIds] = useState<Set<string>>(new Set());
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -92,6 +91,61 @@ export default function DashboardPage() {
     loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."}
   };
 
+  const datesOverlap = (startAStr?: string, endAStr?: string, startBStr?: string, endBStr?: string): boolean => {
+    if (!startAStr || !endAStr || !startBStr || !endBStr) return false;
+    try {
+      const startA = parseISO(startAStr);
+      const endA = parseISO(endAStr);
+      const startB = parseISO(startBStr);
+      const endB = parseISO(endBStr);
+
+      if (!isValid(startA) || !isValid(endA) || !isValid(startB) || !isValid(endB)) return false;
+
+      // Overlap condition: (StartA <= EndB) and (EndA >= StartB)
+      return (isBefore(startA, endB) || isEqual(startA, endB)) && (isAfter(endA, startB) || isEqual(endA, startB));
+    } catch (e) {
+      console.error("Error parsing dates for overlap check:", e);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    if (assessments.length > 0) {
+      const overlappingIds = new Set<string>();
+      const assessmentsByVesselAndDept: Record<string, RiskAssessment[]> = {};
+
+      // Group assessments by vesselName and department
+      assessments.forEach(assessment => {
+        if (assessment.vesselName && assessment.department) {
+          const key = `${assessment.vesselName}-${assessment.department}`;
+          if (!assessmentsByVesselAndDept[key]) {
+            assessmentsByVesselAndDept[key] = [];
+          }
+          assessmentsByVesselAndDept[key].push(assessment);
+        }
+      });
+
+      // Check for overlaps within each group
+      Object.values(assessmentsByVesselAndDept).forEach(group => {
+        if (group.length < 2) return;
+
+        for (let i = 0; i < group.length; i++) {
+          for (let j = i + 1; j < group.length; j++) {
+            const assessmentA = group[i];
+            const assessmentB = group[j];
+
+            if (datesOverlap(assessmentA.patrolStartDate, assessmentA.patrolEndDate, assessmentB.patrolStartDate, assessmentB.patrolEndDate)) {
+              overlappingIds.add(assessmentA.id);
+              overlappingIds.add(assessmentB.id);
+            }
+          }
+        }
+      });
+      setFsmOverlappingIds(overlappingIds);
+    }
+  }, [assessments]);
+
+
   const loadAssessments = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -102,11 +156,11 @@ export default function DashboardPage() {
       toast.error(getTranslation(T.loadingErrorTitle), {
         description: getTranslation(T.loadingErrorDesc),
       });
-      setAssessments([]); // Set to empty array on error
+      setAssessments([]);
     } finally {
       setIsLoading(false);
     }
-  }, [getTranslation]);
+  }, [getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]);
 
   useEffect(() => {
     loadAssessments();
@@ -154,15 +208,14 @@ export default function DashboardPage() {
 
     const sortedAssessments = [...filtered].sort((a, b) => {
       let valA, valB;
-      // Dates are already ISO strings from Firestore service
       switch (sortKey) {
-        case 'submissionDate': 
-          valA = a.submissionDate ? new Date(a.submissionDate).getTime() : 0;
-          valB = b.submissionDate ? new Date(b.submissionDate).getTime() : 0;
+        case 'submissionDate':
+          valA = a.submissionDate ? parseISO(a.submissionDate).getTime() : 0;
+          valB = b.submissionDate ? parseISO(b.submissionDate).getTime() : 0;
           break;
-        case 'lastModified': 
-          valA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
-          valB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+        case 'lastModified':
+          valA = a.lastModified ? parseISO(a.lastModified).getTime() : 0;
+          valB = b.lastModified ? parseISO(b.lastModified).getTime() : 0;
           break;
         case 'status':
           valA = a.status;
@@ -183,9 +236,9 @@ export default function DashboardPage() {
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       
-      if (sortKey !== 'submissionDate' && a.submissionDate && b.submissionDate) {
-        const timeA = new Date(a.submissionDate).getTime();
-        const timeB = new Date(b.submissionDate).getTime();
+      if (sortKey !== 'lastModified' && a.lastModified && b.lastModified) { // Fallback sort by lastModified
+        const timeA = parseISO(a.lastModified).getTime();
+        const timeB = parseISO(b.lastModified).getTime();
         if (timeA < timeB) return 1; 
         if (timeA > timeB) return -1;
       }
@@ -215,7 +268,7 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('asc');
+      setSortDirection('desc'); // Default to descending for new sort key
     }
   }, [sortKey]);
 
@@ -238,7 +291,7 @@ export default function DashboardPage() {
     const formatDateSafe = (dateStr: string | undefined, formatStr: string) => {
         if (!dateStr) return "...";
         try {
-            const parsed = parseISO(dateStr); // Dates are ISO strings
+            const parsed = parseISO(dateStr);
             if (isValid(parsed)) return format(parsed, formatStr);
         } catch (e) { /* fall through */ }
         return "..."; 
@@ -414,7 +467,11 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {patrolAssessments.map(assessment => (
-                    <RiskAssessmentCard key={assessment.id} assessment={assessment} />
+                    <RiskAssessmentCard 
+                        key={assessment.id} 
+                        assessment={assessment}
+                        hasFsmOverlapWarning={fsmOverlappingIds.has(assessment.id)} 
+                    />
                   ))}
                 </div>
               </section>
@@ -422,7 +479,7 @@ export default function DashboardPage() {
           })}
         </div>
       ) : (
-        !isLoading && ( // Only show "No Assessments Found" if not loading
+        !isLoading && (
           <Card className="p-10 text-center shadow-sm rounded-lg">
             <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-xl font-semibold mb-2">{getTranslation(T.noAssessmentsFound)}</h2>
