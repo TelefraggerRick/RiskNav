@@ -55,6 +55,30 @@ const departmentLegendItems: { department: VesselDepartment; colorClass: string;
   { department: 'Other', colorClass: 'bg-orange-50 border-orange-200', icon: Info, translations: { en: 'Other', fr: 'Autre'} },
 ];
 
+const T = {
+  dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
+  searchPlaceholder: { en: "Search assessments...", fr: "Rechercher des évaluations..." },
+  clearSearch: { en: "Clear search", fr: "Effacer la recherche" },
+  filterByStatus: { en: "Filter by Status", fr: "Filtrer par statut" },
+  filterByRegion: { en: "Filter by Region", fr: "Filtrer par région" },
+  allStatuses: { en: "All Statuses", fr: "Tous les statuts" },
+  allRegions: { en: "All Regions", fr: "Toutes les régions" },
+  selected: { en: "Selected", fr: "Sélectionné(s)" },
+  sortBy: { en: "Sort by", fr: "Trier par" },
+  sort: { en: "Sort", fr: "Trier" },
+  asc: { en: "Asc", fr: "Asc" },
+  desc: { en: "Desc", fr: "Desc" },
+  noAssessmentsFound: { en: "No Assessments Found", fr: "Aucune évaluation trouvée" },
+  noMatchFilters: { en: "No risk assessments match your current filters. Try adjusting your search or filter criteria, or create a new assessment.", fr: "Aucune évaluation des risques ne correspond à vos filtres actuels. Essayez d'ajuster vos critères de recherche ou de filtrage, ou créez une nouvelle évaluation." },
+  clearStatusFilters: { en: "Clear Status Filters", fr: "Effacer les filtres de statut" },
+  clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
+  patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
+  generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
+  departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
+  loadingErrorTitle: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations"},
+  loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."}
+};
+
 
 export default function DashboardPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -66,29 +90,6 @@ export default function DashboardPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
 
-  const T = {
-    dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
-    searchPlaceholder: { en: "Search assessments...", fr: "Rechercher des évaluations..." },
-    clearSearch: { en: "Clear search", fr: "Effacer la recherche" },
-    filterByStatus: { en: "Filter by Status", fr: "Filtrer par statut" },
-    filterByRegion: { en: "Filter by Region", fr: "Filtrer par région" },
-    allStatuses: { en: "All Statuses", fr: "Tous les statuts" },
-    allRegions: { en: "All Regions", fr: "Toutes les régions" },
-    selected: { en: "Selected", fr: "Sélectionné(s)" },
-    sortBy: { en: "Sort by", fr: "Trier par" },
-    sort: { en: "Sort", fr: "Trier" },
-    asc: { en: "Asc", fr: "Asc" },
-    desc: { en: "Desc", fr: "Desc" },
-    noAssessmentsFound: { en: "No Assessments Found", fr: "Aucune évaluation trouvée" },
-    noMatchFilters: { en: "No risk assessments match your current filters. Try adjusting your search or filter criteria, or create a new assessment.", fr: "Aucune évaluation des risques ne correspond à vos filtres actuels. Essayez d'ajuster vos critères de recherche ou de filtrage, ou créez une nouvelle évaluation." },
-    clearStatusFilters: { en: "Clear Status Filters", fr: "Effacer les filtres de statut" },
-    clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
-    patrolLabel: { en: "Patrol:", fr: "Patrouille :" },
-    generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
-    departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
-    loadingErrorTitle: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations"},
-    loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."}
-  };
 
   const loadAssessments = useCallback(async () => {
     console.log("DashboardPage: loadAssessments CALLED. Setting isLoading to true.");
@@ -108,7 +109,7 @@ export default function DashboardPage() {
       console.log("DashboardPage: loadAssessments - FINALLY block. Setting isLoading to false.");
       setIsLoading(false);
     }
-  }, [getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]); // Keep T.x.y as deps or ensure T is stable reference
+  }, [getTranslation]); // T.loadingErrorTitle and T.loadingErrorDesc are now stable as T is outside
 
   useEffect(() => {
     console.log("DashboardPage: Initial useEffect to call loadAssessments.");
