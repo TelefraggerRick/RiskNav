@@ -28,11 +28,11 @@ const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badg
 };
 
 const departmentColorConfig: Record<VesselDepartment, { cardClass: string, icon: React.ElementType }> = {
-  'Navigation': { cardClass: 'bg-blue-50 border-blue-200 hover:border-blue-300 dark:bg-blue-900/30 dark:border-blue-700 dark:hover:border-blue-600', icon: Globe },
-  'Deck': { cardClass: 'bg-slate-50 border-slate-200 hover:border-slate-300 dark:bg-slate-900/30 dark:border-slate-700 dark:hover:border-slate-600', icon: Anchor },
-  'Engine Room': { cardClass: 'bg-purple-50 border-purple-200 hover:border-purple-300 dark:bg-purple-900/30 dark:border-purple-700 dark:hover:border-purple-600', icon: Cog },
-  'Logistics': { cardClass: 'bg-green-50 border-green-200 hover:border-green-300 dark:bg-green-900/30 dark:border-green-700 dark:hover:border-green-600', icon: Package },
-  'Other': { cardClass: 'bg-orange-50 border-orange-200 hover:border-orange-300 dark:bg-orange-900/30 dark:border-orange-700 dark:hover:border-orange-600', icon: Info },
+  'Navigation': { cardClass: 'bg-blue-100 border-blue-300 hover:border-blue-400 dark:bg-blue-800/40 dark:border-blue-600 dark:hover:border-blue-500', icon: Globe },
+  'Deck': { cardClass: 'bg-slate-100 border-slate-300 hover:border-slate-400 dark:bg-slate-800/40 dark:border-slate-600 dark:hover:border-slate-500', icon: Anchor },
+  'Engine Room': { cardClass: 'bg-purple-100 border-purple-300 hover:border-purple-400 dark:bg-purple-800/40 dark:border-purple-600 dark:hover:border-purple-500', icon: Cog },
+  'Logistics': { cardClass: 'bg-green-100 border-green-300 hover:border-green-400 dark:bg-green-800/40 dark:border-green-600 dark:hover:border-green-500', icon: Package },
+  'Other': { cardClass: 'bg-orange-100 border-orange-300 hover:border-orange-400 dark:bg-orange-800/40 dark:border-orange-600 dark:hover:border-orange-500', icon: Info },
 };
 
 const T_CARD = {
