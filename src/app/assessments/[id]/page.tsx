@@ -16,7 +16,7 @@ import {
 import { format, parseISO, isValid } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
-import { toast } from 'sonner';
+import { toast } from 'sonner'; // Changed to sonner import
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
@@ -521,9 +521,20 @@ export default function AssessmentDetailPage() {
     try {
         await updateAssessmentInDB(assessment.id, updates);
         setAssessment(prev => prev ? {...prev, ...updates } : null);
-        toast.success(getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision), {
-            description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
-        });
+        
+        const title = getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision);
+        const description = getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase());
+
+        if (currentDecision === 'Approved') {
+            toast.success(title, { description });
+        } else if (currentDecision === 'Rejected') {
+            toast.error(title, { description });
+        } else if (currentDecision === 'Needs Information') {
+            toast.info(title, { description });
+        } else {
+            toast(title, { description }); // Default toast
+        }
+
     } catch (error) {
         console.error("Error updating assessment approval:", error);
         toast.error(getTranslation(T_DETAILS_PAGE.error), { description: getTranslation(T_DETAILS_PAGE.failedToUpdateAssessmentToast) });
@@ -952,3 +963,4 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
+
