@@ -2,7 +2,7 @@
 "use client";
 
 import type { AppUser, UserRole } from '@/lib/types';
-import { auth, db, rtdb, requestNotificationPermission } from '@/lib/firebase'; // Added requestNotificationPermission
+import { auth, db, rtdb } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword, type User as FirebaseAuthUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp as firestoreServerTimestamp } from 'firebase/firestore';
 import { ref, onValue, set, onDisconnect, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
@@ -10,7 +10,6 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { useRouter } from "next/navigation";
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { updateUserFCMToken } from '@/lib/firestoreService'; // Added
 
 interface UserContextType {
   currentUser: AppUser;
@@ -27,7 +26,6 @@ const unauthenticatedAppUser: AppUser = {
   name: 'No User Selected',
   email: '',
   role: 'Unauthenticated',
-  fcmTokens: []
 };
 
 export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -41,34 +39,13 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loginSuccessTitle: { en: "Login Successful", fr: "Connexion réussie" },
     loginSuccessDesc: { en: "Welcome back, {userName}!", fr: "Bon retour, {userName}!" },
     profileNotFoundWarn: { en: "User profile not found in Firestore for UID: {uid}. Logging out.", fr: "Profil utilisateur non trouvé dans Firestore pour UID : {uid}. Déconnexion."},
-    notificationPermissionSuccess: { en: "Notification permissions enabled.", fr: "Permissions de notification activées."},
-    notificationPermissionError: { en: "Could not enable notifications.", fr: "Impossible d'activer les notifications."},
     rtdbUnavailableWarn: { en: "Realtime Database is not available. User presence features disabled.", fr: "La base de données en temps réel n'est pas disponible. Les fonctionnalités de présence utilisateur sont désactivées."}
   };
-
-  const setupNotifications = useCallback(async (userId: string) => {
-    if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
-      try {
-        const token = await requestNotificationPermission();
-        if (token && userId) {
-          await updateUserFCMToken(userId, token);
-          // Toast for success can be verbose, consider removing or making it conditional
-          // toast.success(getTranslation(T_USER_CONTEXT.notificationPermissionSuccess));
-          console.log("Notification permission granted and token stored.");
-        } else if (Notification.permission === 'denied') {
-          console.warn("Notification permission was denied by the user.");
-        }
-      } catch (error) {
-        console.error("Error setting up notifications:", error);
-        toast.error(getTranslation(T_USER_CONTEXT.notificationPermissionError));
-      }
-    }
-  }, [getTranslation, T_USER_CONTEXT.notificationPermissionError]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // setIsLoadingAuth(true); // Already true or set by login function
+        setIsLoadingAuth(true); 
         setFirebaseUser(user);
         const userDocRef = doc(db, 'users', user.uid);
         try {
@@ -76,7 +53,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (userDocSnap.exists()) {
               const appUser = { uid: user.uid, ...userDocSnap.data() } as AppUser;
               setCurrentUser(appUser);
-              await setupNotifications(user.uid); 
               
               if (rtdb) {
                 const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
@@ -91,22 +67,20 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               } else {
                 console.warn(getTranslation(T_USER_CONTEXT.rtdbUnavailableWarn));
               }
-              setIsLoadingAuth(false); // Set loading to false after all async operations for auth user
+              setIsLoadingAuth(false); 
             } else {
               console.warn(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
               toast.error(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
-              await signOut(auth); // This will re-trigger onAuthStateChanged with user=null
-              // isLoadingAuth will be set to false in the subsequent call (user === null)
+              await signOut(auth);
               return; 
             }
         } catch (error) {
             console.error("Error fetching user profile from Firestore:", error);
             toast.error("Error loading user profile. Logging out.");
-            await signOut(auth); // Re-trigger onAuthStateChanged with user=null
-             // isLoadingAuth will be set to false in the subsequent call (user === null)
+            await signOut(auth); 
             return; 
         }
-      } else { // User is null (logged out or never logged in)
+      } else { 
         setFirebaseUser(null);
         setCurrentUser(unauthenticatedAppUser);
         setIsLoadingAuth(false); 
@@ -114,18 +88,17 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => unsubscribe();
-  }, [getTranslation, setupNotifications, T_USER_CONTEXT.profileNotFoundWarn, T_USER_CONTEXT.rtdbUnavailableWarn]);
+  }, [getTranslation, T_USER_CONTEXT.profileNotFoundWarn, T_USER_CONTEXT.rtdbUnavailableWarn]);
 
 
   const login = useCallback(async (email: string, passwordAttempt: string): Promise<boolean> => {
     setIsLoadingAuth(true); 
     try {
       await signInWithEmailAndPassword(auth, email, passwordAttempt);
-      // onAuthStateChanged will handle setting currentUser and eventually setIsLoadingAuth to false after profile fetch
       return true;
     } catch (error) {
       console.error("Login failed:", error);
-      setIsLoadingAuth(false); // Ensure loading is false on login failure if onAuthStateChanged doesn't run quickly enough
+      setIsLoadingAuth(false); 
       return false;
     }
   }, []);
@@ -143,24 +116,20 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Error setting user offline in RTDB:", error);
       }
     } else if (firebaseUser && !rtdb) {
-        console.warn("RTDB not available, cannot set user offline status during logout.");
+        console.warn(getTranslation(T_USER_CONTEXT.rtdbUnavailableWarn));
     }
     try {
       await signOut(auth);
-      // onAuthStateChanged will set currentUser to unauth, firebaseUser to null, and isLoadingAuth to false
       router.push('/login');
     } catch (error) {
        console.error("Error during sign out:", error);
-       // Manually reset state in case onAuthStateChanged doesn't fire or is delayed
        setFirebaseUser(null);
        setCurrentUser(unauthenticatedAppUser);
        setIsLoadingAuth(false);
        router.push('/login');
     }
-  }, [router, firebaseUser]); // Added firebaseUser to dependencies
+  }, [router, firebaseUser, getTranslation, T_USER_CONTEXT.rtdbUnavailableWarn]); 
   
-  // Removed the initial loading screen div from here as it's better handled by consuming components
-
   return (
     <UserContext.Provider value={{ 
         currentUser, 

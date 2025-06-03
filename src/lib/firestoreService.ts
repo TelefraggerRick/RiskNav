@@ -17,8 +17,6 @@ import {
   DocumentSnapshot,
   FieldValue,
   deleteField,
-  arrayUnion,
-  arrayRemove
 } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
 import type { RiskAssessment, Attachment, ApprovalStep, AppUser, UserRole, VesselRegion } from '@/lib/types';
@@ -262,7 +260,7 @@ export const getAllUsersFromDB = async (): Promise<AppUser[]> => {
   }
 };
 
-export const updateUserProfileInDB = async (uid: string, data: { role?: UserRole; region?: VesselRegion | null; fcmTokens?: FieldValue }): Promise<void> => {
+export const updateUserProfileInDB = async (uid: string, data: { role?: UserRole; region?: VesselRegion | null }): Promise<void> => {
   try {
     if (data.role === 'Unauthenticated') {
       throw new Error("Cannot assign 'Unauthenticated' role.");
@@ -280,11 +278,7 @@ export const updateUserProfileInDB = async (uid: string, data: { role?: UserRole
         updatesToApply.region = data.region;
       }
     }
-    if (data.fcmTokens) {
-        updatesToApply.fcmTokens = data.fcmTokens;
-    }
-
-
+    
     if (Object.keys(updatesToApply).length === 0) {
       console.log(`No profile changes to apply for user ${uid}`);
       return;
@@ -295,38 +289,5 @@ export const updateUserProfileInDB = async (uid: string, data: { role?: UserRole
   } catch (error) {
     console.error(`Error updating profile for user ${uid}: `, error);
     throw error;
-  }
-};
-
-export const updateUserFCMToken = async (userId: string, token: string): Promise<void> => {
-  if (!userId || !token) {
-    console.error("User ID or FCM token is missing.");
-    return;
-  }
-  const userDocRef = doc(db, "users", userId);
-  try {
-    await updateDoc(userDocRef, {
-      fcmTokens: arrayUnion(token), // Add token to array, avoids duplicates if token already exists
-      lastModified: serverTimestamp() // Optionally update last modified
-    });
-    console.log(`FCM token updated for user ${userId}`);
-  } catch (error) {
-    console.error(`Error updating FCM token for user ${userId}:`, error);
-  }
-};
-
-export const getUserFCMTokens = async (userId: string): Promise<string[]> => {
-  if (!userId) return [];
-  try {
-    const userDocRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists()) {
-      const userData = docSnap.data() as AppUser;
-      return userData.fcmTokens || [];
-    }
-    return [];
-  } catch (error) {
-    console.error(`Error fetching FCM tokens for user ${userId}:`, error);
-    return [];
   }
 };
