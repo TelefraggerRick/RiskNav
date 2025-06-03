@@ -8,8 +8,10 @@ import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2, CalendarClock } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +27,6 @@ import { cn } from '@/lib/utils';
 import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
 import { toast } from 'sonner';
 
-// Moved T object outside the component
 const T = {
   dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
   searchPlaceholder: { en: "Search assessments...", fr: "Rechercher des évaluations..." },
@@ -54,6 +55,7 @@ const T = {
   vesselNameSort: { en: "Vessel Name", fr: "Nom du navire" },
   regionSort: { en: "Region", fr: "Région" },
   to: { en: "to", fr: "au" },
+  hideCompletedPatrolsLabel: { en: "Hide Completed Patrols", fr: "Masquer les patrouilles terminées" },
 };
 
 
@@ -96,6 +98,7 @@ export default function DashboardPage() {
   const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('patrolStartDate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [hideCompletedPatrols, setHideCompletedPatrols] = useState(false);
   const { getTranslation, currentLanguage } = useLanguage();
 
 
@@ -146,11 +149,13 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('desc');
+      setSortDirection('desc'); // Default to descending for new sort keys, or 'asc' if preferred.
     }
   }, [sortKey]);
 
   const filteredAssessments = useMemo(() => {
+    const today = startOfDay(new Date());
+
     return assessments.filter(assessment => {
       const searchTermMatch = searchTerm.trim() === '' ||
         assessment.vesselName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,9 +167,15 @@ export default function DashboardPage() {
       const statusMatch = selectedStatuses.length === 0 || selectedStatuses.includes(assessment.status);
       const regionMatch = selectedRegions.length === 0 || (assessment.region && selectedRegions.includes(assessment.region));
 
-      return searchTermMatch && statusMatch && regionMatch;
+      const completedPatrolMatch = !hideCompletedPatrols || (
+        !assessment.patrolEndDate || // Keep if no end date
+        (assessment.patrolEndDate && !isValid(parseISO(assessment.patrolEndDate))) || // Keep if end date is invalid
+        (assessment.patrolEndDate && isValid(parseISO(assessment.patrolEndDate)) && endOfDay(parseISO(assessment.patrolEndDate)) >= today) // Keep if end date is today or in the future
+      );
+
+      return searchTermMatch && statusMatch && regionMatch && completedPatrolMatch;
     });
-  }, [assessments, searchTerm, selectedStatuses, selectedRegions]);
+  }, [assessments, searchTerm, selectedStatuses, selectedRegions, hideCompletedPatrols]);
 
   const groupedAndSortedAssessments = useMemo(() => {
     const patrolAssessments = filteredAssessments.filter(a => a.patrolStartDate && isValid(parseISO(a.patrolStartDate)));
@@ -182,9 +193,10 @@ export default function DashboardPage() {
         if (dateA && dateB && isValid(dateA) && isValid(dateB)) comparisonResult = dateA.getTime() - dateB.getTime();
         else if (dateA && isValid(dateA)) comparisonResult = -1;
         else if (dateB && isValid(dateB)) comparisonResult = 1;
-        if (comparisonResult === 0) { // Tie-break by vessel name then patrol end date
+
+        if (comparisonResult === 0) { // Tie-break by vessel name
           comparisonResult = a.vesselName.localeCompare(b.vesselName);
-          if (comparisonResult === 0) {
+          if (comparisonResult === 0) { // Then by patrol end date
             const endDateA = a.patrolEndDate ? parseISO(a.patrolEndDate) : null;
             const endDateB = b.patrolEndDate ? parseISO(b.patrolEndDate) : null;
             if (endDateA && endDateB && isValid(endDateA) && isValid(endDateB)) comparisonResult = endDateA.getTime() - endDateB.getTime();
@@ -227,53 +239,47 @@ export default function DashboardPage() {
         patrolGroups[groupKey].push(assessment);
     });
 
+    // Sort assessments within each patrol group based on the selected sort criteria (if not sorting by patrol start date)
     Object.keys(patrolGroups).forEach(key => {
+      if (sortKey !== 'patrolStartDate') {
         patrolGroups[key].sort((a, b) => sortFunction(a, b, sortKey, sortDirection));
+      }
+      // If sortKey IS 'patrolStartDate', they are already implicitly sorted by it due to group key structure,
+      // but we can add secondary sort for consistency or if multiple assessments fall into exact same patrol group key.
+      // However, the current group key includes the date range, making each group likely unique for distinct patrols.
+      // If further sorting within a patrol group (e.g., by status) is needed even when sortKey is patrolStartDate,
+      // additional logic would be required here. For now, we assume the group key handles the primary sort for patrolStartDate.
     });
     
     let sortedPatrolEntries = Object.entries(patrolGroups);
 
-    if (sortKey === 'patrolStartDate') {
-        sortedPatrolEntries.sort(([keyA], [keyB]) => {
-            const extractStartDate = (key: string): Date | null => {
-                const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
-                if (match && match[1]) {
-                    try { return parseISO(format(new Date(match[1].split(` ${getTranslation(T.to)} `)[0]), 'yyyy-MM-dd')); } catch { return null; }
-                }
-                return null;
-            };
-            const dateA = extractStartDate(keyA);
-            const dateB = extractStartDate(keyB);
-            let comparison = 0;
-            if (dateA && dateB && isValid(dateA) && isValid(dateB)) comparison = dateA.getTime() - dateB.getTime();
-            else if (dateA && isValid(dateA)) comparison = -1;
-            else if (dateB && isValid(dateB)) comparison = 1;
+    // Sort the groups themselves based on their patrol start date
+    sortedPatrolEntries.sort(([keyA], [keyB]) => {
+        const extractStartDate = (key: string): Date | null => {
+            const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
+            if (match && match[1]) {
+                try { 
+                    const datePart = match[1].split(` ${getTranslation(T.to)} `)[0];
+                    return parseISO(format(new Date(datePart), 'yyyy-MM-dd')); 
+                } catch { return null; }
+            }
+            return null;
+        };
+        const dateA = extractStartDate(keyA);
+        const dateB = extractStartDate(keyB);
+        let comparison = 0;
+        if (dateA && dateB && isValid(dateA) && isValid(dateB)) comparison = dateA.getTime() - dateB.getTime();
+        else if (dateA && isValid(dateA)) comparison = -1;
+        else if (dateB && isValid(dateB)) comparison = 1;
 
-            if (comparison === 0) {
-                const vesselNameA = keyA.split(' (Patrol:')[0];
-                const vesselNameB = keyB.split(' (Patrol:')[0];
-                comparison = vesselNameA.localeCompare(vesselNameB);
-            }
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-    } else {
-        // Default group sorting by patrol start date (chronological) if not sorting by patrol start date
-        sortedPatrolEntries.sort(([keyA], [keyB]) => {
-             const extractStartDate = (key: string): Date | null => {
-                const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
-                 if (match && match[1]) {
-                    try { return parseISO(format(new Date(match[1].split(` ${getTranslation(T.to)} `)[0]), 'yyyy-MM-dd')); } catch { return null; }
-                }
-                return null;
-            };
-            const dateA = extractStartDate(keyA);
-            const dateB = extractStartDate(keyB);
-            if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
-                return dateA.getTime() - dateB.getTime(); // Always ascending for group display order
-            }
-            return keyA.localeCompare(keyB);
-        });
-    }
+        if (comparison === 0) { // Tie-break by vessel name if start dates are the same
+            const vesselNameA = keyA.split(' (Patrol:')[0];
+            const vesselNameB = keyB.split(' (Patrol:')[0];
+            comparison = vesselNameA.localeCompare(vesselNameB);
+        }
+        // Apply main sortDirection to group order only if sortKey is 'patrolStartDate'
+        return (sortKey === 'patrolStartDate' && sortDirection === 'desc') ? -comparison : comparison;
+    });
 
     finalResult.push(...sortedPatrolEntries);
     if (sortedGeneralAssessments.length > 0) {
@@ -281,13 +287,13 @@ export default function DashboardPage() {
     }
     return finalResult;
 
-  }, [filteredAssessments, sortKey, sortDirection, getTranslation, T.to, T.generalAssessmentsLabel]);
+  }, [filteredAssessments, sortKey, sortDirection, getTranslation]);
 
 
   const currentSortLabel = useMemo(() => {
     const option = sortOptions.find(opt => opt.value === sortKey);
     return option ? getTranslation(T[option.labelKey]) : getTranslation(T.sort);
-  }, [sortKey, getTranslation, T]);
+  }, [sortKey, getTranslation]);
 
 
   const statusFilterLabel = selectedStatuses.length === 0 || selectedStatuses.length === ALL_STATUSES.length
@@ -315,7 +321,7 @@ export default function DashboardPage() {
       </div>
 
       <Card className="p-4 sm:p-6 shadow-sm rounded-lg">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
           <div className="relative lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -419,6 +425,16 @@ export default function DashboardPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+           <div className="flex items-center space-x-2 justify-start lg:col-span-1">
+            <Checkbox
+              id="hide-completed-patrols"
+              checked={hideCompletedPatrols}
+              onCheckedChange={(checked) => setHideCompletedPatrols(checked as boolean)}
+            />
+            <Label htmlFor="hide-completed-patrols" className="text-sm font-medium whitespace-nowrap">
+              {getTranslation(T.hideCompletedPatrolsLabel)}
+            </Label>
+          </div>
         </div>
 
         <div className="mt-4 pt-3 border-t">
