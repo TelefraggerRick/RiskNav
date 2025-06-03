@@ -36,9 +36,9 @@ const T_STATUS_CARD = {
   csoLevel: { en: "Crewing Standards & Oversight", fr: "Bureau de la conformité et des normes" },
   sdLevel: { en: "Senior Director", fr: "Directeur Principal" },
   dgLevel: { en: "Director General", fr: "Directeur Général" },
-  decision: { en: "Decision", fr: "Décision" }, // For tooltip
-  userName: { en: "User", fr: "Utilisateur" }, // For tooltip
-  date: { en: "Date", fr: "Date" }, // For tooltip
+  decision: { en: "Decision", fr: "Décision" }, 
+  userName: { en: "User", fr: "Utilisateur" }, 
+  date: { en: "Date", fr: "Date" }, 
 };
 
 const statusConfig: Record<RiskAssessment['status'], { icon: React.ElementType, badgeClass: string }> = {
@@ -140,7 +140,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <TooltipProvider delayDuration={100}>
-            <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 md:gap-3 overflow-x-auto py-2">
             {approvalLevelsOrder.map((level, index) => {
                 const step = assessment.approvalSteps.find(s => s.level === level);
                 const decision = step?.decision || 'Pending';
@@ -158,15 +158,13 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 
                 const stageElement = (
                     <div className={cn(
-                        "flex items-center justify-between p-2.5 rounded-md border",
+                        "flex-1 min-w-[180px] sm:min-w-0 flex flex-col items-center p-2.5 rounded-md border",
                         isHighlighted ? 'ring-2 ring-primary shadow-md bg-background' : 'bg-muted/40 hover:bg-muted/70 transition-colors',
-                        badgeConfig.textClass?.includes('bg-') ? '' : badgeConfig.textClass // Avoid double bg
+                        badgeConfig.textClass?.includes('bg-') ? '' : badgeConfig.textClass 
                     )}>
-                        <div className="flex items-center gap-2">
-                        <Icon className={cn("h-5 w-5", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')} />
-                        <h4 className={cn("text-sm font-medium", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')}>{getLevelTranslation(level)}</h4>
-                        </div>
-                        <Badge variant={badgeConfig.variant} className={cn("text-xs px-1.5 py-0.5", badgeConfig.textClass)}>
+                        <Icon className={cn("h-5 w-5 mb-1", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')} />
+                        <h4 className={cn("text-xs text-center font-medium mb-1 truncate w-full", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')}>{getLevelTranslation(level)}</h4>
+                        <Badge variant={badgeConfig.variant} className={cn("text-xs px-1.5 py-0.5 whitespace-nowrap", badgeConfig.textClass)}>
                             {step?.decision || getTranslation(T_STATUS_CARD.pending)}
                         </Badge>
                     </div>
@@ -177,7 +175,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
                     {step?.decision ? (
                     <Tooltip>
                         <TooltipTrigger asChild>{stageElement}</TooltipTrigger>
-                        <TooltipContent className="max-w-xs sm:max-w-sm md:max-w-md" side="bottom" align="start">
+                        <TooltipContent className="max-w-xs sm:max-w-sm md:max-w-md" side="bottom" align="center">
                             {renderTooltipContent(step)}
                         </TooltipContent>
                     </Tooltip>
@@ -186,8 +184,8 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
                     )}
 
                     {index < approvalLevelsOrder.length - 1 && (
-                    <div className="flex justify-center my-1">
-                        <ChevronRight className="h-5 w-5 text-muted-foreground/60 rotate-90" />
+                    <div className="flex-none flex items-center justify-center px-1 sm:px-2">
+                        <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
                     </div>
                     )}
                 </React.Fragment>
@@ -208,4 +206,3 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 };
 
 export default WorkflowStatusCard;
-
