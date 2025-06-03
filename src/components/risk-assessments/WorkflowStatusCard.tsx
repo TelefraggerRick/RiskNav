@@ -140,7 +140,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <TooltipProvider delayDuration={100}>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 md:gap-2 overflow-x-auto py-2">
+            <div className="flex flex-row items-stretch justify-start gap-2 md:gap-3 overflow-x-auto py-2">
             {approvalLevelsOrder.map((level, index) => {
                 const step = assessment.approvalSteps.find(s => s.level === level);
                 const decision = step?.decision || 'Pending';
@@ -158,9 +158,8 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 
                 const stageElement = (
                     <div className={cn(
-                        "flex-1 min-w-[150px] sm:min-w-0 flex flex-col items-center p-2 rounded-md border", // Reduced p-2.5 to p-2, min-w-[180px] to min-w-[150px]
-                        isHighlighted ? 'ring-2 ring-primary shadow-md bg-background' : 'bg-muted/40 hover:bg-muted/70 transition-colors',
-                        badgeConfig.textClass?.includes('bg-') ? '' : badgeConfig.textClass
+                        "flex-shrink-0 w-[140px] flex flex-col items-center p-2 rounded-md border",
+                        isHighlighted ? 'ring-2 ring-primary shadow-md bg-background' : 'bg-muted/40 hover:bg-muted/70 transition-colors'
                     )}>
                         <Icon className={cn("h-5 w-5 mb-1", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')} />
                         <h4 className={cn("text-xs text-center font-medium mb-1 truncate w-full", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')}>{getLevelTranslation(level)}</h4>
@@ -184,7 +183,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
                     )}
 
                     {index < approvalLevelsOrder.length - 1 && (
-                    <div className="flex-none flex items-center justify-center px-1 sm:px-1.5"> {/* Reduced gap here too */}
+                    <div className="flex-none flex items-center justify-center px-1 sm:px-1.5">
                         <ChevronRight className="h-5 w-5 text-muted-foreground/60" />
                     </div>
                     )}
@@ -206,4 +205,3 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 };
 
 export default WorkflowStatusCard;
-
