@@ -26,18 +26,22 @@ export default function Header() {
   const [onlineUsersCount, setOnlineUsersCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const statusRef = ref(rtdb, '/status');
-    const unsubscribe = onValue(statusRef, (snapshot) => {
-      const statuses = snapshot.val();
-      if (statuses) {
-        const count = Object.values(statuses).filter((status: any) => status.isOnline).length;
-        setOnlineUsersCount(count);
-      } else {
-        setOnlineUsersCount(0);
-      }
-    });
-
-    return () => unsubscribe(); 
+    if (rtdb) { // Only setup if RTDB is available
+      const statusRef = ref(rtdb, '/status');
+      const unsubscribe = onValue(statusRef, (snapshot) => {
+        const statuses = snapshot.val();
+        if (statuses) {
+          const count = Object.values(statuses).filter((status: any) => status.isOnline).length;
+          setOnlineUsersCount(count);
+        } else {
+          setOnlineUsersCount(0);
+        }
+      });
+      return () => unsubscribe(); 
+    } else {
+      console.warn("Header: RTDB not available, online user count feature disabled.");
+      setOnlineUsersCount(null); // Indicate unavailability
+    }
   }, []);
 
 
@@ -169,3 +173,4 @@ export default function Header() {
     </header>
   );
 }
+    

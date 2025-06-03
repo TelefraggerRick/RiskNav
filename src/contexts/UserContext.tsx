@@ -42,7 +42,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     loginSuccessDesc: { en: "Welcome back, {userName}!", fr: "Bon retour, {userName}!" },
     profileNotFoundWarn: { en: "User profile not found in Firestore for UID: {uid}. Logging out.", fr: "Profil utilisateur non trouvé dans Firestore pour UID : {uid}. Déconnexion."},
     notificationPermissionSuccess: { en: "Notification permissions enabled.", fr: "Permissions de notification activées."},
-    notificationPermissionError: { en: "Could not enable notifications.", fr: "Impossible d'activer les notifications."}
+    notificationPermissionError: { en: "Could not enable notifications.", fr: "Impossible d'activer les notifications."},
+    rtdbUnavailableWarn: { en: "Realtime Database is not available. User presence features disabled.", fr: "La base de données en temps réel n'est pas disponible. Les fonctionnalités de présence utilisateur sont désactivées."}
   };
 
   const setupNotifications = useCallback(async (userId: string) => {
@@ -60,7 +61,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast.error(getTranslation(T_USER_CONTEXT.notificationPermissionError));
       }
     }
-  }, [getTranslation]); // T_USER_CONTEXT is stable
+  }, [getTranslation, T_USER_CONTEXT.notificationPermissionSuccess, T_USER_CONTEXT.notificationPermissionError]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -73,7 +74,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (userDocSnap.exists()) {
           const appUser = { uid: user.uid, ...userDocSnap.data() } as AppUser;
           setCurrentUser(appUser);
-          await setupNotifications(user.uid); // Setup notifications after user is confirmed
+          await setupNotifications(user.uid); 
         } else {
           console.warn(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
           toast.error(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
@@ -82,24 +83,28 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setCurrentUser(unauthenticatedAppUser);
         }
 
-        const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
-        const isOfflineForDatabase = {
-          isOnline: false,
-          lastChanged: rtdbServerTimestamp(),
-        };
-        const isOnlineForDatabase = {
-          isOnline: true,
-          lastChanged: rtdbServerTimestamp(),
-        };
+        if (rtdb) { // Check if RTDB is initialized
+          const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
+          const isOfflineForDatabase = {
+            isOnline: false,
+            lastChanged: rtdbServerTimestamp(),
+          };
+          const isOnlineForDatabase = {
+            isOnline: true,
+            lastChanged: rtdbServerTimestamp(),
+          };
 
-        onValue(ref(rtdb, '.info/connected'), (snapshot) => {
-          if (snapshot.val() === false) {
-            return;
-          }
-          onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
-            set(userStatusDatabaseRef, isOnlineForDatabase);
+          onValue(ref(rtdb, '.info/connected'), (snapshot) => {
+            if (snapshot.val() === false) {
+              return;
+            }
+            onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+              set(userStatusDatabaseRef, isOnlineForDatabase);
+            });
           });
-        });
+        } else {
+          console.warn(getTranslation(T_USER_CONTEXT.rtdbUnavailableWarn));
+        }
 
       } else {
         setFirebaseUser(null);
@@ -109,12 +114,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     return () => unsubscribe();
-  }, [getTranslation, setupNotifications]); // Added setupNotifications
+  }, [getTranslation, setupNotifications, T_USER_CONTEXT.profileNotFoundWarn, T_USER_CONTEXT.rtdbUnavailableWarn]);
 
   const login = useCallback(async (email: string, passwordAttempt: string): Promise<boolean> => {
     try {
       await signInWithEmailAndPassword(auth, email, passwordAttempt);
-      // onAuthStateChanged will handle setting user state and calling setupNotifications
       return true;
     } catch (error) {
       console.error("Login failed:", error);
@@ -123,7 +127,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const logout = useCallback(async () => {
-    if (firebaseUser) {
+    if (firebaseUser && rtdb) { // Check if RTDB is initialized
       const userStatusDatabaseRef = ref(rtdb, `/status/${firebaseUser.uid}`);
       try {
         await set(userStatusDatabaseRef, {
@@ -133,6 +137,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } catch (error) {
         console.error("Error setting user offline in RTDB:", error);
       }
+    } else if (firebaseUser && !rtdb) {
+        console.warn("RTDB not available, cannot set user offline status during logout.");
     }
     try {
       await signOut(auth);
@@ -169,3 +175,4 @@ export const useUser = (): UserContextType => {
   }
   return context;
 };
+    
