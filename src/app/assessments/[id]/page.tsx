@@ -205,39 +205,33 @@ export default function AssessmentDetailPage() {
     }
 
     try {
-      // Ensure all content is rendered before capturing, especially images or dynamically loaded elements
-      await new Promise(resolve => setTimeout(resolve, 200)); // Small delay for rendering
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       const canvas = await html2canvas(input, {
-        scale: 2, // Increase scale for better resolution
-        useCORS: true, // For external images if any
-        logging: true, // For debugging html2canvas issues
-        width: input.scrollWidth, // Capture full scrollable width
-        height: input.scrollHeight, // Capture full scrollable height
-        scrollX: 0, // Ensure capture starts from the left edge of the element
-        scrollY: 0, // Ensure capture starts from the top edge of the element
-        windowWidth: input.scrollWidth, // Tell html2canvas the "viewport" width for rendering
-        windowHeight: input.scrollHeight, // Tell html2canvas the "viewport" height
-        onclone: (document) => {
-            // You can make temporary DOM changes here specifically for printing
-            // e.g., document.body.style.setProperty('font-size', '10px', 'important');
-        }
+        scale: 2, 
+        useCORS: true, 
+        logging: false, 
+        width: input.scrollWidth, 
+        height: input.scrollHeight, 
+        scrollX: 0, 
+        scrollY: 0, 
+        windowWidth: input.scrollWidth, 
+        windowHeight: input.scrollHeight,
       });
 
-      const imgData = canvas.toDataURL('image/png'); // Use PNG for better text quality
-      const pdf = new jsPDF('p', 'mm', 'a4'); // Portrait, millimeters, A4
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'in', 'letter'); // Portrait, inches, Letter size
       
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const pdfWidth = pdf.internal.pageSize.getWidth(); // inches
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // inches
       
       const imgProps = pdf.getImageProperties(imgData);
-      const canvasOriginalWidth = imgProps.width;
-      const canvasOriginalHeight = imgProps.height;
+      const canvasOriginalWidth = imgProps.width; // pixels
+      const canvasOriginalHeight = imgProps.height; // pixels
 
-      // Calculate how much of the canvas height fits on one PDF page, maintaining aspect ratio based on PDF width
-      const scaledCanvasHeightForPdfWidth = (canvasOriginalHeight * pdfWidth) / canvasOriginalWidth;
+      const scaledCanvasHeightForPdfWidth = (canvasOriginalHeight * pdfWidth) / canvasOriginalWidth; // inches
       
-      let currentYPositionInCanvas = 0; // Current Y position on the source canvas (in original canvas pixels)
+      let currentYPositionInCanvas = 0; 
       let pages = 0;
 
       while (currentYPositionInCanvas < canvasOriginalHeight) {
@@ -245,35 +239,31 @@ export default function AssessmentDetailPage() {
           pdf.addPage();
         }
         
-        // Calculate the height of the segment of the canvas to draw on this PDF page (in original canvas pixels)
-        // This is the pdfHeight (in mm) converted to canvas pixels using the scale factor (canvasOriginalWidth / pdfWidth)
-        const segmentHeightInCanvas = pdfHeight * (canvasOriginalWidth / pdfWidth);
+        const segmentHeightInCanvas = pdfHeight * (canvasOriginalWidth / pdfWidth); // pixels
         const actualSegmentHeight = Math.min(segmentHeightInCanvas, canvasOriginalHeight - currentYPositionInCanvas);
 
         if (actualSegmentHeight <= 0) break;
 
-        // Add the image segment
         pdf.addImage(
-          imgData,                // The full image data
-          'PNG',                  // Format
-          0,                      // PDF X position (mm)
-          0,                      // PDF Y position (mm) - always top of current page
-          pdfWidth,               // PDF width to draw image (mm) - full width
-          (actualSegmentHeight * pdfWidth) / canvasOriginalWidth, // PDF height to draw (mm) - scaled from segment
-          undefined,              // Alias
-          'NONE',                 // Compression
-          0,                      // Rotation
-          // Source rectangle (from original canvas, in pixels)
-          0,                      // Source X
-          currentYPositionInCanvas, // Source Y - where to start slicing from the tall canvas
-          canvasOriginalWidth,    // Source Width - full width of the canvas
-          actualSegmentHeight     // Source Height - height of the slice for this page
+          imgData,                
+          'PNG',                  
+          0,                      
+          0,                      
+          pdfWidth,               
+          (actualSegmentHeight * pdfWidth) / canvasOriginalWidth, 
+          undefined,              
+          'NONE',                 
+          0,                      
+          0,                      
+          currentYPositionInCanvas, 
+          canvasOriginalWidth,    
+          actualSegmentHeight     
         );
         
         currentYPositionInCanvas += actualSegmentHeight;
         pages++;
 
-        if (pages > 20) { // Safety break for very long content
+        if (pages > 20) { 
           toast.warning("PDF generation stopped after 20 pages to prevent performance issues.");
           break;
         }
@@ -416,7 +406,7 @@ export default function AssessmentDetailPage() {
             userIsApproverForCurrentStep = true;
         } else if (currentLevelToAct === 'Director General' && currentUser.role === 'Director General') {
             userIsApproverForCurrentStep = true;
-        } else if (currentUser.role === 'Admin') { // Admins can act on any step
+        } else if (currentUser.role === 'Admin') { 
             userIsApproverForCurrentStep = true;
         }
     }
