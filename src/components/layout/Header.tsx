@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown } from 'lucide-react';
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown, Settings } from 'lucide-react'; // Added Settings
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,12 +22,13 @@ import { cn } from '@/lib/utils';
 
 // Renamed component for clarity, now represents CCG Strike
 const CcgStrikeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20" viewBox="0 0 9600 4800">
-	<title>Flag of Canada</title>
-	<path fill="#f00" d="m0 0h2400l99 99h4602l99-99h2400v4800h-2400l-99-99h-4602l-99 99H0z"/>
-	<path fill="#fff" d="m2400 0h4800v4800h-4800zm2490 4430-45-863a95 95 0 0 1 111-98l859 151-116-320a65 65 0 0 1 20-73l941-762-212-99a65 65 0 0 1-34-79l186-572-542 115a65 65 0 0 1-73-38l-105-247-423 454a65 65 0 0 1-111-57l204-1052-327 189a65 65 0 0 1-91-27l-332-652-332 652a65 65 0 0 1-91 27l-327-189 204 1052a65 65 0 0 1-111 57l-423-454-105 247a65 65 0 0 1-73 38l-542-115 186 572a65 65 0 0 1-34 79l-212 99 941 762a65 65 0 0 1 20 73l-116 320 859-151a95 95 0 0 1 111 98l-45 863z"/>
-</svg>
-
+    // Path for an angled strike (parallelogram)
+    // Adjust coordinates as needed for desired angle and thickness
+    // P1 (Top-Left): (0, 6), P2 (Top-Right): (30, 9), P3 (Bottom-Right): (40, 14), P4 (Bottom-Left): (10, 11)
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20" {...props} fillRule="evenodd" clipRule="evenodd" strokeLinejoin="round" strokeMiterlimit="2">
+        <title>Canadian Coast Guard Strike</title>
+        <path d="M0 6 L30 9 L40 14 L10 11 Z" fill="#D8262C"/>
+    </svg>
 );
 
 
@@ -74,6 +75,7 @@ export default function Header() {
     workflowStatus: { en: "Workflow Status", fr: "État du flux" },
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
     admin: { en: "Admin", fr: "Admin" }, 
+    userSettings: { en: "Settings", fr: "Paramètres" }, // New translation
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
     french: { en: "Français", fr: "English" },
@@ -192,6 +194,13 @@ export default function Header() {
                     <p className="text-xs text-muted-foreground font-normal">{currentUser.role}</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                     <Link href="/user-settings" className="flex items-center w-full">
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>{getTranslation(T.userSettings)}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>{getTranslation(T.logout)}</span>
@@ -208,3 +217,4 @@ export default function Header() {
     
 
     
+
