@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -109,5 +110,66 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@media print {
+  .print-hide {
+    display: none !important;
+  }
+  body {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    background-color: #fff !important; /* Ensure white background for printing */
+    color: #000 !important; /* Ensure black text for printing */
+  }
+  main {
+    padding: 1cm !important; /* Add some margin for printing */
+    margin: 0 !important;
+  }
+  .card-print-styles {
+    border: 1px solid #ccc !important; /* Ensure borders are visible */
+    box-shadow: none !important; /* Remove shadows */
+    page-break-inside: avoid !important; /* Try to keep cards from splitting across pages */
+    margin-bottom: 1rem !important; /* Add some space between cards */
+  }
+  .card-header-print-styles {
+    background-color: #f0f0f0 !important; /* Light background for headers */
+    -webkit-print-color-adjust: exact !important; /* Ensure background colors print in WebKit */
+    print-color-adjust: exact !important; /* Standard way to ensure background colors print */
+    border-bottom: 1px solid #ccc !important; /* Add border to header bottom */
+  }
+  .card-print-styles .text-primary {
+    color: var(--primary) !important; /* Ensure primary color text prints if desired */
+  }
+  .card-print-styles .text-muted-foreground {
+     color: #555 !important; /* Make muted text a bit darker for print */
+  }
+  a[href^="http"]:after { /* Show full URLs for external links when printing */
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #555;
+  }
+  a[href^="/"]:after { /* Avoid showing internal links */
+    content: "";
+  }
+  .separator-print-styles {
+    border-top: 1px solid #ccc !important;
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+  .progress-print-styles {
+     border: 1px solid #ccc !important;
+  }
+   .progress-print-styles > div { /* Target the ProgressIndicator */
+    background-color: #bbb !important; /* Use a grayscale color for progress bar */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Ensure badge backgrounds print if needed */
+  .badge-print-styles {
+    border: 1px solid #ccc !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

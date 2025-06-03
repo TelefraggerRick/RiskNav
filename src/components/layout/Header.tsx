@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import React, { useState, useEffect } from 'react';
 import { rtdb } from '@/lib/firebase'; 
 import { ref, onValue } from 'firebase/database'; 
+import { cn } from '@/lib/utils';
 
 export default function Header() {
   const { currentUser, logout, isLoadingAuth } = useUser(); 
@@ -67,7 +68,7 @@ export default function Header() {
   const isAdmin = userIsAuthenticated && currentUser.role === 'Admin';
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
+    <header className={cn("sticky top-0 z-50 w-full border-b bg-card shadow-sm", "print-hide")}>
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex h-12 items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">

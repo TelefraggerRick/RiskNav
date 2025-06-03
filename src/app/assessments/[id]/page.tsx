@@ -10,12 +10,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit as EditIcon, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2, Lock
+  Ship, FileText, CalendarDays, Download, AlertTriangle, CheckCircle2, XCircle, Info, Clock, Bot, ShieldCheck, ThumbsUp, ThumbsDown, MessageSquare, BrainCircuit, UserCircle as UserCircleIcon, Users, FileWarning, ArrowLeft, ChevronRight, Hourglass, Building, UserCheck as UserCheckLucideIcon, Edit as EditIcon, HelpCircle, ClipboardList, CheckSquare, Square, Sailboat, UserCog, Anchor, Globe, Fingerprint, BarChartBig, CalendarClock, User, Award, FileCheck2, Loader2, Lock, Printer
 } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
-import { toast } from 'sonner'; // Changed to sonner
+import { toast } from 'sonner'; 
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
@@ -30,6 +30,7 @@ const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight',
 const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
   editAssessment: { en: "Edit Assessment", fr: "Modifier l'évaluation" },
+  printToPdf: { en: "Print to PDF", fr: "Imprimer en PDF" },
   imo: { en: "IMO", fr: "IMO" },
   maritimeExemptionNumber: { en: "Maritime Exemption #", fr: "N° d'exemption maritime" },
   lastModified: { en: "Last Modified", fr: "Dernière modification" },
@@ -457,21 +458,26 @@ export default function AssessmentDetailPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between print-hide">
         <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.backToDashboard)}
         </Button>
-        {canEdit && (
-           <Button variant="secondary" size="sm" asChild>
-             <Link href={`/assessments/${assessment.id}/edit`}>
-               <EditIcon className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.editAssessment)}
-             </Link>
-           </Button>
-         )}
+        <div className="flex gap-2">
+            {canEdit && (
+            <Button variant="secondary" size="sm" asChild>
+                <Link href={`/assessments/${assessment.id}/edit`}>
+                <EditIcon className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.editAssessment)}
+                </Link>
+            </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.printToPdf)}
+            </Button>
+        </div>
       </div>
 
-      <Card className="shadow-lg rounded-lg overflow-hidden">
-        <CardHeader className="bg-muted/20 p-6">
+      <Card className="shadow-lg rounded-lg overflow-hidden card-print-styles">
+        <CardHeader className="bg-muted/20 p-6 card-header-print-styles">
           <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
             <div>
               <CardTitle className="text-2xl font-bold text-primary flex items-center gap-3">
@@ -487,7 +493,7 @@ export default function AssessmentDetailPage() {
                 )}
               </CardDescription>
             </div>
-            <div className="flex flex-col items-start md:items-end gap-2">
+            <div className="flex flex-col items-start md:items-end gap-2 print-hide">
                  <Badge className={`text-base px-4 py-2 rounded-full font-medium ${currentStatusConfig.badgeClass}`}>
                     <StatusIcon className="h-5 w-5 mr-2" />
                     {assessment.status}
@@ -518,7 +524,7 @@ export default function AssessmentDetailPage() {
               <DetailItem label={getTranslation(T_DETAILS_PAGE.proposedDeviations)} value={assessment.proposedOperationalDeviations} isPreformatted fullWidth/>
             </div>
           </section>
-          <Separator />
+          <Separator className="separator-print-styles"/>
 
           <section>
             <SectionTitle icon={UserCog} title={getTranslation(T_DETAILS_PAGE.exemptionIndividualAssessment)} />
@@ -539,7 +545,7 @@ export default function AssessmentDetailPage() {
                 {assessment.individualWorkingTowardsCertification === 'Yes' && <DetailItem label={getTranslation(T_DETAILS_PAGE.certProgressSummary)} value={assessment.certificationProgressSummary} isPreformatted fullWidth />}
             </div>
           </section>
-          <Separator />
+          <Separator className="separator-print-styles"/>
 
           <section>
             <SectionTitle icon={ClipboardList} title={getTranslation(T_DETAILS_PAGE.operationalConsiderations)} />
@@ -558,14 +564,14 @@ export default function AssessmentDetailPage() {
                 {assessment.reductionInVesselProgramRequirements === 'Yes' && <DetailItem label={getTranslation(T_DETAILS_PAGE.rocNotified)} value={<><YesNoIcon value={assessment.rocNotificationOfLimitations} /> {assessment.rocNotificationOfLimitations || getTranslation(T_DETAILS_PAGE.na)}</>} />}
             </div>
           </section>
-          <Separator />
+          <Separator className="separator-print-styles"/>
 
           <section>
             <SectionTitle icon={FileText} title={getTranslation(T_DETAILS_PAGE.attachments)} />
             {assessment.attachments && assessment.attachments.length > 0 ? (
               <ul className="space-y-3">
                 {assessment.attachments.map(att => (
-                  <li key={att.id || att.name} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                  <li key={att.id || att.name} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors card-print-styles">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <FileText className="h-6 w-6 text-primary shrink-0" />
                       <div className="overflow-hidden">
@@ -575,22 +581,22 @@ export default function AssessmentDetailPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => handleDownloadAttachment(att)}>
+                    <Button variant="outline" size="sm" onClick={() => handleDownloadAttachment(att)} className="print-hide">
                       <Download className="h-4 w-4 mr-2" /> {getTranslation(T_DETAILS_PAGE.download)}
                     </Button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <Alert variant="default" className="border-dashed">
+              <Alert variant="default" className="border-dashed card-print-styles">
                 <Info className="h-4 w-4" />
                 <AlertDescription>{getTranslation(T_DETAILS_PAGE.noAttachments)}</AlertDescription>
               </Alert>
             )}
           </section>
-          <Separator />
+          <Separator className="separator-print-styles"/>
 
-          <section>
+          <section className="print-hide">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
               <SectionTitle icon={Bot} title={getTranslation(T_DETAILS_PAGE.aiInsights)} className="mb-0"/>
               <div className="flex flex-wrap gap-2">
@@ -618,7 +624,7 @@ export default function AssessmentDetailPage() {
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T_DETAILS_PAGE.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                      <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass}`} />
+                      <Progress value={assessment.aiRiskScore} className={`w-full h-2.5 mb-3 ${aiRiskColorClass} progress-print-styles`} />
                       {assessment.aiSuggestedMitigations && (
                           <div className="mt-2">
                               <h4 className="font-semibold text-sm">{getTranslation(T_DETAILS_PAGE.suggestedMitigations)}</h4>
@@ -649,9 +655,9 @@ export default function AssessmentDetailPage() {
               </Alert>
             }
           </section>
-          <Separator />
+          <Separator className="separator-print-styles print-hide"/>
 
-          <section>
+          <section className="print-hide">
             <SectionTitle icon={Users} title={getTranslation(T_DETAILS_PAGE.approvalWorkflow)} />
             <div className="space-y-4">
               {assessment.approvalSteps.map((step, index) => {
@@ -662,8 +668,8 @@ export default function AssessmentDetailPage() {
 
                 return (
                   <div key={step.level}>
-                    <Card className={`p-4 ${isPending && step.level === currentLevelToAct && !isHalted ? 'border-primary shadow-md' : 'bg-muted/30'}`}>
-                      <CardHeader className="p-0 pb-2">
+                    <Card className={`p-4 card-print-styles ${isPending && step.level === currentLevelToAct && !isHalted ? 'border-primary shadow-md' : 'bg-muted/30'}`}>
+                      <CardHeader className="p-0 pb-2 card-header-print-styles">
                         <CardTitle className={`text-md font-semibold flex items-center justify-between ${stepColor}`}>
                           <span className="flex items-center gap-2">
                             <StepIcon className="h-5 w-5" />
@@ -675,7 +681,7 @@ export default function AssessmentDetailPage() {
                                 step.decision === 'Rejected' ? 'destructive' :
                                 'outline'
                               }
-                              className={`text-xs px-2 py-0.5 rounded-sm ${
+                              className={`text-xs px-2 py-0.5 rounded-sm badge-print-styles ${
                                 step.decision === 'Approved' ? 'bg-green-100 text-green-800 border-green-400' :
                                 step.decision === 'Needs Information' ? 'bg-orange-100 text-orange-800 border-orange-400' :
                                 ''
@@ -684,8 +690,8 @@ export default function AssessmentDetailPage() {
                               {step.decision}
                             </Badge>
                           ) : ( step.level === currentLevelToAct && !isHalted ?
-                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge>
-                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm">{getTranslation(T_DETAILS_PAGE.queued)}</Badge>
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm badge-print-styles">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge>
+                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm badge-print-styles">{getTranslation(T_DETAILS_PAGE.queued)}</Badge>
                           )}
                         </CardTitle>
                       </CardHeader>
@@ -734,28 +740,28 @@ export default function AssessmentDetailPage() {
                 </div>
             )}
             {assessment.status === 'Approved' && (
-                <Alert variant="default" className="mt-6 bg-green-50 border-green-200">
+                <Alert variant="default" className="mt-6 bg-green-50 border-green-200 card-print-styles">
                   <CheckCircle2 className="h-5 w-5 text-green-600" />
                   <AlertTitle className="text-green-700 font-semibold">{getTranslation(T_DETAILS_PAGE.assessmentFullyApproved)}</AlertTitle>
                   <AlertDescription className="text-green-600">{getTranslation(T_DETAILS_PAGE.assessmentFullyApprovedDesc)}</AlertDescription>
                 </Alert>
             )}
             {(assessment.status === 'Rejected' && isHalted) && (
-                 <Alert variant="destructive" className="mt-6">
+                 <Alert variant="destructive" className="mt-6 card-print-styles">
                   <XCircle className="h-5 w-5" />
                   <AlertTitle className="font-semibold">{getTranslation(T_DETAILS_PAGE.assessmentRejected)}</AlertTitle>
                   <AlertDescription>{getTranslation(T_DETAILS_PAGE.assessmentRejectedDesc).replace('{level}', String(currentLevelToAct))}</AlertDescription>
                 </Alert>
             )}
              {(assessment.status === 'Needs Information' && isHalted) && (
-                 <Alert variant="default" className="mt-6 bg-orange-50 border-orange-200">
+                 <Alert variant="default" className="mt-6 bg-orange-50 border-orange-200 card-print-styles">
                   <FileWarning className="h-5 w-5 text-orange-600" />
                   <AlertTitle className="text-orange-700 font-semibold">{getTranslation(T_DETAILS_PAGE.informationRequested)}</AlertTitle>
                   <AlertDescription className="text-orange-600">{getTranslation(T_DETAILS_PAGE.informationRequestedDesc).replace('{level}', String(currentLevelToAct))}</AlertDescription>
                 </Alert>
             )}
              {!currentLevelToAct && !['Approved', 'Rejected', 'Needs Information'].includes(assessment.status) && assessment.approvalSteps.every(s => !s.decision) && (
-                 <Alert variant="default" className="mt-6 border-dashed">
+                 <Alert variant="default" className="mt-6 border-dashed card-print-styles">
                     <Users className="h-4 w-4" />
                     <AlertDescription>{getTranslation(T_DETAILS_PAGE.awaitingInitialReview)}</AlertDescription>
                 </Alert>
