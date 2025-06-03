@@ -16,9 +16,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2, ChevronsUpDown, Check, FileBadge } from "lucide-react";
 import React, { useCallback, useState } from 'react';
-import { toast } from 'sonner'; // Changed to sonner
+import { toast } from 'sonner';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { VesselDepartment, VesselRegion } from "@/lib/types";
+import { ALL_VESSEL_REGIONS } from "@/lib/types"; // Import the global constant
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ccgVesselList } from '@/lib/ccgVessels';
 import { cn } from "@/lib/utils";
@@ -33,7 +34,8 @@ interface RiskAssessmentFormProps {
 const MAX_FILE_SIZE_MB = 5;
 const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'text/plain'];
 const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
-const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
+// Use the imported ALL_VESSEL_REGIONS instead of a local constant
+// const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic']; 
 
 const T_FORM = {
     vesselAndOverview: { en: "Vessel & Assessment Overview", fr: "Aperçu du navire et de l'évaluation" },
@@ -174,7 +176,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const currentFilesCount = form.getValues("attachments")?.length || 0;
     if (currentFilesCount >= 5) {
-      toast.error(getTranslation(T_FORM.fileLimitReached), { description: getTranslation(T_FORM.fileLimitReachedDesc) }); // Changed to sonner
+      toast.error(getTranslation(T_FORM.fileLimitReached), { description: getTranslation(T_FORM.fileLimitReachedDesc) });
       if (event.target) event.target.value = "";
       return;
     }
@@ -202,13 +204,13 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
       });
 
       if (errors.length > 0) {
-        toast.error(getTranslation(T_FORM.fileUploadIssues), { // Changed to sonner
+        toast.error(getTranslation(T_FORM.fileUploadIssues), {
           description: ( <ul className="list-disc pl-5"> {errors.map((e, i) => <li key={i}>{e}</li>)} </ul> ),
         });
       }
     }
     if (event.target) event.target.value = "";
-  }, [append, form, getTranslation]); // Removed toast from deps
+  }, [append, form, getTranslation]);
 
   const watchDeptHeadConfident = form.watch("deptHeadConfidentInIndividual");
   const watchWorkedInDept = form.watch("workedInDepartmentLast12Months");
@@ -330,7 +332,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
                       <SelectContent>
                         <SelectGroup>
                           <SelectLabel>{getTranslation(T_FORM.regions)}</SelectLabel>
-                          {regionOptions.map(option => (
+                          {ALL_VESSEL_REGIONS.map(option => ( // Use ALL_VESSEL_REGIONS
                             <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
                         </SelectGroup>

@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'next/navigation';
 import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
-import { toast } from 'sonner'; // Changed to sonner
+import { toast } from 'sonner';
 
 interface ChartDataItem {
   name: string;
@@ -54,6 +54,7 @@ const T_STATISTICS_PAGE = {
   Central: { en: 'Central', fr: 'Centre' },
   Western: { en: 'Western', fr: 'Ouest' },
   Arctic: { en: 'Arctic', fr: 'Arctique' },
+  "National HQ": { en: 'National HQ', fr: 'QG National' }, // Added translation
   loadingStatistics: { en: "Loading statistics...", fr: "Chargement des statistiques..." },
   noDataForStatisticsTitle: { en: "No Data for Statistics", fr: "Aucune donnée pour les statistiques" },
   noDataForStatisticsDesc: { en: "There are no risk assessments in the system to generate statistics. Please create some assessments first.", fr: "Aucune évaluation des risques dans le système pour générer des statistiques. Veuillez d'abord créer des évaluations." },
@@ -84,7 +85,8 @@ export default function StatisticsPage() {
         regionCounts[assessment.region] = (regionCounts[assessment.region] || 0) + 1;
       }
     });
-    setAssessmentsByRegionData(Object.entries(regionCounts).map(([name, total]) => ({ name: getTranslation(T_STATISTICS_PAGE[name as keyof typeof T_STATISTICS_PAGE]), total })).sort((a,b) => b.total - a.total));
+    setAssessmentsByRegionData(Object.entries(regionCounts).map(([name, total]) => ({ name: getTranslation(T_STATISTICS_PAGE[name.replace(/\s/g, '') as keyof typeof T_STATISTICS_PAGE]), total })).sort((a,b) => b.total - a.total));
+
 
     const departmentCounts: Record<string, number> = {};
     data.forEach(assessment => {
@@ -147,7 +149,7 @@ export default function StatisticsPage() {
             processData(data);
         } catch (error) {
             console.error("Error loading data for statistics:", error);
-            toast.error(getTranslation(T_STATISTICS_PAGE.errorLoadingStats), { // Changed to sonner
+            toast.error(getTranslation(T_STATISTICS_PAGE.errorLoadingStats), {
                 description: getTranslation(T_STATISTICS_PAGE.failedToFetchStats),
             });
             setAssessments([]);
@@ -157,7 +159,7 @@ export default function StatisticsPage() {
         }
     };
     loadAndProcessData();
-  }, [processData, getTranslation]); // Removed toast from deps
+  }, [processData, getTranslation]);
 
   const departmentDisplayConfig = useMemo((): ChartConfig => ({
     [getTranslation(T_STATISTICS_PAGE.Navigation)]: { label: getTranslation(T_STATISTICS_PAGE.Navigation), color: 'hsl(210, 65%, 50%)' },
@@ -172,6 +174,7 @@ export default function StatisticsPage() {
     [getTranslation(T_STATISTICS_PAGE.Central)]: { label: getTranslation(T_STATISTICS_PAGE.Central), color: chartColorHSL("chart-2") },
     [getTranslation(T_STATISTICS_PAGE.Western)]: { label: getTranslation(T_STATISTICS_PAGE.Western), color: chartColorHSL("chart-3") },
     [getTranslation(T_STATISTICS_PAGE.Arctic)]: { label: getTranslation(T_STATISTICS_PAGE.Arctic), color: chartColorHSL("chart-4") },
+    [getTranslation(T_STATISTICS_PAGE["National HQ"])]: { label: getTranslation(T_STATISTICS_PAGE["National HQ"]), color: chartColorHSL("chart-5") },
   }), [getTranslation]);
 
   const statusDisplayConfig = useMemo((): ChartConfig => {

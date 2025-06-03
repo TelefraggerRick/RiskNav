@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
+import { ALL_VESSEL_REGIONS } from '@/lib/types'; // Import from types.ts
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
-import { toast } from 'sonner'; // Import sonner for notifications
+import { toast } from 'sonner';
 
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
@@ -46,7 +47,7 @@ const ALL_STATUSES: RiskAssessmentStatus[] = [
   'Rejected'
 ];
 
-const ALL_REGIONS: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
+// No longer need a local ALL_REGIONS, use the one from types.ts for consistency
 
 const departmentLegendItems: { department: VesselDepartment; colorClass: string; icon: React.ElementType; translations: { en: string; fr: string} }[] = [
   { department: 'Navigation', colorClass: 'bg-blue-50 border-blue-200', icon: GlobeIcon, translations: { en: 'Navigation', fr: 'Navigation'} },
@@ -225,7 +226,7 @@ export default function DashboardPage() {
     ? getTranslation(T.allStatuses)
     : `${selectedStatuses.length} ${getTranslation(T.selected)}`;
 
-  const regionFilterLabel = selectedRegions.length === 0 || selectedRegions.length === ALL_REGIONS.length
+  const regionFilterLabel = selectedRegions.length === 0 || selectedRegions.length === ALL_VESSEL_REGIONS.length
     ? getTranslation(T.allRegions)
     : `${selectedRegions.length} ${getTranslation(T.selected)}`;
 
@@ -340,7 +341,7 @@ export default function DashboardPage() {
             <DropdownMenuContent align="start" className="w-64">
               <DropdownMenuLabel>{getTranslation(T.filterByRegion)}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {ALL_REGIONS.map(region => (
+              {ALL_VESSEL_REGIONS.map(region => (
                 <DropdownMenuCheckboxItem
                   key={region}
                   checked={selectedRegions.includes(region)}

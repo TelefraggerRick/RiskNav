@@ -1,5 +1,7 @@
 
 import { z } from 'zod';
+import type { VesselRegion } from '@/lib/types'; // Import VesselRegion
+import { ALL_VESSEL_REGIONS } from '@/lib/types'; // Import ALL_VESSEL_REGIONS
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -30,7 +32,7 @@ export const riskAssessmentFormSchema = z.object({
   department: z.enum(['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'], {
     required_error: "Department selection is required.",
   }),
-  region: z.enum(['Atlantic', 'Central', 'Western', 'Arctic'], {
+  region: z.enum(ALL_VESSEL_REGIONS, { // Use the imported constant
     required_error: "Region selection is required.",
   }),
   patrolStartDate: z.string().optional().refine(val => !val || !isNaN(Date.parse(val)), {

@@ -65,8 +65,8 @@ export type RiskAssessmentStatus =
   | 'Rejected';
 
 export type VesselDepartment = 'Navigation' | 'Deck' | 'Engine Room' | 'Logistics' | 'Other';
-export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
-export const ALL_VESSEL_REGIONS: [VesselRegion, ...VesselRegion[]] = ['Atlantic', 'Central', 'Western', 'Arctic'];
+export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic' | 'National HQ';
+export const ALL_VESSEL_REGIONS: [VesselRegion, ...VesselRegion[]] = ['Atlantic', 'Central', 'Western', 'Arctic', 'National HQ'];
 
 
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
