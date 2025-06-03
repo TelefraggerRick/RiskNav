@@ -61,8 +61,6 @@ const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
-    // If a timeout already exists, clear it before setting a new one.
-    // This can happen if dismiss is called multiple times for the same toast.
     clearTimeout(toastTimeouts.get(toastId)!)
   }
 
@@ -99,7 +97,6 @@ export const reducer = (state: State, action: Action): State => {
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
-        // If no toastId is provided, dismiss all toasts
         state.toasts.forEach((toast) => {
           addToRemoveQueue(toast.id)
         })
@@ -111,7 +108,7 @@ export const reducer = (state: State, action: Action): State => {
           t.id === toastId || toastId === undefined
             ? {
                 ...t,
-                open: false, // Mark as not open
+                open: false,
               }
             : t
         ),
@@ -119,7 +116,6 @@ export const reducer = (state: State, action: Action): State => {
     }
     case "REMOVE_TOAST":
       if (action.toastId === undefined) {
-        // Remove all toasts if no specific ID is given
         return {
           ...state,
           toasts: [],
@@ -162,22 +158,14 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       onOpenChange: (isOpenByPrimitive) => {
-        // This callback is invoked by the Radix Toast primitive when its open state changes.
-        // `isOpenByPrimitive` is the new open state from the primitive's perspective.
-        if (!isOpenByPrimitive) {
-          // The primitive is indicating it wants to close or has closed.
-          // We check our central state (`memoryState`) to see if we still consider this toast open.
-          const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
-          
-          // Only call `dismiss()` if our global state still thinks this toast is open.
-          // This is the crucial part to prevent a loop: if `dismiss()` was already called
-          // (which sets `currentToastInGlobalState.open` to false), we don't call it again.
-          if (currentToastInGlobalState && currentToastInGlobalState.open) {
-            dismiss(); // This will set `open: false` in `memoryState` and queue the toast for eventual removal.
-          }
-          // If `currentToastInGlobalState.open` is already `false`, or if the toast is not found
-          // (e.g., removed due to TOAST_LIMIT), then our state already reflects closure or removal,
-          // so no further action is needed from this specific `onOpenChange` event.
+        const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
+        // If the toast is no longer in our central state (e.g., removed by TOAST_LIMIT), do nothing.
+        if (!currentToastInGlobalState) {
+          return;
+        }
+        // If the primitive signals it's closing AND our central state still thinks it's open, then dismiss it.
+        if (!isOpenByPrimitive && currentToastInGlobalState.open) {
+          dismiss();
         }
       },
     },
@@ -201,7 +189,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, []) // Empty dependency array ensures this runs only once on mount/unmount
 
   return {
     ...state,
