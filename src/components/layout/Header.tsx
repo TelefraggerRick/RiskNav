@@ -24,17 +24,12 @@ import { cn } from '@/lib/utils';
 const CcgStrikeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 40 20" // Adjusted viewBox for a 2:1 aspect ratio
+    viewBox="0 0 40 20" // Maintained viewBox for a 2:1 aspect ratio
     {...props}
   >
     <title>Canadian Coast Guard Strike</title>
-    {/* Maple Leaf (scaled and centered) */}
-    <g transform="translate(20, 10) scale(0.065) translate(-300, -184.5)" fill="#D8262C">
-      <path d="m300 105.6-18.9 38.1-47.1-10.3 20.3 42.5-47 10.6 47 10.6-20.3 42.5 47.1-10.3L300 263.4l18.9-38.1 47.1 10.3-20.3-42.5 47-10.6-47-10.6 20.3-42.5-47.1 10.3L300 105.6z"/>
-    </g>
-    {/* Horizontal Bars */}
-    <rect x="13" y="6.25" width="14" height="1.5" fill="#D8262C"/>
-    <rect x="13" y="12.25" width="14" height="1.5" fill="#D8262C"/>
+    {/* Single Red Strike */}
+    <rect x="0" y="7.5" width="40" height="5" fill="#D8262C"/> {/* Centered 5-unit high bar */}
   </svg>
 );
 
