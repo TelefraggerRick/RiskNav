@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,37 +9,33 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Keep for consistency if used elsewhere
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+// Select for user profile is removed as we are moving to email/password auth
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, Users } from "lucide-react";
-import { mockUsers } from '@/lib/mockUsers';
-import { useLanguage } from '@/contexts/LanguageContext'; // Added
+import { LogIn } from "lucide-react";
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const loginSchema = z.object({
-  userId: z.string().min(1, "User selection is required."),
-  password: z.string().min(1, "Password is required."),
+  email: z.string().email("Invalid email address."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-const availableLoginUsers = mockUsers.filter(user => user.id !== 'user-unauth');
-
 export default function LoginPage() {
   const router = useRouter();
-  const { login, currentUser } = useUser();
+  const { login, currentUser, isLoadingAuth } = useUser();
   const { toast } = useToast();
-  const { getTranslation } = useLanguage(); // Added
+  const { getTranslation } = useLanguage();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const T = {
     loginTitle: { en: "Login", fr: "Connexion" },
-    loginDescription: { en: "Select your user profile and enter the password.", fr: "Sélectionnez votre profil utilisateur et entrez le mot de passe." },
-    hint: { en: '(Hint: password is "coastguard2025" for all mock users)', fr: '(Indice : le mot de passe est "coastguard2025" pour tous les utilisateurs fictifs)' },
-    userProfileLabel: { en: "User Profile", fr: "Profil Utilisateur" },
-    userProfilePlaceholder: { en: "Select a user profile...", fr: "Sélectionnez un profil utilisateur..." },
-    availableUsers: { en: "Available Users", fr: "Utilisateurs disponibles" },
+    loginDescription: { en: "Enter your email and password to access your account.", fr: "Entrez votre courriel et votre mot de passe pour accéder à votre compte." },
+    emailLabel: { en: "Email", fr: "Courriel" },
+    emailPlaceholder: { en: "you@example.com", fr: "vous@exemple.com" },
     passwordLabel: { en: "Password", fr: "Mot de passe" },
     loginButton: { en: "Login", fr: "Connexion" },
     loggingIn: { en: "Logging in...", fr: "Connexion en cours..." },
@@ -47,32 +43,33 @@ export default function LoginPage() {
     loginSuccessTitle: { en: "Login Successful", fr: "Connexion réussie" },
     loginSuccessDesc: { en: "Welcome back, {userName}!", fr: "Bon retour, {userName}!" },
     loginFailedTitle: { en: "Login Failed", fr: "Échec de la connexion" },
-    loginFailedDesc: { en: "Invalid User ID or Password.", fr: "ID utilisateur ou mot de passe invalide." },
+    loginFailedDesc: { en: "Invalid email or password. Please try again.", fr: "Courriel ou mot de passe invalide. Veuillez réessayer." },
+    alreadyLoggedIn: { en: "Already logged in. Redirecting...", fr: "Déjà connecté. Redirection en cours..." },
   };
-
-  useEffect(() => {
-    if (currentUser && currentUser.id !== 'user-unauth') {
-      router.replace('/'); 
-    }
-  }, [currentUser, router]);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      userId: "",
+      email: "",
       password: "",
     },
   });
 
-  const onSubmit = async (data: LoginFormValues) => {
-    const success = await login(data.userId, data.password);
-    if (success) {
-      const loggedInUser = mockUsers.find(u => u.id === data.userId);
+  useEffect(() => {
+    if (!isLoadingAuth && currentUser && currentUser.uid !== 'user-unauth') {
       toast({
         title: getTranslation(T.loginSuccessTitle),
-        description: getTranslation(T.loginSuccessDesc).replace('{userName}', loggedInUser?.name || 'User'), 
+        description: getTranslation(T.loginSuccessDesc).replace('{userName}', currentUser.name || 'User'),
       });
-      router.push("/"); 
+      router.replace('/'); 
+    }
+  }, [currentUser, isLoadingAuth, router, toast, getTranslation, T.loginSuccessTitle, T.loginSuccessDesc]);
+
+  const onSubmit = async (data: LoginFormValues) => {
+    setIsSubmitting(true);
+    const success = await login(data.email, data.password);
+    if (success) {
+      // Success toast and redirection are handled by the useEffect above
     } else {
       toast({
         title: getTranslation(T.loginFailedTitle),
@@ -81,11 +78,18 @@ export default function LoginPage() {
       });
       form.resetField("password");
     }
+    setIsSubmitting(false);
   };
   
-  if (currentUser && currentUser.id !== 'user-unauth') {
-    return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{getTranslation(T.redirecting)}</div>;
+  if (isLoadingAuth) {
+    return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{getTranslation(T.loggingIn)}</div>;
   }
+  
+  // If already logged in (and not loading), show redirecting message or redirect immediately (handled by useEffect)
+  if (!isLoadingAuth && currentUser && currentUser.uid !== 'user-unauth') {
+      return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{getTranslation(T.alreadyLoggedIn)}</div>;
+  }
+
 
   return (
     <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
@@ -96,8 +100,6 @@ export default function LoginPage() {
           </CardTitle>
           <CardDescription>
             {getTranslation(T.loginDescription)}
-            <br />
-            {getTranslation(T.hint)}
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -105,27 +107,13 @@ export default function LoginPage() {
             <CardContent className="space-y-4">
               <FormField
                 control={form.control}
-                name="userId"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{getTranslation(T.userProfileLabel)}</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={getTranslation(T.userProfilePlaceholder)} />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel className="flex items-center gap-2"><Users className="h-4 w-4"/>{getTranslation(T.availableUsers)}</SelectLabel>
-                          {availableLoginUsers.map(user => (
-                            <SelectItem key={user.id} value={user.id}>
-                              {user.name} ({user.role})
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>{getTranslation(T.emailLabel)}</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder={getTranslation(T.emailPlaceholder)} {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -145,8 +133,8 @@ export default function LoginPage() {
               />
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? getTranslation(T.loggingIn) : getTranslation(T.loginButton)}
+              <Button type="submit" className="w-full" disabled={isSubmitting || form.formState.isSubmitting}>
+                {(isSubmitting || form.formState.isSubmitting) ? getTranslation(T.loggingIn) : getTranslation(T.loginButton)}
               </Button>
             </CardFooter>
           </form>

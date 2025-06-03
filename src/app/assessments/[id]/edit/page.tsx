@@ -12,7 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { getAssessmentByIdFromDB, updateAssessmentInDB, uploadFileToStorage } from "@/lib/firestoreService";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ArrowLeft, Loader2, ShieldAlert, Edit as EditPageIcon } from "lucide-react"; // Renamed Edit icon
+import { ArrowLeft, Loader2, ShieldAlert, Edit as EditPageIcon } from "lucide-react"; 
 import Link from "next/link";
 
 const T_EDIT_PAGE = {
@@ -28,37 +28,50 @@ const T_EDIT_PAGE = {
   updateErrorTitle: { en: "Update Failed", fr: "Échec de la mise à jour" },
   updateErrorDesc: { en: "Could not update the risk assessment. Please try again.", fr: "Impossible de mettre à jour l'évaluation des risques. Veuillez réessayer." },
   fileUploadErrorTitle: { en: "File Upload Failed", fr: "Échec du téléversement de fichier" },
-  fileUploadErrorDesc: { en: "Could not upload attachment: {fileName}. Please try again.", fr: "Impossible de téléverser la pièce jointe : {fileName}. Veuillez réessayer."}
+  fileUploadErrorDesc: { en: "Could not upload attachment: {fileName}. Please try again.", fr: "Impossible de téléverser la pièce jointe : {fileName}. Veuillez réessayer."},
+  authErrorTitle: { en: "Authentication Error", fr: "Erreur d'authentification" },
+  authErrorDescRedirect: { en: "You must be logged in to edit assessments. Redirecting to login...", fr: "Vous devez être connecté pour modifier les évaluations. Redirection vers la connexion..." },
 };
 
 export default function EditAssessmentPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { currentUser } = useUser();
+  const { currentUser, isLoadingAuth } = useUser(); // Added isLoadingAuth
   const { getTranslation } = useLanguage();
 
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [initialFormValues, setInitialFormValues] = useState<Partial<RiskAssessmentFormData> | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPageData, setIsLoadingPageData] = useState(true); // Renamed from isLoading to avoid conflict
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
 
   const assessmentId = params.id as string;
 
   const fetchAssessment = useCallback(async () => {
+    if (isLoadingAuth || !currentUser) {
+      // Wait for auth to complete
+      return;
+    }
+    if (currentUser.uid === 'user-unauth') {
+        toast({ title: getTranslation(T_EDIT_PAGE.authErrorTitle), description: getTranslation(T_EDIT_PAGE.authErrorDescRedirect), variant: "destructive" });
+        router.push('/login');
+        return;
+    }
+
     if (!assessmentId) {
-      setIsLoading(false);
+      setIsLoadingPageData(false);
       toast({ title: getTranslation(T_EDIT_PAGE.assessmentNotFound), variant: "destructive" });
       router.push("/");
       return;
     }
 
-    setIsLoading(true);
+    setIsLoadingPageData(true);
     try {
       const fetchedAssessment = await getAssessmentByIdFromDB(assessmentId);
       if (fetchedAssessment) {
-        if (currentUser.role === 'Admin' || currentUser.name === fetchedAssessment.submittedBy) {
+        // Check if current user is admin or the original submitter (using UID)
+        if (currentUser.role === 'Admin' || currentUser.uid === fetchedAssessment.submittedByUid) {
           setAssessment(fetchedAssessment);
           const formValues: Partial<RiskAssessmentFormData> = {
             ...fetchedAssessment,
@@ -86,17 +99,13 @@ export default function EditAssessmentPage() {
       toast({ title: "Error", description: "Failed to load assessment data.", variant: "destructive" });
       router.push("/");
     } finally {
-      setIsLoading(false);
+      setIsLoadingPageData(false);
     }
-  }, [assessmentId, router, toast, currentUser, getTranslation]);
+  }, [assessmentId, router, toast, currentUser, isLoadingAuth, getTranslation, T_EDIT_PAGE.authErrorTitle, T_EDIT_PAGE.authErrorDescRedirect, T_EDIT_PAGE.assessmentNotFound]);
 
   useEffect(() => {
-    if (currentUser.id === 'user-unauth') { 
-        router.push('/login');
-        return;
-    }
     fetchAssessment();
-  }, [fetchAssessment, currentUser, router]);
+  }, [fetchAssessment]);
 
   const calculatePatrolLengthDays = (startDateStr?: string, endDateStr?: string): number | undefined => {
     if (startDateStr && endDateStr) {
@@ -122,8 +131,10 @@ export default function EditAssessmentPage() {
         toast({ title: "Error", description: "Assessment ID, reference number, or submission date missing.", variant: "destructive" });
         return;
     }
-    if (currentUser.id === 'user-unauth') {
-        toast({ title: "Authentication Error", description: "You must be logged in.", variant: "destructive" });
+    if (!currentUser || currentUser.uid === 'user-unauth') { // Check against actual current user from context
+        toast({ title: getTranslation(T_EDIT_PAGE.authErrorTitle), description: getTranslation(T_EDIT_PAGE.authErrorDescRedirect), variant: "destructive" });
+        setIsSubmitting(false); // Ensure submitting is reset
+        router.push('/login');
         return;
     }
 
@@ -147,7 +158,7 @@ export default function EditAssessmentPage() {
       if (data.attachments && data.attachments.length > 0) {
         for (const att of data.attachments) {
           console.log("Edit Page: handleSubmit - Processing attachment candidate:", JSON.parse(JSON.stringify(att)));
-          if (att.file && att.name) { // New file to upload
+          if (att.file && att.name) { 
             console.log(`Edit Page: handleSubmit - New file detected: ${att.name}. Attempting upload.`);
             const storagePath = `riskAssessments/attachments/${submissionYear}/${assessment.referenceNumber}/${att.file.name}`;
             console.log("Edit Page: handleSubmit - Uploading to storagePath:", storagePath);
@@ -159,8 +170,8 @@ export default function EditAssessmentPage() {
                 id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
                 name: att.file.name,
                 url: downloadURL,
-                type: att.file.type,
-                size: att.file.size,
+                type: att.file.type || 'unknown',
+                size: att.file.size || 0,
                 uploadedAt: now.toISOString(),
               };
               if (att.dataAiHint) {
@@ -180,7 +191,7 @@ export default function EditAssessmentPage() {
               setIsSubmitting(false);
               return;
             }
-          } else if (att.id && att.url && att.name && att.type && att.size && att.uploadedAt) { // Existing attachment to keep
+          } else if (att.id && att.url && att.name && att.type && att.size && att.uploadedAt) { 
             console.log(`Edit Page: handleSubmit - Existing file detected, keeping: ${att.name}`);
             const existingAttachment: AttachmentType = {
               id: att.id,
@@ -192,6 +203,8 @@ export default function EditAssessmentPage() {
             };
             if (att.dataAiHint) {
               existingAttachment.dataAiHint = att.dataAiHint;
+            } else {
+                delete existingAttachment.dataAiHint; // Ensure it's removed if not present
             }
             processedAttachments.push(existingAttachment);
           } else {
@@ -237,6 +250,7 @@ export default function EditAssessmentPage() {
         specialVoyageConsiderations: data.specialVoyageConsiderations, 
         reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
+        // submittedBy and submittedByUid should not be changed on edit
       };
       
       console.log("Edit Page: handleSubmit - BEFORE await updateAssessmentInDB. Updates:", JSON.parse(JSON.stringify(fieldsToUpdateFromForm)));
@@ -259,11 +273,11 @@ export default function EditAssessmentPage() {
       setIsSubmitting(false); 
     } finally {
       console.log("Edit Page: handleSubmit - In finally block, setting isSubmitting to false.");
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Ensure this is always called
     }
   };
 
-  if (isLoading) {
+  if (isLoadingAuth || isLoadingPageData) { // Check both loading states
     return (
       <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -299,7 +313,7 @@ export default function EditAssessmentPage() {
     );
   }
   
-  if (!initialFormValues && !isLoading) {
+  if (!initialFormValues && !isLoadingPageData && !isLoadingAuth) { // Also check auth loading
      return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] gap-4 text-center">
         <Alert variant="destructive" className="max-w-md">
@@ -342,4 +356,3 @@ export default function EditAssessmentPage() {
     </div>
   );
 }
-    

@@ -3,7 +3,7 @@
 
 import RiskAssessmentForm from "@/components/risk-assessments/RiskAssessmentForm";
 import type { RiskAssessmentFormData } from "@/lib/schemas";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -20,7 +20,7 @@ export default function NewAssessmentPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { currentUser } = useUser();
+  const { currentUser, isLoadingAuth } = useUser(); // Added isLoadingAuth
   const { getTranslation } = useLanguage();
 
   const T = {
@@ -31,8 +31,19 @@ export default function NewAssessmentPage() {
     submitErrorTitle: { en: "Submission Failed", fr: "Échec de la soumission"},
     submitErrorDesc: { en: "Could not submit the risk assessment. Please try again.", fr: "Impossible de soumettre l'évaluation des risques. Veuillez réessayer."},
     fileUploadErrorTitle: { en: "File Upload Failed", fr: "Échec du téléversement de fichier" },
-    fileUploadErrorDesc: { en: "Could not upload attachment: {fileName}. Please try again.", fr: "Impossible de téléverser la pièce jointe : {fileName}. Veuillez réessayer."}
+    fileUploadErrorDesc: { en: "Could not upload attachment: {fileName}. Please try again.", fr: "Impossible de téléverser la pièce jointe : {fileName}. Veuillez réessayer."},
+    authErrorTitle: { en: "Authentication Error", fr: "Erreur d'authentification" },
+    authErrorDesc: { en: "You must be logged in to submit an assessment.", fr: "Vous devez être connecté pour soumettre une évaluation." },
+    loadingUser: { en: "Loading user information...", fr: "Chargement des informations utilisateur..."}
   };
+
+  useEffect(() => {
+    if (!isLoadingAuth && (!currentUser || currentUser.uid === 'user-unauth')) {
+      toast({ title: getTranslation(T.authErrorTitle), description: getTranslation(T.authErrorDesc), variant: "destructive" });
+      router.push('/login');
+    }
+  }, [currentUser, isLoadingAuth, router, toast, getTranslation, T.authErrorTitle, T.authErrorDesc]);
+
 
   const calculatePatrolLengthDays = (startDateStr?: string, endDateStr?: string): number | undefined => {
     if (startDateStr && endDateStr) {
@@ -53,8 +64,8 @@ export default function NewAssessmentPage() {
 
 
   const handleSubmit = async (data: RiskAssessmentFormData) => {
-    if (!currentUser || currentUser.id === 'user-unauth') {
-        toast({ title: "Authentication Error", description: "You must be logged in to submit an assessment.", variant: "destructive" });
+    if (isLoadingAuth || !currentUser || currentUser.uid === 'user-unauth') {
+        toast({ title: getTranslation(T.authErrorTitle), description: getTranslation(T.authErrorDesc), variant: "destructive" });
         return;
     }
     setIsLoading(true);
@@ -124,7 +135,8 @@ export default function NewAssessmentPage() {
         reasonForRequest: data.reasonForRequest,
         personnelShortages: data.personnelShortages,
         proposedOperationalDeviations: data.proposedOperationalDeviations,
-        submittedBy: currentUser.name,
+        submittedBy: currentUser.name, // Name from AppUser profile
+        submittedByUid: currentUser.uid, // UID from Firebase Auth
         status: 'Pending Crewing Standards and Oversight',
         attachments: processedAttachments, 
         approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)),
@@ -183,6 +195,15 @@ export default function NewAssessmentPage() {
       setIsLoading(false);
     }
   };
+
+  if (isLoadingAuth || !currentUser) {
+    return (
+        <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+            <p className="text-xl text-muted-foreground">{getTranslation(T.loadingUser)}</p>
+        </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto pb-12">

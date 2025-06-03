@@ -2,12 +2,12 @@
 export interface Attachment {
   id: string;
   name: string;
-  url: string; // Could be a data URI for mock, or actual URL for real files
+  url: string; 
   type: string;
-  size: number; // in bytes
-  uploadedAt: string; // ISO date string
-  file?: File; // For new uploads, not stored in localStorage directly
-  dataAiHint?: string; // for placeholder images
+  size: number; 
+  uploadedAt: string; 
+  file?: File; 
+  dataAiHint?: string; 
 }
 
 export type YesNoOptional = 'Yes' | 'No' | undefined;
@@ -21,12 +21,12 @@ export interface ExemptionIndividualAssessmentData {
   deptHeadConfidenceReason?: string;
   employeeFamiliarizationProvided?: YesNoOptional;
   workedInDepartmentLast12Months?: YesNoOptional;
-  workedInDepartmentDetails?: string; // Position and duration if Yes
+  workedInDepartmentDetails?: string; 
   similarResponsibilityExperience?: YesNoOptional;
-  similarResponsibilityDetails?: string; // Details if Yes
+  similarResponsibilityDetails?: string; 
   individualHasRequiredSeaService?: YesNoOptional;
   individualWorkingTowardsCertification?: YesNoOptional;
-  certificationProgressSummary?: string; // Summary if Yes
+  certificationProgressSummary?: string; 
 }
 
 export interface OperationalConsiderationsData {
@@ -35,11 +35,11 @@ export interface OperationalConsiderationsData {
   crewCompositionSufficientForSafety?: YesNoOptional;
   detailedCrewCompetencyAssessment?: string;
   crewContinuityAsPerProfile?: YesNoOptional;
-  crewContinuityDetails?: string; // If not, provide details.
+  crewContinuityDetails?: string; 
   // Voyage
   specialVoyageConsiderations?: string;
   reductionInVesselProgramRequirements?: YesNoOptional;
-  rocNotificationOfLimitations?: YesNoOptional; // If yes to reduction, is ROC notified?
+  rocNotificationOfLimitations?: YesNoOptional; 
 }
 
 
@@ -49,9 +49,9 @@ export type ApprovalLevel = 'Crewing Standards and Oversight' | 'Senior Director
 export interface ApprovalStep {
   level: ApprovalLevel;
   decision?: ApprovalDecision;
-  userId?: string; // ID of the user who made the decision
-  userName?: string; // Name of the user
-  date?: string; // ISO date string
+  userId?: string; 
+  userName?: string; 
+  date?: string; 
   notes?: string;
 }
 
@@ -70,17 +70,18 @@ export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string;
   referenceNumber: string;
-  maritimeExemptionNumber?: string; // New optional field
+  maritimeExemptionNumber?: string; 
   vesselName: string;
-  imoNumber?: string; // Optional
+  imoNumber?: string; 
   department?: VesselDepartment;
   region?: VesselRegion;
   voyageDetails: string;
   reasonForRequest: string;
   personnelShortages: string;
   proposedOperationalDeviations: string;
-  submittedBy: string; // Name of the submitter (from UserContext)
-  submissionDate: string; // ISO date string
+  submittedBy: string; 
+  submittedByUid?: string; // Added to store UID of submitter
+  submissionDate: string; 
   status: RiskAssessmentStatus;
   attachments: Attachment[];
   approvalSteps: ApprovalStep[];
@@ -88,37 +89,35 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   aiGeneratedSummary?: string;
   aiSuggestedMitigations?: string;
   aiRegulatoryConsiderations?: string;
-  aiLikelihoodScore?: number; // New field for 1-5 likelihood
-  aiConsequenceScore?: number; // New field for 1-5 consequence
-  lastModified: string; // ISO date string
+  aiLikelihoodScore?: number; 
+  aiConsequenceScore?: number; 
+  lastModified: string; 
 
-  // Optional patrol specific fields
-  patrolStartDate?: string; // ISO date string
-  patrolEndDate?: string; // ISO date string
+  patrolStartDate?: string; 
+  patrolEndDate?: string; 
   patrolLengthDays?: number;
 }
 
-// This is used by the client-side form, which deals with File objects
-// before they are processed (e.g. uploaded or converted to data URI for mock)
-export interface RiskAssessmentFormData extends Omit<RiskAssessment, 'id' | 'referenceNumber' | 'submissionDate' | 'lastModified' | 'attachments' | 'approvalSteps' | 'status' | 'submittedBy' | 'patrolLengthDays'> {
-  attachments?: Array<Partial<Attachment> & { file?: File }>; // file is present for new uploads
+export interface RiskAssessmentFormData extends Omit<RiskAssessment, 'id' | 'referenceNumber' | 'submissionDate' | 'lastModified' | 'attachments' | 'approvalSteps' | 'status' | 'submittedBy' | 'submittedByUid' | 'patrolLengthDays'> {
+  attachments?: Array<Partial<Attachment> & { file?: File }>; 
 }
 
 
 export type UserRole =
-  | ApprovalLevel // e.g. 'Crewing Standards and Oversight', 'Senior Director', 'Director General'
+  | ApprovalLevel 
   | 'Atlantic Region Submitter'
   | 'Central Region Submitter'
   | 'Western Region Submitter'
-  | 'Arctic Region Submitter' // Corrected from 'Arctic Operations' for consistency if needed
+  | 'Arctic Region Submitter' 
   | 'Generic Submitter'
   | 'Admin'
   | 'Unauthenticated';
 
-export interface User {
-  id: string;
+// This will represent the user profile stored in Firestore
+export interface AppUser {
+  uid: string; // Firebase Auth UID
   name: string;
-  email?: string; // Optional
+  email: string; 
   role: UserRole;
 }
 

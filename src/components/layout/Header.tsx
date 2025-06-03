@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays } from 'lucide-react'; // Added CalendarDays
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,36 +15,37 @@ import {
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import React, { useState, useEffect } from 'react'; // Added useState, useEffect
+import React, { useState, useEffect } from 'react';
+import { rtdb } from '@/lib/firebase'; // Import RTDB
+import { ref, onValue } from 'firebase/database'; // RTDB functions
 
 export default function Header() {
-  const { currentUser, availableUsers, switchUser, logout } = useUser();
+  const { currentUser, logout, isLoadingAuth } = useUser(); // Removed availableUsers and switchUser
   const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); 
-  const [mockOnlineUsers, setMockOnlineUsers] = useState<number | null>(null);
+  const [onlineUsersCount, setOnlineUsersCount] = useState<number | null>(null);
 
   useEffect(() => {
-    // Generate initial mock online users count and set up an interval to fluctuate it
-    // This runs only on the client-side to avoid hydration issues
-    const initialCount = Math.floor(Math.random() * (15 - 5 + 1)) + 5; // Random between 5 and 15
-    setMockOnlineUsers(initialCount);
+    // Listener for online users count from RTDB
+    const statusRef = ref(rtdb, '/status');
+    const unsubscribe = onValue(statusRef, (snapshot) => {
+      const statuses = snapshot.val();
+      if (statuses) {
+        const count = Object.values(statuses).filter((status: any) => status.isOnline).length;
+        setOnlineUsersCount(count);
+      } else {
+        setOnlineUsersCount(0);
+      }
+    });
 
-    const intervalId = setInterval(() => {
-      setMockOnlineUsers(prevCount => {
-        if (prevCount === null) return initialCount;
-        const change = Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0;
-        const newCount = prevCount + change;
-        return Math.max(3, Math.min(20, newCount)); // Keep between 3 and 20
-      });
-    }, 3000); // Update every 3 seconds
-
-    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+    return () => unsubscribe(); // Cleanup RTDB listener on component unmount
   }, []);
 
 
   const getInitials = (name: string) => {
+    if (!name || name === 'No User Selected') return 'NU';
     const parts = name.split(' ');
     if (parts.length > 1) {
-      return parts[0][0] + parts[parts.length - 1][0];
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
   };
@@ -58,10 +59,12 @@ export default function Header() {
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
-    switchUser: { en: "Switch User (Dev)", fr: "Changer d'utilisateur (Dev)" },
+    // switchUser: { en: "Switch User (Dev)", fr: "Changer d'utilisateur (Dev)" }, // Removed
     french: { en: "Français", fr: "English" },
     onlineUsers: { en: "Online", fr: "En ligne" },
   };
+
+  const userIsAuthenticated = currentUser && currentUser.uid !== 'user-unauth';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
@@ -77,10 +80,10 @@ export default function Header() {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            {mockOnlineUsers !== null && (
+            {onlineUsersCount !== null && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground" title={getTranslation(T.onlineUsers)}>
                 <Users className="h-3 w-3 text-green-500" />
-                <span>{mockOnlineUsers}</span>
+                <span>{onlineUsersCount}</span>
               </div>
             )}
             <Button variant="link" size="sm" className="text-sm text-foreground hover:text-primary h-auto p-0" onClick={toggleLanguage}>
@@ -112,13 +115,17 @@ export default function Header() {
                 <span className="hidden sm:inline">{getTranslation(T.calendar)}</span>
               </Button>
             </Link>
-            {currentUser.id !== 'user-unauth' && (
+            {userIsAuthenticated && (
                  <Link href="/assessments/new" passHref>
                     <Button variant="default" className="text-sm sm:text-base">{getTranslation(T.newAssessment)}</Button>
                 </Link>
             )}
 
-            {currentUser.id === 'user-unauth' ? (
+            {isLoadingAuth ? (
+              <Button variant="outline" disabled>
+                <UserCircle className="mr-2 h-4 w-4 animate-pulse" /> Loading...
+              </Button>
+            ) : !userIsAuthenticated ? (
               <Link href="/login" passHref>
                 <Button variant="outline">
                   <LogIn className="mr-2 h-4 w-4" />
@@ -142,14 +149,7 @@ export default function Header() {
                     <p className="text-xs text-muted-foreground font-normal">{currentUser.role}</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs font-normal">{getTranslation(T.switchUser)}</DropdownMenuLabel>
-                  {availableUsers.filter(u => u.id !== 'user-unauth' && u.id !== currentUser.id).map(user => (
-                    <DropdownMenuItem key={user.id} onClick={() => switchUser(user.id)}>
-                      <Users className="mr-2 h-4 w-4" />
-                      <span>{user.name}</span>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
+                  {/* Switch user functionality is removed as it's for mock users */}
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>{getTranslation(T.logout)}</span>

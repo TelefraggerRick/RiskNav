@@ -179,10 +179,10 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { currentUser } = useUser();
+  const { currentUser, isLoadingAuth } = useUser(); // Added isLoadingAuth
   const { getTranslation } = useLanguage();
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPageData, setIsLoadingPageData] = useState(true); // Renamed from isLoading
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
@@ -191,7 +191,7 @@ export default function AssessmentDetailPage() {
   const fetchAssessment = useCallback(async () => {
     const assessmentId = params.id as string;
     if (assessmentId) {
-      setIsLoading(true);
+      setIsLoadingPageData(true);
       try {
         const foundAssessment = await getAssessmentByIdFromDB(assessmentId);
         if (foundAssessment) {
@@ -211,14 +211,16 @@ export default function AssessmentDetailPage() {
         toast({ title: getTranslation(T_DETAILS_PAGE.error), description: getTranslation(T_DETAILS_PAGE.failedToFetchAssessmentToast), variant: "destructive" });
         router.push('/');
       } finally {
-        setIsLoading(false);
+        setIsLoadingPageData(false);
       }
     }
   }, [params.id, router, toast, getTranslation]);
 
   useEffect(() => {
-    fetchAssessment();
-  }, [fetchAssessment]);
+    if (!isLoadingAuth) { // Only fetch if auth state is resolved
+        fetchAssessment();
+    }
+  }, [fetchAssessment, isLoadingAuth]);
 
   const runAiSummary = useCallback(async () => {
     if (!assessment || !assessment.id) return;
@@ -303,7 +305,7 @@ export default function AssessmentDetailPage() {
       overallStatus = 'Approved';
     }
 
-    const userIsApproverForCurrentStep = currentUser.role === currentLevelToAct;
+    const userIsApproverForCurrentStep = currentUser.role === currentLevelToAct; // Compare AppUser role
     const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
 
     return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus };
@@ -317,14 +319,14 @@ export default function AssessmentDetailPage() {
   }, []);
 
   const handleApprovalAction = useCallback(async (notes: string) => {
-    if (!assessment || !assessment.id || !currentLevelToAct || !currentUser || !currentDecision) return;
+    if (!assessment || !assessment.id || !currentLevelToAct || !currentUser || !currentDecision || currentUser.uid === 'user-unauth') return;
 
     setIsSubmittingApproval(true);
     const nowISO = new Date().toISOString();
 
     const updatedApprovalSteps = assessment.approvalSteps.map(step =>
       step.level === currentLevelToAct
-        ? { ...step, decision: currentDecision, userName: currentUser.name, date: nowISO, notes }
+        ? { ...step, decision: currentDecision, userId: currentUser.uid, userName: currentUser.name, date: nowISO, notes } // Store UID and name
         : step
     );
 
@@ -367,12 +369,13 @@ export default function AssessmentDetailPage() {
   }, [assessment, currentLevelToAct, currentUser, currentDecision, toast, getTranslation]);
 
   const canEdit = useMemo(() => {
-    if (!assessment || !currentUser || currentUser.id === 'user-unauth') return false;
-    return currentUser.role === 'Admin' || currentUser.name === assessment.submittedBy;
+    if (!assessment || !currentUser || currentUser.uid === 'user-unauth') return false;
+    // Use submittedByUid for comparison
+    return currentUser.role === 'Admin' || currentUser.uid === assessment.submittedByUid;
   }, [assessment, currentUser]);
 
 
-  if (isLoading) {
+  if (isLoadingAuth || isLoadingPageData) { // Check both loading states
     return <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />
         <p className="text-xl text-muted-foreground">{getTranslation(T_DETAILS_PAGE.loadingAssessment)}</p>
@@ -699,7 +702,7 @@ export default function AssessmentDetailPage() {
             {currentLevelToAct && !isHalted && (
                 <div className="mt-6 pt-4 border-t">
                     <h4 className="text-md font-semibold mb-3">{getTranslation(T_DETAILS_PAGE.actionsFor).replace('{level}', currentLevelToAct)}</h4>
-                    {userCanActOnCurrentStep ? (
+                    {currentUser && userCanActOnCurrentStep ? ( // Ensure currentUser is not null for role check
                       <div className="flex flex-wrap gap-3">
                           <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleOpenApprovalDialog('Approved')} disabled={isSubmittingApproval}>
                               <ThumbsUp className="mr-2 h-4 w-4"/> {getTranslation(T_DETAILS_PAGE.approve)}
@@ -716,7 +719,7 @@ export default function AssessmentDetailPage() {
                           <Lock className="h-4 w-4 text-blue-600" />
                           <AlertTitle className="text-blue-700 dark:text-blue-300">{getTranslation(T_DETAILS_PAGE.actionRequiredByAnotherRole)}</AlertTitle>
                           <AlertDescription className="text-blue-600 dark:text-blue-400">
-                            {getTranslation(T_DETAILS_PAGE.actionRequiredDesc).replace('{currentUserRole}', currentUser.role).replace('{requiredRole}', currentLevelToAct)}
+                            {getTranslation(T_DETAILS_PAGE.actionRequiredDesc).replace('{currentUserRole}', currentUser?.role || 'N/A').replace('{requiredRole}', currentLevelToAct)}
                           </AlertDescription>
                         </Alert>
                     )}
@@ -763,5 +766,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-
-    
