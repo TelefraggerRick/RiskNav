@@ -3,7 +3,6 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,14 +21,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
-import { getAllAssessmentsFromDB } from '@/lib/firestoreService'; // Import Firestore service
-import { useToast } from "@/hooks/use-toast"; // For error notifications
+import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
+import { toast } from 'sonner'; // Import sonner for notifications
 
 
 type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
 type SortDirection = 'asc' | 'desc';
-
-// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 
 const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date', fr_label: 'Date de soumission' },
@@ -69,7 +66,6 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
-  const { toast } = useToast();
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -102,16 +98,14 @@ export default function DashboardPage() {
       setAssessments(data);
     } catch (error) {
       console.error("Failed to load assessments:", error);
-      toast({
-        title: getTranslation(T.loadingErrorTitle),
+      toast.error(getTranslation(T.loadingErrorTitle), {
         description: getTranslation(T.loadingErrorDesc),
-        variant: "destructive",
       });
       setAssessments([]); // Set to empty array on error
     } finally {
       setIsLoading(false);
     }
-  }, [toast, getTranslation]); // Corrected dependencies
+  }, [getTranslation]);
 
   useEffect(() => {
     loadAssessments();

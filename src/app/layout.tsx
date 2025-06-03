@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/layout/Header';
-import { Toaster as SonnerToaster } from 'sonner'; // Changed import
+import { Toaster as SonnerToaster } from 'sonner';
 import { UserProvider } from '@/contexts/UserContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 
@@ -30,15 +30,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
-        <UserProvider>
-          <LanguageProvider>
+        <LanguageProvider>
+          <UserProvider>
             <Header />
             <main className="flex-grow container mx-auto px-4 py-8 md:px-6">
               {children}
             </main>
-            <SonnerToaster richColors closeButton /> {/* Changed to SonnerToaster, added richColors and closeButton for better UX */}
-          </LanguageProvider>
-        </UserProvider>
+            <SonnerToaster richColors closeButton />
+          </UserProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
