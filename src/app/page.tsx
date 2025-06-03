@@ -7,10 +7,9 @@ import { ALL_VESSEL_REGIONS } from '@/lib/types';
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Added CardHeader
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
-import { format, parseISO, isValid, isBefore, isEqual, isAfter } from 'date-fns';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2, CalendarClock } from 'lucide-react';
+import { format, parseISO, isValid } from 'date-fns';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +26,13 @@ import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
 import { toast } from 'sonner';
 
 
-type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region';
+type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region' | 'patrolStartDate';
 type SortDirection = 'asc' | 'desc';
 
 const sortOptions: { value: SortKey; label: string; fr_label: string }[] = [
   { value: 'submissionDate', label: 'Submission Date', fr_label: 'Date de soumission' },
   { value: 'lastModified', label: 'Last Modified', fr_label: 'Dernière modification' },
+  { value: 'patrolStartDate', label: 'Patrol Start Date', fr_label: 'Date de début de patrouille' },
   { value: 'status', label: 'Status', fr_label: 'Statut' },
   { value: 'vesselName', label: 'Vessel Name', fr_label: 'Nom du navire' },
   { value: 'region', label: 'Region', fr_label: 'Région' },
@@ -72,13 +72,12 @@ const T = {
   desc: { en: "Desc", fr: "Desc" },
   noAssessmentsFound: { en: "No Assessments Found", fr: "Aucune évaluation trouvée" },
   noMatchFilters: { en: "No risk assessments match your current filters. Try adjusting your search or filter criteria, or create a new assessment.", fr: "Aucune évaluation des risques ne correspond à vos filtres actuels. Essayez d'ajuster vos critères de recherche ou de filtrage, ou créez une nouvelle évaluation." },
-  clearStatusFilters: { en: "Clear Status Filters", fr: "Effacer les filtres de statut" },
-  clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
-  patrolLabel: { en: "Patrol starting", fr: "Patrouille débutant le" }, // Updated for group key
-  generalAssessmentsLabel: { en: "General Assessments", fr: "Évaluations générales" },
+  patrolLabel: { en: "Patrol:", fr: "Patrouille :" }, // Updated for group key
+  generalAssessmentsLabel: { en: "General Assessments (No Specified Patrol Dates)", fr: "Évaluations générales (Aucune date de patrouille spécifiée)" },
   departmentLegendTitle: { en: "Department Color Legend", fr: "Légende des couleurs par département" },
   loadingErrorTitle: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations"},
-  loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."}
+  loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."},
+  patrolStartDateSort: { en: "Patrol Start Date", fr: "Date de début de patrouille" }
 };
 
 
@@ -111,7 +110,7 @@ export default function DashboardPage() {
       console.log("DashboardPage: loadAssessments - FINALLY block. Setting isLoading to false.");
       setIsLoading(false);
     }
-  }, [getTranslation]); // T object is now stable
+  }, [getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]);
 
   useEffect(() => {
     console.log("DashboardPage: Initial useEffect to call loadAssessments.");
@@ -161,32 +160,92 @@ export default function DashboardPage() {
   }, [assessments, searchTerm, selectedStatuses, selectedRegions]);
 
   const groupedAndSortedAssessments = useMemo(() => {
+    // 1. Separate assessments
     const patrolAssessments = filteredAssessments.filter(a => a.patrolStartDate && isValid(parseISO(a.patrolStartDate)));
     const generalAssessments = filteredAssessments.filter(a => !a.patrolStartDate || !isValid(parseISO(a.patrolStartDate)));
 
-    // Sort patrol assessments by patrol start date, then vessel name
-    const sortedPatrols = patrolAssessments.sort((a, b) => {
-      const dateA = parseISO(a.patrolStartDate!); // Already filtered for valid start date
-      const dateB = parseISO(b.patrolStartDate!);
-      
-      let comparison = 0;
-      // Primary sort by patrolStartDate
-      if (isValid(dateA) && isValid(dateB)) {
-        comparison = sortDirection === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+    // 2. Sort generalAssessments based on user's selection
+    const effectiveSortKeyForGeneral = sortKey === 'patrolStartDate' ? 'lastModified' : sortKey;
+    const effectiveSortDirectionForGeneral = sortKey === 'patrolStartDate' ? 'desc' : sortDirection;
+
+    const sortedGeneral = generalAssessments.sort((a, b) => {
+      let comparisonResult = 0;
+      const valA = a[effectiveSortKeyForGeneral as keyof RiskAssessment];
+      const valB = b[effectiveSortKeyForGeneral as keyof RiskAssessment];
+
+      if (effectiveSortKeyForGeneral === 'status' || effectiveSortKeyForGeneral === 'vesselName' || effectiveSortKeyForGeneral === 'region') {
+        const strValA = String(valA || '').toLowerCase();
+        const strValB = String(valB || '').toLowerCase();
+        comparisonResult = strValA.localeCompare(strValB);
+      } else { // Date fields (submissionDate, lastModified, patrolStartDate)
+        const dateA = valA ? parseISO(String(valA)) : new Date(0);
+        const dateB = valB ? parseISO(String(valB)) : new Date(0);
+        if (isValid(dateA) && isValid(dateB)) {
+          comparisonResult = dateA.getTime() - dateB.getTime();
+        } else if (isValid(dateA)) {
+          comparisonResult = 1;
+        } else if (isValid(dateB)) {
+          comparisonResult = -1;
+        } else {
+          comparisonResult = 0;
+        }
       }
-      // Secondary sort by vesselName
-      if (comparison === 0) {
-        comparison = a.vesselName.localeCompare(b.vesselName);
-      }
-      return comparison;
+      return effectiveSortDirectionForGeneral === 'asc' ? comparisonResult : -comparisonResult;
     });
 
-    // Group patrol assessments by a composite key of vesselName and patrolStartDate
+    // 3. Process patrolAssessments
+    const userSortedPatrolAssessments = [...patrolAssessments].sort((a, b) => {
+        let comparisonResult = 0;
+        const valA = a[sortKey as keyof RiskAssessment];
+        const valB = b[sortKey as keyof RiskAssessment];
+
+        if (sortKey === 'status' || sortKey === 'vesselName' || sortKey === 'region') {
+            const strValA = String(valA || '').toLowerCase();
+            const strValB = String(valB || '').toLowerCase();
+            comparisonResult = strValA.localeCompare(strValB);
+        } else if (sortKey === 'patrolStartDate') {
+            const dateAVal = a.patrolStartDate ? parseISO(a.patrolStartDate) : null;
+            const dateBVal = b.patrolStartDate ? parseISO(b.patrolStartDate) : null;
+
+            if (dateAVal && dateBVal && isValid(dateAVal) && isValid(dateBVal)) {
+                comparisonResult = dateAVal.getTime() - dateBVal.getTime();
+            } else if (dateAVal && isValid(dateAVal)) comparisonResult = -1; // Valid dates first
+            else if (dateBVal && isValid(dateBVal)) comparisonResult = 1;
+            else comparisonResult = 0;
+
+            if (comparisonResult === 0) { // Secondary sort: vesselName
+                comparisonResult = a.vesselName.localeCompare(b.vesselName);
+                if (comparisonResult === 0) { // Tertiary sort: patrolEndDate (if available)
+                    const endDateA = a.patrolEndDate ? parseISO(a.patrolEndDate) : null;
+                    const endDateB = b.patrolEndDate ? parseISO(b.patrolEndDate) : null;
+                    if (endDateA && endDateB && isValid(endDateA) && isValid(endDateB)) {
+                        comparisonResult = endDateA.getTime() - endDateB.getTime();
+                    } else if (endDateA && isValid(endDateA)) comparisonResult = -1;
+                    else if (endDateB && isValid(endDateB)) comparisonResult = 1;
+                }
+            }
+        } else { // submissionDate, lastModified
+            const dateA = valA ? parseISO(String(valA)) : null;
+            const dateB = valB ? parseISO(String(valB)) : null;
+             if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
+                comparisonResult = dateA.getTime() - dateB.getTime();
+            } else if (dateA && isValid(dateA)) comparisonResult = -1;
+            else if (dateB && isValid(dateB)) comparisonResult = 1;
+            else comparisonResult = 0;
+        }
+        return sortDirection === 'asc' ? comparisonResult : -comparisonResult;
+    });
+
     const patrolGroups: Record<string, RiskAssessment[]> = {};
-    sortedPatrols.forEach(assessment => {
+    userSortedPatrolAssessments.forEach(assessment => {
       const startDate = parseISO(assessment.patrolStartDate!);
-      // Ensure groupKey is distinct for each patrol instance
-      const groupKey = `${assessment.vesselName} - ${getTranslation(T.patrolLabel)} ${format(startDate, 'yyyy-MM-dd')}`;
+      const endDate = assessment.patrolEndDate ? parseISO(assessment.patrolEndDate) : null;
+      
+      let dateRangeString = format(startDate, 'yyyy-MM-dd');
+      if (endDate && isValid(endDate)) {
+        dateRangeString += ` to ${format(endDate, 'yyyy-MM-dd')}`;
+      }
+      const groupKey = `${assessment.vesselName} - ${dateRangeString}`;
       
       if (!patrolGroups[groupKey]) {
         patrolGroups[groupKey] = [];
@@ -194,43 +253,34 @@ export default function DashboardPage() {
       patrolGroups[groupKey].push(assessment);
     });
 
-    // Convert patrolGroups object to an array of [groupKey, assessmentsInGroup]
-    // and sort these groups by the patrol start date embedded in the key
     const groupedAndSortedPatrolEntries: [string, RiskAssessment[]][] = Object.entries(patrolGroups)
       .sort(([keyA], [keyB]) => {
-        const dateStrA = keyA.match(/(\d{4}-\d{2}-\d{2})$/)?.[1];
-        const dateStrB = keyB.match(/(\d{4}-\d{2}-\d{2})$/)?.[1];
+        const dateStrA = keyA.match(/(\d{4}-\d{2}-\d{2})($| to)/)?.[1];
+        const dateStrB = keyB.match(/(\d{4}-\d{2}-\d{2})($| to)/)?.[1];
         const dateA = dateStrA ? parseISO(dateStrA) : null;
         const dateB = dateStrB ? parseISO(dateStrB) : null;
 
         if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
-          // Use the main sortDirection for ordering the groups
-          return sortDirection === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+          let comparison = dateA.getTime() - dateB.getTime(); // Primary sort by start date
+          if (comparison === 0) { // If start dates are the same, sort by vessel name from key
+             const vesselNameA = keyA.substring(0, keyA.indexOf(' - '));
+             const vesselNameB = keyB.substring(0, keyB.indexOf(' - '));
+             comparison = vesselNameA.localeCompare(vesselNameB);
+             if (comparison === 0) { // If vessel names also same, sort by end date from key
+                const endDateStrA = keyA.match(/to (\d{4}-\d{2}-\d{2})/)?.[1];
+                const endDateStrB = keyB.match(/to (\d{4}-\d{2}-\d{2})/)?.[1];
+                const endDateA = endDateStrA ? parseISO(endDateStrA) : null;
+                const endDateB = endDateStrB ? parseISO(endDateStrB) : null;
+                if (endDateA && endDateB && isValid(endDateA) && isValid(endDateB)) {
+                    comparison = endDateA.getTime() - endDateB.getTime();
+                } else if (endDateA && isValid(endDateA)) comparison = -1;
+                else if (endDateB && isValid(endDateB)) comparison = 1;
+             }
+          }
+          return comparison;
         }
-        return keyA.localeCompare(keyB); // Fallback sort by key string
+        return keyA.localeCompare(keyB);
       });
-
-    // Sort general assessments by the selected sortKey and sortDirection
-    const sortedGeneral = generalAssessments.sort((a, b) => {
-      let comparisonResult = 0;
-      const valA = a[sortKey];
-      const valB = b[sortKey];
-
-      if (sortKey === 'status' || sortKey === 'vesselName' || sortKey === 'region') {
-        const strValA = String(valA || '').toLowerCase();
-        const strValB = String(valB || '').toLowerCase();
-        comparisonResult = strValA.localeCompare(strValB);
-      } else { // Assuming date fields (submissionDate, lastModified)
-        const dateA = valA ? parseISO(String(valA)) : new Date(0);
-        const dateB = valB ? parseISO(String(valB)) : new Date(0);
-        if (isValid(dateA) && isValid(dateB)) {
-          comparisonResult = dateA.getTime() - dateB.getTime();
-        } else {
-          comparisonResult = String(valA || '').localeCompare(String(valB || ''));
-        }
-      }
-      return sortDirection === 'asc' ? comparisonResult : -comparisonResult;
-    });
 
     const finalResult: [string, RiskAssessment[]][] = [...groupedAndSortedPatrolEntries];
     if (sortedGeneral.length > 0) {
@@ -394,15 +444,15 @@ export default function DashboardPage() {
       {groupedAndSortedAssessments.length > 0 ? (
         <div className="space-y-8">
           {groupedAndSortedAssessments.map(([groupKey, assessmentsInGroup]) => {
-            const displayTitle = groupKey; // Use the generated groupKey as title
-            const groupId = displayTitle.replace(/\s+/g, '-').toLowerCase();
-
+            const isGeneralAssessmentsGroup = groupKey === getTranslation(T.generalAssessmentsLabel);
+            const Icon = isGeneralAssessmentsGroup ? Info : ShipIcon; // Or CalendarClock for patrols
+            
             return (
-              <section key={groupKey} aria-labelledby={`group-${groupId}`}>
+              <section key={groupKey} aria-labelledby={`group-${groupKey.replace(/\s+/g, '-').toLowerCase()}`}>
                 <div className="flex items-center gap-3 mb-4 pb-2 border-b">
-                  <ShipIcon className="h-6 w-6 text-secondary" />
-                  <h2 id={`group-${groupId}`} className="text-xl sm:text-2xl font-semibold text-secondary">
-                    {displayTitle}
+                  <Icon className="h-6 w-6 text-secondary" />
+                  <h2 id={`group-${groupKey.replace(/\s+/g, '-').toLowerCase()}`} className="text-xl sm:text-2xl font-semibold text-secondary">
+                    {groupKey}
                   </h2>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -420,7 +470,7 @@ export default function DashboardPage() {
       ) : (
         !isLoading && (
           <Card className="p-10 text-center shadow-sm rounded-lg">
-            <CardHeader> {/* Added for consistency, can be removed if title/desc not needed here */}
+            <CardHeader>
                 <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <CardTitle>{getTranslation(T.noAssessmentsFound)}</CardTitle>
             </CardHeader>
