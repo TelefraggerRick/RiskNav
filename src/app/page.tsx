@@ -149,7 +149,7 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('desc'); // Default to descending for new sort keys, or 'asc' if preferred.
+      setSortDirection('desc');
     }
   }, [sortKey]);
 
@@ -168,9 +168,9 @@ export default function DashboardPage() {
       const regionMatch = selectedRegions.length === 0 || (assessment.region && selectedRegions.includes(assessment.region));
 
       const completedPatrolMatch = !hideCompletedPatrols || (
-        !assessment.patrolEndDate || // Keep if no end date
-        (assessment.patrolEndDate && !isValid(parseISO(assessment.patrolEndDate))) || // Keep if end date is invalid
-        (assessment.patrolEndDate && isValid(parseISO(assessment.patrolEndDate)) && endOfDay(parseISO(assessment.patrolEndDate)) >= today) // Keep if end date is today or in the future
+        !assessment.patrolEndDate || 
+        (assessment.patrolEndDate && !isValid(parseISO(assessment.patrolEndDate))) || 
+        (assessment.patrolEndDate && isValid(parseISO(assessment.patrolEndDate)) && endOfDay(parseISO(assessment.patrolEndDate)) >= today) 
       );
 
       return searchTermMatch && statusMatch && regionMatch && completedPatrolMatch;
@@ -194,9 +194,9 @@ export default function DashboardPage() {
         else if (dateA && isValid(dateA)) comparisonResult = -1;
         else if (dateB && isValid(dateB)) comparisonResult = 1;
 
-        if (comparisonResult === 0) { // Tie-break by vessel name
+        if (comparisonResult === 0) { 
           comparisonResult = a.vesselName.localeCompare(b.vesselName);
-          if (comparisonResult === 0) { // Then by patrol end date
+          if (comparisonResult === 0) { 
             const endDateA = a.patrolEndDate ? parseISO(a.patrolEndDate) : null;
             const endDateB = b.patrolEndDate ? parseISO(b.patrolEndDate) : null;
             if (endDateA && endDateB && isValid(endDateA) && isValid(endDateB)) comparisonResult = endDateA.getTime() - endDateB.getTime();
@@ -217,9 +217,9 @@ export default function DashboardPage() {
       }
       return currentSortDirection === 'asc' ? comparisonResult : -comparisonResult;
     };
-
+    
     const sortedGeneralAssessments = [...generalAssessments].sort((a, b) =>
-        sortFunction(a, b, sortKey === 'patrolStartDate' ? 'lastModified' : sortKey, sortKey === 'patrolStartDate' ? 'desc' : sortDirection)
+      sortFunction(a, b, sortKey === 'patrolStartDate' ? 'lastModified' : sortKey, sortKey === 'patrolStartDate' ? 'desc' : sortDirection)
     );
 
     const patrolGroups: Record<string, RiskAssessment[]> = {};
@@ -239,21 +239,14 @@ export default function DashboardPage() {
         patrolGroups[groupKey].push(assessment);
     });
 
-    // Sort assessments within each patrol group based on the selected sort criteria (if not sorting by patrol start date)
     Object.keys(patrolGroups).forEach(key => {
       if (sortKey !== 'patrolStartDate') {
         patrolGroups[key].sort((a, b) => sortFunction(a, b, sortKey, sortDirection));
       }
-      // If sortKey IS 'patrolStartDate', they are already implicitly sorted by it due to group key structure,
-      // but we can add secondary sort for consistency or if multiple assessments fall into exact same patrol group key.
-      // However, the current group key includes the date range, making each group likely unique for distinct patrols.
-      // If further sorting within a patrol group (e.g., by status) is needed even when sortKey is patrolStartDate,
-      // additional logic would be required here. For now, we assume the group key handles the primary sort for patrolStartDate.
     });
     
     let sortedPatrolEntries = Object.entries(patrolGroups);
 
-    // Sort the groups themselves based on their patrol start date
     sortedPatrolEntries.sort(([keyA], [keyB]) => {
         const extractStartDate = (key: string): Date | null => {
             const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
@@ -272,12 +265,11 @@ export default function DashboardPage() {
         else if (dateA && isValid(dateA)) comparison = -1;
         else if (dateB && isValid(dateB)) comparison = 1;
 
-        if (comparison === 0) { // Tie-break by vessel name if start dates are the same
+        if (comparison === 0) { 
             const vesselNameA = keyA.split(' (Patrol:')[0];
             const vesselNameB = keyB.split(' (Patrol:')[0];
             comparison = vesselNameA.localeCompare(vesselNameB);
         }
-        // Apply main sortDirection to group order only if sortKey is 'patrolStartDate'
         return (sortKey === 'patrolStartDate' && sortDirection === 'desc') ? -comparison : comparison;
     });
 
@@ -321,7 +313,7 @@ export default function DashboardPage() {
       </div>
 
       <Card className="p-4 sm:p-6 shadow-sm rounded-lg">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
           <div className="relative lg:col-span-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -425,16 +417,19 @@ export default function DashboardPage() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-           <div className="flex items-center space-x-2 justify-start lg:col-span-1">
-            <Checkbox
-              id="hide-completed-patrols"
-              checked={hideCompletedPatrols}
-              onCheckedChange={(checked) => setHideCompletedPatrols(checked as boolean)}
-            />
-            <Label htmlFor="hide-completed-patrols" className="text-sm font-medium whitespace-nowrap">
-              {getTranslation(T.hideCompletedPatrolsLabel)}
-            </Label>
-          </div>
+        </div>
+
+        <div className="mt-4 pt-3">
+            <div className="flex items-center space-x-2 justify-start">
+                <Checkbox
+                id="hide-completed-patrols"
+                checked={hideCompletedPatrols}
+                onCheckedChange={(checked) => setHideCompletedPatrols(checked as boolean)}
+                />
+                <Label htmlFor="hide-completed-patrols" className="text-sm font-medium whitespace-nowrap">
+                {getTranslation(T.hideCompletedPatrolsLabel)}
+                </Label>
+            </div>
         </div>
 
         <div className="mt-4 pt-3 border-t">
