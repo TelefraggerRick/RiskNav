@@ -7,7 +7,7 @@ import { ALL_VESSEL_REGIONS } from '@/lib/types';
 import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'; // Ensure CardTitle and CardDescription are imported
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2, CalendarClock } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import {
@@ -25,10 +25,7 @@ import { cn } from '@/lib/utils';
 import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
 import { toast } from 'sonner';
 
-
-type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region' | 'patrolStartDate';
-type SortDirection = 'asc' | 'desc';
-
+// Moved T object outside the component
 const T = {
   dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
   searchPlaceholder: { en: "Search assessments...", fr: "Rechercher des évaluations..." },
@@ -51,16 +48,22 @@ const T = {
   clearStatusFilters: { en: "Clear Status Filters", fr: "Effacer les filtres de statut" },
   clearRegionFilters: { en: "Clear Region Filters", fr: "Effacer les filtres de région" },
   patrolStartDateSort: { en: "Patrol Start Date", fr: "Date de début de patrouille" },
-  to: { en: "to", fr: "au" }, // Added missing translation
+  submissionDateSort: { en: "Submission Date", fr: "Date de soumission" },
+  lastModifiedSort: { en: "Last Modified", fr: "Dernière modification" },
+  statusSort: { en: "Status", fr: "Statut" },
+  vesselNameSort: { en: "Vessel Name", fr: "Nom du navire" },
+  regionSort: { en: "Region", fr: "Région" },
+  to: { en: "to", fr: "au" },
 };
 
-const sortOptions: { value: SortKey; labelKey: keyof typeof T; staticLabel?: string; staticFrLabel?: string }[] = [
-  { value: 'submissionDate', staticLabel: 'Submission Date', staticFrLabel: 'Date de soumission' },
-  { value: 'lastModified', staticLabel: 'Last Modified', staticFrLabel: 'Dernière modification' },
+
+const sortOptions: { value: SortKey; labelKey: keyof typeof T; }[] = [
+  { value: 'submissionDate', labelKey: 'submissionDateSort' },
+  { value: 'lastModified', labelKey: 'lastModifiedSort' },
   { value: 'patrolStartDate', labelKey: 'patrolStartDateSort' },
-  { value: 'status', staticLabel: 'Status', staticFrLabel: 'Statut' },
-  { value: 'vesselName', staticLabel: 'Vessel Name', staticFrLabel: 'Nom du navire' },
-  { value: 'region', staticLabel: 'Region', staticFrLabel: 'Région' },
+  { value: 'status', labelKey: 'statusSort' },
+  { value: 'vesselName', labelKey: 'vesselNameSort' },
+  { value: 'region', labelKey: 'regionSort' },
 ];
 
 
@@ -82,6 +85,8 @@ const departmentLegendItems: { department: VesselDepartment; colorClass: string;
   { department: 'Other', colorClass: 'bg-orange-50 border-orange-200', icon: Info, translations: { en: 'Other', fr: 'Autre'} },
 ];
 
+type SortKey = 'submissionDate' | 'status' | 'vesselName' | 'lastModified' | 'region' | 'patrolStartDate';
+type SortDirection = 'asc' | 'desc';
 
 export default function DashboardPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
@@ -112,7 +117,8 @@ export default function DashboardPage() {
       console.log("DashboardPage: loadAssessments - FINALLY block. Setting isLoading to false.");
       setIsLoading(false);
     }
-  }, [getTranslation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getTranslation]); // T.loadingErrorTitle, T.loadingErrorDesc removed as T is now stable
 
   useEffect(() => {
     console.log("DashboardPage: Initial useEffect to call loadAssessments.");
@@ -141,7 +147,7 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('desc'); // Default to descending for new sort key
+      setSortDirection('desc'); 
     }
   }, [sortKey]);
 
@@ -166,94 +172,42 @@ export default function DashboardPage() {
     const generalAssessments = filteredAssessments.filter(a => !a.patrolStartDate || !isValid(parseISO(a.patrolStartDate)));
     const finalResult: [string, RiskAssessment[]][] = [];
 
-    // Sort generalAssessments based on the user's current selection
-    // (or fallback if sorting by patrolStartDate, which doesn't apply to general)
-    const effectiveSortKeyForGeneral = sortKey === 'patrolStartDate' ? 'lastModified' : sortKey;
-    const effectiveSortDirectionForGeneral = sortKey === 'patrolStartDate' ? 'desc' : sortDirection;
-
-    const sortedGeneral = [...generalAssessments].sort((a, b) => {
+    const sortAssessments = (arr: RiskAssessment[], currentSortKey: SortKey, currentSortDirection: SortDirection) => {
+      return [...arr].sort((a, b) => {
         let comparisonResult = 0;
-        const valA = a[effectiveSortKeyForGeneral as keyof RiskAssessment];
-        const valB = b[effectiveSortKeyForGeneral as keyof RiskAssessment];
+        const valA = a[currentSortKey as keyof RiskAssessment];
+        const valB = b[currentSortKey as keyof RiskAssessment];
 
-        if (effectiveSortKeyForGeneral === 'status' || effectiveSortKeyForGeneral === 'vesselName' || effectiveSortKeyForGeneral === 'region') {
+        if (currentSortKey === 'status' || currentSortKey === 'vesselName' || currentSortKey === 'region') {
             const strValA = String(valA || '').toLowerCase();
             const strValB = String(valB || '').toLowerCase();
             comparisonResult = strValA.localeCompare(strValB);
-        } else { // Date fields (submissionDate, lastModified, patrolStartDate)
-            const dateA = valA ? parseISO(String(valA)) : new Date(0); // Fallback for invalid/missing dates
-            const dateB = valB ? parseISO(String(valB)) : new Date(0);
-            if (isValid(dateA) && isValid(dateB)) {
+        } else { 
+            const dateA = valA ? parseISO(String(valA)) : null;
+            const dateB = valB ? parseISO(String(valB)) : null;
+
+            if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
                 comparisonResult = dateA.getTime() - dateB.getTime();
-            } else if (isValid(dateA)) comparisonResult = -1; // Valid dates first
-            else if (isValid(dateB)) comparisonResult = 1;
-            else comparisonResult = 0;
+            } else if (dateA && isValid(dateA)) comparisonResult = -1; 
+            else if (dateB && isValid(dateB)) comparisonResult = 1;
+            else comparisonResult = 0; 
         }
-        return effectiveSortDirectionForGeneral === 'asc' ? comparisonResult : -comparisonResult;
-    });
+        return currentSortDirection === 'asc' ? comparisonResult : -comparisonResult;
+      });
+    };
+    
+    const sortedGeneral = sortAssessments(generalAssessments, (sortKey === 'patrolStartDate' ? 'lastModified' : sortKey), (sortKey === 'patrolStartDate' ? 'desc' : sortDirection));
 
-
-    // Process patrolAssessments
-    let userSortedPatrolAssessments: RiskAssessment[] = [];
-
-    if (sortKey === 'patrolStartDate') {
-        userSortedPatrolAssessments = [...patrolAssessments].sort((a, b) => {
-            const dateAVal = a.patrolStartDate ? parseISO(a.patrolStartDate) : null;
-            const dateBVal = b.patrolStartDate ? parseISO(b.patrolStartDate) : null;
-            let comparison = 0;
-
-            if (dateAVal && dateBVal && isValid(dateAVal) && isValid(dateBVal)) {
-                comparison = dateAVal.getTime() - dateBVal.getTime();
-            } else if (dateAVal && isValid(dateAVal)) comparison = -1;
-            else if (dateBVal && isValid(dateBVal)) comparison = 1;
-
-            if (comparison === 0) {
-                comparison = a.vesselName.localeCompare(b.vesselName);
-                if (comparison === 0) {
-                    const endDateA = a.patrolEndDate ? parseISO(a.patrolEndDate) : null;
-                    const endDateB = b.patrolEndDate ? parseISO(b.patrolEndDate) : null;
-                    if (endDateA && endDateB && isValid(endDateA) && isValid(endDateB)) {
-                        comparison = endDateA.getTime() - endDateB.getTime();
-                    } else if (endDateA && isValid(endDateA)) comparison = -1;
-                    else if (endDateB && isValid(endDateB)) comparison = 1;
-                }
-            }
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-    } else {
-        // Sort by user's chosen key first, then these will be grouped
-        userSortedPatrolAssessments = [...patrolAssessments].sort((a, b) => {
-            let comparisonResult = 0;
-            const valA = a[sortKey as keyof RiskAssessment];
-            const valB = b[sortKey as keyof RiskAssessment];
-
-            if (sortKey === 'status' || sortKey === 'vesselName' || sortKey === 'region') {
-                const strValA = String(valA || '').toLowerCase();
-                const strValB = String(valB || '').toLowerCase();
-                comparisonResult = strValA.localeCompare(strValB);
-            } else { // Date fields (submissionDate, lastModified)
-                const dateA = valA ? parseISO(String(valA)) : new Date(0);
-                const dateB = valB ? parseISO(String(valB)) : new Date(0);
-                if (isValid(dateA) && isValid(dateB)) {
-                    comparisonResult = dateA.getTime() - dateB.getTime();
-                } else if (isValid(dateA)) comparisonResult = -1;
-                else if (isValid(dateB)) comparisonResult = 1;
-            }
-            return sortDirection === 'asc' ? comparisonResult : -comparisonResult;
-        });
-    }
-
-    // Group the (now sorted by user pref or patrolStartDate) patrol assessments
     const patrolGroups: Record<string, RiskAssessment[]> = {};
-    userSortedPatrolAssessments.forEach(assessment => {
+    patrolAssessments.forEach(assessment => {
       const startDate = parseISO(assessment.patrolStartDate!);
       const endDate = assessment.patrolEndDate ? parseISO(assessment.patrolEndDate) : null;
       
       let dateRangeString = format(startDate, 'MMM d, yyyy');
       if (endDate && isValid(endDate)) {
-          dateRangeString += ` ${getTranslation(T.to)} ${format(endDate, 'MMM d, yyyy')}`;
+          dateRangeString += ` - ${format(endDate, 'MMM d, yyyy')}`;
       }
-      const groupKey = `${assessment.vesselName} - ${dateRangeString}`;
+      const groupKey = `${assessment.vesselName} (Patrol: ${dateRangeString})`;
       
       if (!patrolGroups[groupKey]) {
         patrolGroups[groupKey] = [];
@@ -261,24 +215,58 @@ export default function DashboardPage() {
       patrolGroups[groupKey].push(assessment);
     });
 
-    // If not sorting by patrolStartDate, the groups themselves should still be chronological by their inherent start date
-    let sortedPatrolEntries = Object.entries(patrolGroups);
-    if (sortKey !== 'patrolStartDate') {
-        sortedPatrolEntries = sortedPatrolEntries.sort(([keyA], [keyB]) => {
-            const dateStrA = keyA.match(/(\d{4}-\d{2}-\d{2}(?: to \d{4}-\d{2}-\d{2})?)$/)?.[0].split(' to ')[0];
-            const dateStrB = keyB.match(/(\d{4}-\d{2}-\d{2}(?: to \d{4}-\d{2}-\d{2})?)$/)?.[0].split(' to ')[0];
-            
-            const dateA = dateStrA ? parseISO(dateStrA.replace(/MMM d, yyyy/, (match) => format(parseISO(match), 'yyyy-MM-dd'))) : null;
-            const dateB = dateStrB ? parseISO(dateStrB.replace(/MMM d, yyyy/, (match) => format(parseISO(match), 'yyyy-MM-dd'))) : null;
+    Object.keys(patrolGroups).forEach(key => {
+        patrolGroups[key] = sortAssessments(patrolGroups[key], (sortKey === 'patrolStartDate' ? 'vesselName' : sortKey) , sortDirection);
+    });
 
-
-            if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
-                return dateA.getTime() - dateB.getTime(); // Always ascending for group order unless sortKey is patrolStartDate
+    let sortedPatrolEntries = Object.entries(patrolGroups).sort(([keyA], [keyB]) => {
+        const extractStartDate = (key: string): Date | null => {
+            const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
+            if (match && match[1]) {
+                try {
+                    return parseISO(format(new Date(match[1]), 'yyyy-MM-dd')); // Ensure parsing in consistent format
+                } catch { return null; }
             }
-            return keyA.localeCompare(keyB);
+            return null;
+        };
+        const dateA = extractStartDate(keyA);
+        const dateB = extractStartDate(keyB);
+        let comparison = 0;
+        if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
+            comparison = dateA.getTime() - dateB.getTime();
+        } else if (dateA && isValid(dateA)) comparison = -1;
+        else if (dateB && isValid(dateB)) comparison = 1;
+
+        if (comparison === 0) { // If start dates are the same, sort by vessel name from the key
+            const vesselNameA = keyA.split(' (Patrol:')[0];
+            const vesselNameB = keyB.split(' (Patrol:')[0];
+            comparison = vesselNameA.localeCompare(vesselNameB);
+        }
+        return sortDirection === 'asc' ? comparison : -comparison; // Apply main sort direction to groups when sorting by patrol start date
+    });
+    
+    if (sortKey !== 'patrolStartDate') {
+        // If not sorting by patrol start date, groups should remain chronological by their start date
+        // but internal sorting is dictated by user's choice.
+        // The group sorting should always be ascending by date if not primary sort.
+         sortedPatrolEntries.sort(([keyA], [keyB]) => {
+            const extractStartDate = (key: string): Date | null => {
+                const match = key.match(/\(Patrol: (.*?)(?: -|$)/);
+                if (match && match[1]) {
+                    try { return parseISO(format(new Date(match[1]), 'yyyy-MM-dd')); } catch { return null; }
+                }
+                return null;
+            };
+            const dateA = extractStartDate(keyA);
+            const dateB = extractStartDate(keyB);
+            if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
+                return dateA.getTime() - dateB.getTime(); // Always ascending for group order
+            }
+            return keyA.localeCompare(keyB); // Fallback if dates are weird
         });
     }
-    
+
+
     finalResult.push(...sortedPatrolEntries);
 
     if (sortedGeneral.length > 0) {
@@ -291,9 +279,7 @@ export default function DashboardPage() {
 
   const currentSortLabel = useMemo(() => {
     const option = sortOptions.find(opt => opt.value === sortKey);
-    if (!option) return getTranslation(T.sort);
-    if (option.labelKey) return getTranslation(T[option.labelKey]);
-    return currentLanguage === 'fr' ? option.staticFrLabel : option.staticLabel;
+    return option ? getTranslation(T[option.labelKey]) : getTranslation(T.sort);
   }, [sortKey, getTranslation, currentLanguage]);
 
 
@@ -420,7 +406,7 @@ export default function DashboardPage() {
               <DropdownMenuSeparator />
               {sortOptions.map(opt => (
                 <DropdownMenuItem key={opt.value} onClick={() => handleSort(opt.value)}>
-                  {opt.labelKey ? getTranslation(T[opt.labelKey]) : (currentLanguage === 'fr' ? opt.staticFrLabel : opt.staticLabel)}
+                  {getTranslation(T[opt.labelKey])}
                   {sortKey === opt.value && <ArrowUpDown className="ml-auto h-4 w-4 opacity-50" />}
                 </DropdownMenuItem>
               ))}
@@ -449,7 +435,7 @@ export default function DashboardPage() {
         <div className="space-y-8">
           {groupedAndSortedAssessments.map(([groupKey, assessmentsInGroup]) => {
             const isGeneralAssessmentsGroup = groupKey === getTranslation(T.generalAssessmentsLabel);
-            const IconToUse = groupKey.includes(getTranslation(T.to)) || groupKey.includes("Patrol starting") ? CalendarClock : (isGeneralAssessmentsGroup ? Info : ShipIcon);
+            const IconToUse = groupKey.includes("(Patrol:") ? CalendarClock : (isGeneralAssessmentsGroup ? Info : ShipIcon);
             
             return (
               <section key={groupKey} aria-labelledby={`group-${groupKey.replace(/\s+/g, '-').toLowerCase()}`}>
@@ -489,4 +475,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
