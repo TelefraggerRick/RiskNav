@@ -17,7 +17,7 @@ import {
   DocumentSnapshot,
 } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase'; // Import storage
-import type { RiskAssessment, Attachment, ApprovalStep } from '@/lib/types';
+import type { RiskAssessment, Attachment, ApprovalStep, AppUser, UserRole } from '@/lib/types';
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase Storage imports
 
 // Helper to convert Firestore Timestamps to ISO strings recursively
@@ -45,6 +45,16 @@ const mapDocToRiskAssessment = (docSnap: DocumentSnapshot<DocumentData>): RiskAs
     const assessmentWithTimestamps = { id: docSnap.id, ...data } as RiskAssessment;
     return convertTimestampsToISO(assessmentWithTimestamps);
 };
+
+// Helper to map a Firestore document snapshot to an AppUser object
+const mapDocToAppUser = (docSnap: DocumentSnapshot<DocumentData>): AppUser => {
+    const data = docSnap.data();
+    if (!data) throw new Error(`User document data undefined for doc id: ${docSnap.id}`);
+    // Assuming user data in Firestore does not typically contain timestamps that need conversion
+    // If there were, you'd use convertTimestampsToISO here as well.
+    return { uid: docSnap.id, ...data } as AppUser;
+};
+
 
 export const getAllAssessmentsFromDB = async (): Promise<RiskAssessment[]> => {
   try {
@@ -99,7 +109,7 @@ const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): Docum
         attachmentData.uploadedAt = Timestamp.fromDate(att.uploadedAt) as any;
       }
       delete attachmentData.file; 
-      if (attachmentData.dataAiHint === undefined) { // Safeguard: remove undefined dataAiHint
+      if (attachmentData.dataAiHint === undefined || attachmentData.dataAiHint === null || attachmentData.dataAiHint === '') { 
         delete attachmentData.dataAiHint;
       }
       return attachmentData;
@@ -241,5 +251,37 @@ export const uploadFileToStorage = async (file: File, storagePath: string): Prom
     );
     console.log(`FirestoreService: uploadFileToStorage - Listeners attached for ${file.name}`);
   });
+};
+
+// New function to fetch all users
+export const getAllUsersFromDB = async (): Promise<AppUser[]> => {
+  try {
+    const usersCol = collection(db, 'users');
+    // Optionally, order users, e.g., by name or email
+    // const q = query(usersCol, orderBy('name', 'asc'));
+    const usersSnapshot = await getDocs(usersCol); // Use usersCol directly if no specific order needed
+    const userList = usersSnapshot.docs.map(doc => mapDocToAppUser(doc));
+    return userList;
+  } catch (error) {
+    console.error("Error fetching all users: ", error);
+    throw error;
+  }
+};
+
+// New function to update a user's role
+export const updateUserRoleInDB = async (uid: string, newRole: UserRole): Promise<void> => {
+  try {
+    if (newRole === 'Unauthenticated') {
+      throw new Error("Cannot assign 'Unauthenticated' role.");
+    }
+    const userDocRef = doc(db, 'users', uid);
+    await updateDoc(userDocRef, {
+      role: newRole,
+    });
+    console.log(`Successfully updated role for user ${uid} to ${newRole}`);
+  } catch (error) {
+    console.error(`Error updating role for user ${uid}: `, error);
+    throw error;
+  }
 };
     

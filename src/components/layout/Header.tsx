@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays } from 'lucide-react';
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog } from 'lucide-react'; // Added UserCog
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -16,16 +16,15 @@ import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import React, { useState, useEffect } from 'react';
-import { rtdb } from '@/lib/firebase'; // Import RTDB
-import { ref, onValue } from 'firebase/database'; // RTDB functions
+import { rtdb } from '@/lib/firebase'; 
+import { ref, onValue } from 'firebase/database'; 
 
 export default function Header() {
-  const { currentUser, logout, isLoadingAuth } = useUser(); // Removed availableUsers and switchUser
+  const { currentUser, logout, isLoadingAuth } = useUser(); 
   const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); 
   const [onlineUsersCount, setOnlineUsersCount] = useState<number | null>(null);
 
   useEffect(() => {
-    // Listener for online users count from RTDB
     const statusRef = ref(rtdb, '/status');
     const unsubscribe = onValue(statusRef, (snapshot) => {
       const statuses = snapshot.val();
@@ -37,7 +36,7 @@ export default function Header() {
       }
     });
 
-    return () => unsubscribe(); // Cleanup RTDB listener on component unmount
+    return () => unsubscribe(); 
   }, []);
 
 
@@ -57,19 +56,19 @@ export default function Header() {
     statistics: { en: "Statistics", fr: "Statistiques" },
     calendar: { en: "Calendar", fr: "Calendrier" }, 
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
+    admin: { en: "Admin", fr: "Admin" }, // New translation
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
-    // switchUser: { en: "Switch User (Dev)", fr: "Changer d'utilisateur (Dev)" }, // Removed
     french: { en: "Français", fr: "English" },
     onlineUsers: { en: "Online", fr: "En ligne" },
   };
 
   const userIsAuthenticated = currentUser && currentUser.uid !== 'user-unauth';
+  const isAdmin = userIsAuthenticated && currentUser.role === 'Admin';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
       <div className="container mx-auto px-4 md:px-6">
-        {/* Top bar mimicking Canada.ca */}
         <div className="flex h-12 items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 bg-primary flex items-center justify-center rounded-sm">
@@ -92,7 +91,6 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Main app header content */}
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-primary">
             <ShieldHalf className="h-7 w-7" />
@@ -115,6 +113,14 @@ export default function Header() {
                 <span className="hidden sm:inline">{getTranslation(T.calendar)}</span>
               </Button>
             </Link>
+            {isAdmin && (
+                 <Link href="/admin" passHref>
+                    <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
+                         <UserCog className="h-4 w-4 mr-0 sm:mr-2" />
+                        <span className="hidden sm:inline">{getTranslation(T.admin)}</span>
+                    </Button>
+                </Link>
+            )}
             {userIsAuthenticated && (
                  <Link href="/assessments/new" passHref>
                     <Button variant="default" className="text-sm sm:text-base">{getTranslation(T.newAssessment)}</Button>
@@ -149,7 +155,6 @@ export default function Header() {
                     <p className="text-xs text-muted-foreground font-normal">{currentUser.role}</p>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {/* Switch user functionality is removed as it's for mock users */}
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>{getTranslation(T.logout)}</span>

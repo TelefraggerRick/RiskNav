@@ -80,7 +80,7 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   personnelShortages: string;
   proposedOperationalDeviations: string;
   submittedBy: string; 
-  submittedByUid?: string; // Added to store UID of submitter
+  submittedByUid?: string; 
   submissionDate: string; 
   status: RiskAssessmentStatus;
   attachments: Attachment[];
@@ -110,6 +110,15 @@ export type UserRole =
   | 'Director General'
   | 'Admin'
   | 'Unauthenticated';
+
+// Array of assignable roles, excluding 'Unauthenticated'
+export const assignableUserRoles: Exclude<UserRole, 'Unauthenticated'>[] = [
+  'Submitter',
+  'CSO Officer',
+  'Senior Director',
+  'Director General',
+  'Admin',
+];
 
 // This will represent the user profile stored in Firestore
 export interface AppUser {
