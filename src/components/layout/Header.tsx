@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown } from 'lucide-react'; // Added LayoutGrid, ChevronDown
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -19,6 +19,24 @@ import React, { useState, useEffect } from 'react';
 import { rtdb } from '@/lib/firebase'; 
 import { ref, onValue } from 'firebase/database'; 
 import { cn } from '@/lib/utils';
+
+// Canadian Flag SVG component
+const CanadaFlagIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 1000 500" // Correct 2:1 aspect ratio for Canadian flag
+    {...props}
+  >
+    <rect width="1000" height="500" fill="#D8262C" /> {/* Red background */}
+    <rect x="250" width="500" height="500" fill="#FFFFFF" /> {/* White center square */}
+    {/* Simplified Maple Leaf */}
+    <path
+      fill="#D8262C" // Red maple leaf
+      d="M500,125 L445,210 L460,210 L420,280 L450,280 L450,330 L550,330 L550,280 L580,280 L540,210 L555,210 Z M500,125 L525,180 L475,180 Z M500,375 L470,340 L530,340 Z"
+    />
+  </svg>
+);
+
 
 export default function Header() {
   const { currentUser, logout, isLoadingAuth } = useUser(); 
@@ -67,7 +85,7 @@ export default function Header() {
     logout: { en: "Log Out", fr: "Déconnexion" },
     french: { en: "Français", fr: "English" },
     onlineUsers: { en: "Online", fr: "En ligne" },
-    viewsMenu: { en: "Views", fr: "Vues" }, // New translation for the dropdown
+    viewsMenu: { en: "Views", fr: "Vues" },
   };
 
   const userIsAuthenticated = currentUser && currentUser.uid !== 'user-unauth';
@@ -78,8 +96,8 @@ export default function Header() {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex h-12 items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 bg-primary flex items-center justify-center rounded-sm">
-              <span className="text-xs font-bold text-primary-foreground">C</span>
+            <div className="h-5 w-10"> {/* h-5 (20px), w-10 (40px) for 1:2 aspect ratio */}
+              <CanadaFlagIcon className="h-full w-full" />
             </div>
             <span className="text-sm font-semibold text-foreground">
               {getTranslation(T.govCanada)} / <span className="font-normal">{currentLanguage === 'en' ? T.govCanada.fr : T.govCanada.en}</span>
@@ -194,4 +212,6 @@ export default function Header() {
     </header>
   );
 }
+    
+
     
