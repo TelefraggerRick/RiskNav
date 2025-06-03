@@ -98,7 +98,7 @@ export default function DashboardPage() {
   const [selectedRegions, setSelectedRegions] = useState<VesselRegion[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('patrolStartDate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [hideCompletedPatrols, setHideCompletedPatrols] = useState(false);
+  const [hideCompletedPatrols, setHideCompletedPatrols] = useState(true);
   const { getTranslation, currentLanguage } = useLanguage();
 
 
@@ -493,3 +493,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
