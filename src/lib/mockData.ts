@@ -13,9 +13,9 @@ const eightDaysAgo = new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000);
 
 
 const initialApprovalSteps: ApprovalStep[] = [
-  { level: 'Crewing Standards and Oversight' },
-  { level: 'Senior Director' },
-  { level: 'Director General' },
+  { level: 'Crewing Standards and Oversight', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+  { level: 'Senior Director', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+  { level: 'Director General', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
 ];
 
 export const mockRiskAssessments: RiskAssessment[] = [
@@ -41,9 +41,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-002', name: 'Deviation_Request_Form_001.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 51200, uploadedAt: twoDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight' },
-      { level: 'Senior Director' },
-      { level: 'Director General' },
+      { level: 'Crewing Standards and Oversight', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+      { level: 'Senior Director', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+      { level: 'Director General', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
     ],
     lastModified: twoDaysAgo.toISOString(),
     employeeName: "Cadet Alex Johnson",
@@ -91,9 +91,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-004', name: 'Renewal_Application_Confirmation.png', dataAiHint:"document scan", url: 'https://placehold.co/150x100.png', type: 'image/png', size: 120000, uploadedAt: oneDayAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable and remote supervision is robust.' },
-      { level: 'Senior Director' },
-      { level: 'Director General' },
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: oneDayAgo.toISOString(), notes: 'Proceed with caution, ensure 2nd Eng is comfortable and remote supervision is robust.', isAgainstFSM: false, isAgainstMPR: true, isAgainstCrewingProfile: false },
+      { level: 'Senior Director', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+      { level: 'Director General', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
     ],
     aiRiskScore: 65,
     aiLikelihoodScore: 3,
@@ -144,7 +144,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
        { id: 'att-005', name: 'FatigueManagementPlan_AnnHarvey.pdf', url: '#', type: 'application/pdf', size: 204800, uploadedAt: threeDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: twoDaysAgo.toISOString(), notes: 'Acceptable under proposed conditions.'},
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: twoDaysAgo.toISOString(), notes: 'Acceptable under proposed conditions.', isAgainstFSM: true, isAgainstMPR: false, isAgainstCrewingProfile: true},
       { level: 'Senior Director', decision: 'Approved', userName: 'Senior Director (Approver)', date: oneDayAgo.toISOString(), notes: 'Concur with CSO assessment. Emphasize strict adherence.'},
       { level: 'Director General', decision: 'Approved', userName: 'Director General (Approver)', date: oneDayAgo.toISOString(), notes: 'Approved with condition that criteria for reduced watch are strictly adhered to and logged. Bi-hourly weather checks mandatory.'},
     ],
@@ -198,9 +198,9 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-006', name: 'Medevac_Report_GR001.pdf', url: '#', type: 'application/pdf', size: 95000, uploadedAt: now.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight' },
-      { level: 'Senior Director' },
-      { level: 'Director General' },
+      { level: 'Crewing Standards and Oversight', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+      { level: 'Senior Director', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+      { level: 'Director General', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
     ],
     lastModified: now.toISOString(),
     employeeName: "N/A - Crew Shortage",
@@ -248,7 +248,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-008', name: 'Proposed_Nav_Procedures.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 65000, uploadedAt: fourDaysAgo.toISOString() },
     ],
     approvalSteps: [
-      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.'},
+      { level: 'Crewing Standards and Oversight', decision: 'Approved', userName: 'CSO Officer', date: threeDaysAgo.toISOString(), notes: 'Mitigations seem adequate for short term.', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: true},
       { level: 'Senior Director', decision: 'Rejected', userName: 'Senior Director (Approver)', date: twoDaysAgo.toISOString(), notes: 'Operating on magnetic compass alone in the Great Lakes poses too high a risk. Gyro must be repaired or vessel operations significantly curtailed to daylight, clear weather, and open waters only.'},
       { level: 'Director General' },
     ],
@@ -307,10 +307,11 @@ export const mockRiskAssessments: RiskAssessment[] = [
         decision: 'Needs Information',
         userName: 'CSO Officer',
         date: fourDaysAgo.toISOString(),
-        notes: 'Please provide a copy of the OS\'s training record or certification for the specific crane type (e.g., HIAB SeaCrane Model Y). Alternatively, detail the familiarization plan if certification is not present, including who will conduct it and for how long.'
+        notes: 'Please provide a copy of the OS\'s training record or certification for the specific crane type (e.g., HIAB SeaCrane Model Y). Alternatively, detail the familiarization plan if certification is not present, including who will conduct it and for how long.',
+        isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false
       },
-      { level: 'Senior Director' },
-      { level: 'Director General' },
+      { level: 'Senior Director', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
+      { level: 'Director General', isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false },
     ],
     lastModified: fourDaysAgo.toISOString(),
     employeeName: "OS Emily White",
@@ -357,7 +358,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-010', name: 'Lubricant_Comparison_Sheet.pdf', url: '#', type: 'application/pdf', size: 120000, uploadedAt: sixDaysAgo.toISOString() },
       { id: 'att-011', name: 'OEM_Consultation_Email.txt', dataAiHint:"email text", url: 'https://placehold.co/200x50.png', type: 'text/plain', size: 5000, uploadedAt: sixDaysAgo.toISOString() },
     ],
-    approvalSteps: [...initialApprovalSteps], // Reset for seeding
+    approvalSteps: [...initialApprovalSteps.map(s => ({...s, isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false }))], // Reset for seeding
     lastModified: sixDaysAgo.toISOString(),
     employeeName: "N/A - Equipment/Supply Issue",
     certificateHeld: "N/A",
@@ -403,7 +404,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-012', name: 'Critical_Spares_Inventory_Franklin.pdf', url: '#', type: 'application/pdf', size: 175000, uploadedAt: sevenDaysAgo.toISOString() },
       { id: 'att-013', name: 'Provisioning_Plan_Aug2025.docx', url: '#', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 95000, uploadedAt: sevenDaysAgo.toISOString() },
     ],
-    approvalSteps: [...initialApprovalSteps], // Fresh approval steps
+    approvalSteps: [...initialApprovalSteps.map(s => ({...s, isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false }))], // Fresh approval steps
     lastModified: sevenDaysAgo.toISOString(),
     employeeName: "N/A - Logistics Planning",
     certificateHeld: "N/A",
@@ -449,7 +450,7 @@ export const mockRiskAssessments: RiskAssessment[] = [
       { id: 'att-014', name: 'Butler_HV_TrainingCert.pdf', url: '#', type: 'application/pdf', size: 130000, uploadedAt: eightDaysAgo.toISOString() },
       { id: 'att-015', name: 'HVX3000_OEM_Compliance.pdf', url: '#', type: 'application/pdf', size: 250000, uploadedAt: eightDaysAgo.toISOString() },
     ],
-    approvalSteps: [...initialApprovalSteps],
+    approvalSteps: [...initialApprovalSteps.map(s => ({...s, isAgainstFSM: false, isAgainstMPR: false, isAgainstCrewingProfile: false }))],
     lastModified: eightDaysAgo.toISOString(),
     employeeName: "Richard Butler",
     certificateHeld: "Electro-Technical Officer (ETO) CoC, STCW Advanced Firefighting, MED D",
@@ -475,4 +476,3 @@ export const mockRiskAssessments: RiskAssessment[] = [
     rocNotificationOfLimitations: 'No', // No limitations if operated under proposed mitigations
   }
 ];
-

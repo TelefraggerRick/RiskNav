@@ -53,6 +53,9 @@ export interface ApprovalStep {
   userName?: string;
   date?: string;
   notes?: string;
+  isAgainstFSM?: boolean; // New field for CSO
+  isAgainstMPR?: boolean; // New field for CSO
+  isAgainstCrewingProfile?: boolean; // New field for CSO
 }
 
 export type RiskAssessmentStatus =
@@ -132,3 +135,4 @@ export interface AppUser {
 }
 
 export type Language = 'en' | 'fr';
+

@@ -44,6 +44,10 @@ async function seedDatabase() {
         approvalSteps: (assessment.approvalSteps || []).map((step: ApprovalStep) => ({
           ...step,
           date: step.date ? Timestamp.fromDate(new Date(step.date)) : undefined,
+          // Ensure new boolean fields default to false or are omitted if undefined in mock
+          isAgainstFSM: step.isAgainstFSM || false,
+          isAgainstMPR: step.isAgainstMPR || false,
+          isAgainstCrewingProfile: step.isAgainstCrewingProfile || false,
         })),
       };
 
@@ -57,13 +61,17 @@ async function seedDatabase() {
         }
       });
       
-      // Clean up undefined dates in nested approvalSteps if they weren't set
+      // Clean up undefined dates and ensure boolean flags are set correctly for approvalSteps
       dataToSet.approvalSteps = dataToSet.approvalSteps.map((step: any) => {
-        if (step.date === undefined) {
-          const { date, ...restOfStep } = step;
-          return restOfStep;
-        }
-        return step;
+        const cleanedStep: Partial<ApprovalStep> = { ...step };
+        if (cleanedStep.date === undefined) delete cleanedStep.date;
+        
+        // Ensure boolean flags are present, defaulting to false if not explicitly set in mock
+        cleanedStep.isAgainstFSM = !!cleanedStep.isAgainstFSM;
+        cleanedStep.isAgainstMPR = !!cleanedStep.isAgainstMPR;
+        cleanedStep.isAgainstCrewingProfile = !!cleanedStep.isAgainstCrewingProfile;
+
+        return cleanedStep;
       });
 
 

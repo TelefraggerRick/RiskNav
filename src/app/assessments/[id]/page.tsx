@@ -20,7 +20,7 @@ import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessme
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
 import { useUser } from '@/contexts/UserContext';
-import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
+import ApprovalDialog, { type ApprovalDialogFormData } from '@/components/risk-assessments/ApprovalDialog'; // Import FormData type
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService';
@@ -102,6 +102,10 @@ const T_DETAILS_PAGE = {
   by: { en: "By:", fr: "Par :" },
   date: { en: "Date:", fr: "Date :" },
   notes: { en: "Notes:", fr: "Notes :" },
+  complianceFlags: { en: "Compliance Flags:", fr: "Indicateurs de conformité :" },
+  fsmNonCompliance: { en: "FSM Non-Compliance", fr: "Non-conformité MSF" },
+  mprNonCompliance: { en: "MPR Non-Compliance", fr: "Non-conformité RPM" },
+  crewingProfileDeviation: { en: "Crewing Profile Deviation", fr: "Écart au profil d'armement" },
   pendingAction: { en: "Pending Action", fr: "Action en attente" },
   queued: { en: "Queued", fr: "En attente" },
   actionsFor: { en: "Actions for {level}:", fr: "Actions pour {level} :" },
@@ -411,7 +415,7 @@ export default function AssessmentDetailPage() {
             userIsApproverForCurrentStep = true;
         } else if (currentLevelToAct === 'Director General' && currentUser.role === 'Director General') {
             userIsApproverForCurrentStep = true;
-        } else if (currentUser.role === 'Admin') {
+        } else if (currentUser.role === 'Admin') { // Admins can act on any step for now
             userIsApproverForCurrentStep = true;
         }
     }
@@ -428,7 +432,7 @@ export default function AssessmentDetailPage() {
     setIsApprovalDialogOpen(true);
   }, []);
 
-  const handleApprovalAction = useCallback(async (notes: string) => {
+  const handleApprovalAction = useCallback(async (approvalData: ApprovalDialogFormData) => {
     if (!assessment || !assessment.id || !currentLevelToAct || !currentUser || !currentDecision || currentUser.uid === 'user-unauth') return;
 
     setIsSubmittingApproval(true);
@@ -436,7 +440,19 @@ export default function AssessmentDetailPage() {
 
     const updatedApprovalSteps = assessment.approvalSteps.map(step =>
       step.level === currentLevelToAct
-        ? { ...step, decision: currentDecision, userId: currentUser.uid, userName: currentUser.name, date: nowISO, notes }
+        ? {
+            ...step,
+            decision: currentDecision,
+            userId: currentUser.uid,
+            userName: currentUser.name,
+            date: nowISO,
+            notes: approvalData.notes,
+            ...(currentLevelToAct === 'Crewing Standards and Oversight' && currentDecision === 'Approved' && {
+              isAgainstFSM: approvalData.isAgainstFSM,
+              isAgainstMPR: approvalData.isAgainstMPR,
+              isAgainstCrewingProfile: approvalData.isAgainstCrewingProfile,
+            }),
+          }
         : step
     );
 
@@ -804,6 +820,16 @@ export default function AssessmentDetailPage() {
                           {step.userName && <p><strong>{getTranslation(T_DETAILS_PAGE.by)}</strong> {step.userName}</p>}
                           {step.date && <p><strong>{getTranslation(T_DETAILS_PAGE.date)}</strong> {formatDateSafe(step.date, "PPP p")}</p>}
                           {step.notes && <p className="mt-1"><strong>{getTranslation(T_DETAILS_PAGE.notes)}</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
+                          {step.level === 'Crewing Standards and Oversight' && step.decision === 'Approved' && (step.isAgainstFSM || step.isAgainstMPR || step.isAgainstCrewingProfile) && (
+                            <div className="mt-2 pt-2 border-t border-dashed">
+                                <p className="text-xs font-semibold text-orange-700">{getTranslation(T_DETAILS_PAGE.complianceFlags)}</p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {step.isAgainstFSM && <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 bg-orange-50">{getTranslation(T_DETAILS_PAGE.fsmNonCompliance)}</Badge>}
+                                    {step.isAgainstMPR && <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 bg-orange-50">{getTranslation(T_DETAILS_PAGE.mprNonCompliance)}</Badge>}
+                                    {step.isAgainstCrewingProfile && <Badge variant="outline" className="text-xs border-orange-400 text-orange-600 bg-orange-50">{getTranslation(T_DETAILS_PAGE.crewingProfileDeviation)}</Badge>}
+                                </div>
+                            </div>
+                          )}
                         </CardContent>
                       )}
                     </Card>
@@ -879,6 +905,7 @@ export default function AssessmentDetailPage() {
         onClose={() => { setIsApprovalDialogOpen(false); setCurrentDecision(undefined);}}
         onSubmit={handleApprovalAction}
         decision={currentDecision}
+        currentApprovalLevel={currentLevelToAct || undefined}
         isLoading={isSubmittingApproval}
       />
     </div>
