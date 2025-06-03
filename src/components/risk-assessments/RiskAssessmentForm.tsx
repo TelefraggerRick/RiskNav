@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { RiskAssessmentFormData } from "@/lib/schemas";
-import { riskAssessmentFormSchema, attachmentSchema } from "@/lib/schemas"; // Ensure attachmentSchema is imported
+import { riskAssessmentFormSchema, attachmentSchema } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { UploadCloud, FileText, Trash2, Info, UserCheck, Sailboat, AlertCircle, Anchor, Globe, Fingerprint, CalendarClock, User as UserIcon, Award, FileCheck2, ChevronsUpDown, Check, FileBadge } from "lucide-react";
 import React, { useCallback, useState } from 'react';
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner'; // Changed to sonner
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { VesselDepartment, VesselRegion } from "@/lib/types";
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -31,7 +31,6 @@ interface RiskAssessmentFormProps {
 }
 
 const MAX_FILE_SIZE_MB = 5;
-// const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024; // Already in schema
 const ALLOWED_FILE_TYPES = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'text/plain'];
 const departmentOptions: VesselDepartment[] = ['Navigation', 'Deck', 'Engine Room', 'Logistics', 'Other'];
 const regionOptions: VesselRegion[] = ['Atlantic', 'Central', 'Western', 'Arctic'];
@@ -129,7 +128,7 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
     defaultValues: initialData || {
       vesselName: "",
       imoNumber: "",
-      maritimeExemptionNumber: "", // New field
+      maritimeExemptionNumber: "",
       department: undefined,
       region: undefined,
       patrolStartDate: "",
@@ -169,14 +168,13 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
     name: "attachments",
   });
 
-  const { toast } = useToast();
   const { getTranslation } = useLanguage();
   const [vesselPopoverOpen, setVesselPopoverOpen] = useState(false);
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const currentFilesCount = form.getValues("attachments")?.length || 0;
     if (currentFilesCount >= 5) {
-      toast({ title: getTranslation(T_FORM.fileLimitReached), description: getTranslation(T_FORM.fileLimitReachedDesc), variant: "destructive" });
+      toast.error(getTranslation(T_FORM.fileLimitReached), { description: getTranslation(T_FORM.fileLimitReachedDesc) }); // Changed to sonner
       if (event.target) event.target.value = "";
       return;
     }
@@ -204,15 +202,13 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
       });
 
       if (errors.length > 0) {
-        toast({
-          title: getTranslation(T_FORM.fileUploadIssues),
+        toast.error(getTranslation(T_FORM.fileUploadIssues), { // Changed to sonner
           description: ( <ul className="list-disc pl-5"> {errors.map((e, i) => <li key={i}>{e}</li>)} </ul> ),
-          variant: "destructive",
         });
       }
     }
     if (event.target) event.target.value = "";
-  }, [append, toast, form, getTranslation]);
+  }, [append, form, getTranslation]); // Removed toast from deps
 
   const watchDeptHeadConfident = form.watch("deptHeadConfidentInIndividual");
   const watchWorkedInDept = form.watch("workedInDepartmentLast12Months");
@@ -593,4 +589,3 @@ const RiskAssessmentForm: React.FC<RiskAssessmentFormProps> = React.memo(({ onSu
 });
 RiskAssessmentForm.displayName = 'RiskAssessmentForm';
 export default RiskAssessmentForm;
-

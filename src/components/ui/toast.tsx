@@ -1,3 +1,22 @@
+// This component (Toast) and its associated Radix/ShadCN UI logic
+// have been deprecated and replaced by the 'sonner' library for toast notifications.
+// This change was made to address persistent "Maximum update depth exceeded" errors
+// believed to be related to the previous toast implementation.
+
+// For new toast notifications, please import and use `toast` from 'sonner'
+// and the <Toaster /> component from 'sonner' in your layout.
+// Example:
+// import { toast } from 'sonner';
+// toast('My notification message');
+// toast.success('Success!');
+// toast.error('An error occurred.');
+
+// See Sonner documentation for more usage examples: https://sonner.emilkowal.ski/
+
+// The original code is left below for historical reference but is no longer active
+// in the application.
+
+/*
 "use client"
 
 import * as React from "react"
@@ -127,3 +146,4 @@ export {
   ToastClose,
   ToastAction,
 }
+*/

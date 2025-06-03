@@ -8,15 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { RiskAssessment } from '@/lib/types';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, eachDayOfInterval, isValid } from 'date-fns';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ArrowLeft, CalendarDays, Info, List, Loader2, PlusCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getAllAssessmentsFromDB } from '@/lib/firestoreService'; // Firestore service
-import { useToast } from "@/hooks/use-toast";
-
-// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
+import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
+import { toast } from 'sonner'; // Changed to sonner
 
 const T_CALENDAR_PAGE = {
   pageTitle: { en: "Risk Assessment Calendar", fr: "Calendrier des évaluations des risques" },
@@ -35,7 +32,6 @@ const T_CALENDAR_PAGE = {
   failedToFetchAssessments: { en: "Could not fetch assessments. Please try again later.", fr: "Impossible de charger les évaluations. Veuillez réessayer plus tard." },
 };
 
-
 export default function AssessmentCalendarPage() {
   const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -43,7 +39,6 @@ export default function AssessmentCalendarPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { getTranslation, currentLanguage } = useLanguage();
-  const { toast } = useToast();
 
   const loadAssessments = useCallback(async () => {
     setIsLoading(true);
@@ -52,16 +47,14 @@ export default function AssessmentCalendarPage() {
         setAssessments(data);
     } catch (error) {
         console.error("Error fetching assessments for calendar:", error);
-        toast({
-            title: getTranslation(T_CALENDAR_PAGE.errorLoadingAssessments),
+        toast.error(getTranslation(T_CALENDAR_PAGE.errorLoadingAssessments), { // Changed to sonner
             description: getTranslation(T_CALENDAR_PAGE.failedToFetchAssessments),
-            variant: "destructive"
         });
-        setAssessments([]); // Set to empty on error
+        setAssessments([]);
     } finally {
         setIsLoading(false);
     }
-  }, [toast, getTranslation]);
+  }, [getTranslation]); // Removed toast from deps, as sonner's toast is stable
 
   useEffect(() => {
     loadAssessments();
@@ -133,10 +126,9 @@ export default function AssessmentCalendarPage() {
     if (selectedDate) {
       handleDayClick(selectedDate);
     } else {
-      handleDayClick(new Date()); // Default to today if no date selected
+      handleDayClick(new Date());
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assessments, selectedDate]); // Re-filter when assessments or selectedDate change
+  }, [assessments, selectedDate, handleDayClick]);
 
 
   const formatPatrolDateRange = (assessment: RiskAssessment) => {
@@ -262,5 +254,3 @@ export default function AssessmentCalendarPage() {
     </div>
   );
 }
-
-    

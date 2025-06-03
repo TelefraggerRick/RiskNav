@@ -2,30 +2,28 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-// import { mockRiskAssessments } from '@/lib/mockData'; // No longer needed
 import type { RiskAssessment } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'; // Removed Legend
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { ArrowLeft, BarChart3, MapPinned, Building, ListChecks, Landmark, Clock, Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useRouter } from 'next/navigation'; // For redirecting if no data
-import { getAllAssessmentsFromDB } from '@/lib/firestoreService'; // Firestore service
-import { useToast } from "@/hooks/use-toast";
+import { useRouter } from 'next/navigation';
+import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
+import { toast } from 'sonner'; // Changed to sonner
 
 interface ChartDataItem {
-  name: string; // Can be department, region, or status name
+  name: string;
   total: number;
 }
 
 interface DepartmentAvgLengthItem {
-  name: string; // Department name
+  name: string;
   averageLength: number;
 }
 
-// const LOCAL_STORAGE_KEY = 'riskAssessmentsData'; // No longer needed
 const chartColorHSL = (variable: string) => `hsl(var(--${variable}))`;
 
 const T_STATISTICS_PAGE = {
@@ -76,7 +74,6 @@ export default function StatisticsPage() {
 
   const { getTranslation } = useLanguage();
   const router = useRouter();
-  const { toast } = useToast();
 
   const processData = useCallback((data: RiskAssessment[]) => {
     setTotalAssessmentsCount(data.length);
@@ -150,19 +147,17 @@ export default function StatisticsPage() {
             processData(data);
         } catch (error) {
             console.error("Error loading data for statistics:", error);
-            toast({
-                title: getTranslation(T_STATISTICS_PAGE.errorLoadingStats),
+            toast.error(getTranslation(T_STATISTICS_PAGE.errorLoadingStats), { // Changed to sonner
                 description: getTranslation(T_STATISTICS_PAGE.failedToFetchStats),
-                variant: "destructive"
             });
-            setAssessments([]); // Set to empty on error
-            processData([]); // Process empty data to show "no data" state correctly
+            setAssessments([]);
+            processData([]);
         } finally {
             setIsLoading(false);
         }
     };
     loadAndProcessData();
-  }, [processData, toast, getTranslation]);
+  }, [processData, getTranslation]); // Removed toast from deps
 
   const departmentDisplayConfig = useMemo((): ChartConfig => ({
     [getTranslation(T_STATISTICS_PAGE.Navigation)]: { label: getTranslation(T_STATISTICS_PAGE.Navigation), color: 'hsl(210, 65%, 50%)' },
@@ -334,7 +329,6 @@ export default function StatisticsPage() {
         </Card>
       </div>
 
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {renderBarChart(assessmentsByRegionData, "assessmentsByRegionTitle", "assessmentsByRegionDesc", MapPinned, regionDisplayConfig, "total")}
         {renderBarChart(assessmentsByDepartmentData, "assessmentsByDeptTitle", "assessmentsByDeptDesc", Building, departmentDisplayConfig, "total")}
@@ -357,9 +351,6 @@ export default function StatisticsPage() {
         statusDisplayConfig,
         "total"
       )}
-
     </div>
   );
 }
-
-    

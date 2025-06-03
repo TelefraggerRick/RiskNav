@@ -9,11 +9,10 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // Keep for consistency if used elsewhere
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-// Select for user profile is removed as we are moving to email/password auth
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner'; // Changed to sonner
 import { LogIn } from "lucide-react";
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -27,7 +26,6 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const { login, currentUser, isLoadingAuth } = useUser();
-  const { toast } = useToast();
   const { getTranslation } = useLanguage();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,13 +55,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isLoadingAuth && currentUser && currentUser.uid !== 'user-unauth') {
-      toast({
-        title: getTranslation(T.loginSuccessTitle),
+      toast.success(getTranslation(T.loginSuccessTitle), { // Changed to sonner
         description: getTranslation(T.loginSuccessDesc).replace('{userName}', currentUser.name || 'User'),
       });
       router.replace('/'); 
     }
-  }, [currentUser, isLoadingAuth, router, toast, getTranslation, T.loginSuccessTitle, T.loginSuccessDesc]);
+  }, [currentUser, isLoadingAuth, router, getTranslation, T.loginSuccessTitle, T.loginSuccessDesc]); // Removed toast from deps
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsSubmitting(true);
@@ -71,10 +68,8 @@ export default function LoginPage() {
     if (success) {
       // Success toast and redirection are handled by the useEffect above
     } else {
-      toast({
-        title: getTranslation(T.loginFailedTitle),
+      toast.error(getTranslation(T.loginFailedTitle), { // Changed to sonner
         description: getTranslation(T.loginFailedDesc),
-        variant: "destructive",
       });
       form.resetField("password");
     }
@@ -85,11 +80,9 @@ export default function LoginPage() {
     return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{getTranslation(T.loggingIn)}</div>;
   }
   
-  // If already logged in (and not loading), show redirecting message or redirect immediately (handled by useEffect)
   if (!isLoadingAuth && currentUser && currentUser.uid !== 'user-unauth') {
       return <div className="flex justify-center items-center h-[calc(100vh-200px)]">{getTranslation(T.alreadyLoggedIn)}</div>;
   }
-
 
   return (
     <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">

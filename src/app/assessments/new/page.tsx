@@ -3,8 +3,8 @@
 
 import RiskAssessmentForm from "@/components/risk-assessments/RiskAssessmentForm";
 import type { RiskAssessmentFormData } from "@/lib/schemas";
-import { useState, useEffect } from "react"; // Added useEffect
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import { toast } from 'sonner'; // Changed to sonner
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,8 @@ const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight',
 
 export default function NewAssessmentPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const router = useRouter();
-  const { currentUser, isLoadingAuth } = useUser(); // Added isLoadingAuth
+  const { currentUser, isLoadingAuth } = useUser();
   const { getTranslation } = useLanguage();
 
   const T = {
@@ -39,10 +38,10 @@ export default function NewAssessmentPage() {
 
   useEffect(() => {
     if (!isLoadingAuth && (!currentUser || currentUser.uid === 'user-unauth')) {
-      toast({ title: getTranslation(T.authErrorTitle), description: getTranslation(T.authErrorDesc), variant: "destructive" });
+      toast.error(getTranslation(T.authErrorTitle), { description: getTranslation(T.authErrorDesc) });
       router.push('/login');
     }
-  }, [currentUser, isLoadingAuth, router, toast, getTranslation, T.authErrorTitle, T.authErrorDesc]);
+  }, [currentUser, isLoadingAuth, router, getTranslation, T.authErrorTitle, T.authErrorDesc]);
 
 
   const calculatePatrolLengthDays = (startDateStr?: string, endDateStr?: string): number | undefined => {
@@ -65,7 +64,7 @@ export default function NewAssessmentPage() {
 
   const handleSubmit = async (data: RiskAssessmentFormData) => {
     if (isLoadingAuth || !currentUser || currentUser.uid === 'user-unauth') {
-        toast({ title: getTranslation(T.authErrorTitle), description: getTranslation(T.authErrorDesc), variant: "destructive" });
+        toast.error(getTranslation(T.authErrorTitle), { description: getTranslation(T.authErrorDesc) });
         return;
     }
     setIsLoading(true);
@@ -86,20 +85,16 @@ export default function NewAssessmentPage() {
                 id: `att-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, 
                 name: att.file.name,
                 url: downloadURL,
-                type: att.file.type,
-                size: att.file.size,
+                type: att.file.type || 'unknown',
+                size: att.file.size || 0,
                 uploadedAt: now.toISOString(),
               };
-              if (att.dataAiHint) {
-                newAttachment.dataAiHint = att.dataAiHint;
-              }
+              if (att.dataAiHint) newAttachment.dataAiHint = att.dataAiHint;
               processedAttachments.push(newAttachment);
             } catch (uploadError) {
               console.error(`Error uploading attachment ${att.name}:`, uploadError);
-              toast({
-                title: getTranslation(T.fileUploadErrorTitle),
+              toast.error(getTranslation(T.fileUploadErrorTitle), {
                 description: getTranslation(T.fileUploadErrorDesc).replace('{fileName}', att.name),
-                variant: "destructive",
               });
               setIsLoading(false);
               return; 
@@ -113,9 +108,7 @@ export default function NewAssessmentPage() {
                 size: att.size || 0,
                 uploadedAt: att.uploadedAt || now.toISOString(),
             };
-            if (att.dataAiHint) {
-                existingAttachment.dataAiHint = att.dataAiHint;
-            }
+            if (att.dataAiHint) existingAttachment.dataAiHint = att.dataAiHint;
             processedAttachments.push(existingAttachment);
           }
         }
@@ -135,8 +128,8 @@ export default function NewAssessmentPage() {
         reasonForRequest: data.reasonForRequest,
         personnelShortages: data.personnelShortages,
         proposedOperationalDeviations: data.proposedOperationalDeviations,
-        submittedBy: currentUser.name, // Name from AppUser profile
-        submittedByUid: currentUser.uid, // UID from Firebase Auth
+        submittedBy: currentUser.name,
+        submittedByUid: currentUser.uid,
         status: 'Pending Crewing Standards and Oversight',
         attachments: processedAttachments, 
         approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)),
@@ -176,20 +169,16 @@ export default function NewAssessmentPage() {
       const newDocId = await addAssessmentToDB(assessmentDataForDB);
       console.log("New assessment added with ID:", newDocId);
 
-      toast({
-        title: getTranslation(T.submitSuccessTitle),
+      toast.success(getTranslation(T.submitSuccessTitle), {
         description: getTranslation(T.submitSuccessDesc).replace('{vesselName}', data.vesselName),
-        variant: "default",
       });
 
       setTimeout(() => router.push("/"), 2000);
 
     } catch (error) {
       console.error("Error submitting assessment:", error);
-      toast({
-        title: getTranslation(T.submitErrorTitle),
+      toast.error(getTranslation(T.submitErrorTitle), {
         description: getTranslation(T.submitErrorDesc),
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

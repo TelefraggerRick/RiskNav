@@ -1,4 +1,21 @@
+// This hook (useToast) and its associated Radix/ShadCN UI components (Toast, Toaster)
+// have been deprecated and replaced by the 'sonner' library for toast notifications.
+// This change was made to address persistent "Maximum update depth exceeded" errors
+// believed to be related to the previous toast implementation.
 
+// For new toast notifications, please import and use `toast` from 'sonner'.
+// Example:
+// import { toast } from 'sonner';
+// toast('My notification message');
+// toast.success('Success!');
+// toast.error('An error occurred.');
+
+// See Sonner documentation for more usage examples: https://sonner.emilkowal.ski/
+
+// The original code is left below for historical reference but is no longer active
+// in the application.
+
+/*
 "use client"
 
 // Inspired by react-hot-toast library
@@ -7,10 +24,10 @@ import * as React from "react"
 import type {
   ToastActionElement,
   ToastProps,
-} from "@/components/ui/toast"
+} from "@/components/ui/toast" // Points to a now-deprecated component
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 0 // Keep at 0 as per last successful attempt on this error type
+const TOAST_REMOVE_DELAY = 0
 
 type ToasterToast = ToastProps & {
   id: string
@@ -79,19 +96,20 @@ export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
       {
-        let evictedToastId: string | null = null;
-        if (state.toasts.length >= TOAST_LIMIT) {
-          evictedToastId = state.toasts[state.toasts.length - TOAST_LIMIT]?.id;
-        }
-  
-        if (evictedToastId && toastTimeouts.has(evictedToastId)) {
-          clearTimeout(toastTimeouts.get(evictedToastId)!);
-          toastTimeouts.delete(evictedToastId);
-        }
+        const newToasts = [action.toast, ...state.toasts];
+        const toastsToKeep = newToasts.slice(0, TOAST_LIMIT);
+        const evictedToasts = newToasts.slice(TOAST_LIMIT);
+
+        evictedToasts.forEach(toast => {
+          if (toastTimeouts.has(toast.id)) {
+            clearTimeout(toastTimeouts.get(toast.id)!);
+            toastTimeouts.delete(toast.id);
+          }
+        });
         
         return {
           ...state,
-          toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
+          toasts: toastsToKeep,
         };
       }
 
@@ -108,32 +126,26 @@ export const reducer = (state: State, action: Action): State => {
 
       if (toastId) {
         const toastToDismiss = state.toasts.find(t => t.id === toastId);
-
-        // Only proceed if the toast exists and is not already marked as closed (open is true or undefined)
         if (toastToDismiss && toastToDismiss.open !== false) {
-          addToRemoveQueue(toastId); // Schedule its removal from the DOM
+          addToRemoveQueue(toastId);
           return {
             ...state,
-            // Mark this specific toast as closed
             toasts: state.toasts.map((t) =>
               t.id === toastId ? { ...t, open: false } : t
             ),
           };
         }
-        // If toast not found, or already marked open:false, do nothing to prevent loops.
-        return state;
+        return state; // Toast not found or already marked as closed
       } else {
         // Dismiss all toasts
-        const updatedToasts = state.toasts.map((t) => {
-          // Only queue for removal if it wasn't already marked as closing/closed
-          if (t.open !== false) { 
-            addToRemoveQueue(t.id);
-          }
-          return { ...t, open: false };
-        });
         return {
           ...state,
-          toasts: updatedToasts,
+          toasts: state.toasts.map((t) => {
+            if (t.open !== false) { // Only queue if not already marked closed
+              addToRemoveQueue(t.id);
+            }
+            return { ...t, open: false };
+          }),
         };
       }
     }
@@ -185,11 +197,9 @@ function toast({ ...props }: Toast) {
       open: true,
       onOpenChange: (isOpenByPrimitive) => {
         if (!isOpenByPrimitive) {
-          // Check against memoryState to ensure we only dismiss if our state thinks it's open.
-          // This helps prevent loops if onOpenChange is called multiple times by the primitive.
-          const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
-          if (currentToastInGlobalState && currentToastInGlobalState.open !== false) {
-            dismiss(); 
+          const currentToast = memoryState.toasts.find(t => t.id === id);
+          if (currentToast && currentToast.open) { // Check our state, not just primitive
+            dismiss();
           }
         }
       },
@@ -207,14 +217,14 @@ function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
   React.useEffect(() => {
-    listeners.push(setState);
+    listeners.push(setState)
     return () => {
-      const index = listeners.indexOf(setState);
+      const index = listeners.indexOf(setState)
       if (index > -1) {
-        listeners.splice(index, 1);
+        listeners.splice(index, 1)
       }
-    };
-  }, []); 
+    }
+  }, []) // Empty dependency array: subscribe/unsubscribe only on mount/unmount
 
   return {
     ...state,
@@ -224,3 +234,4 @@ function useToast() {
 }
 
 export { useToast, toast }
+*/

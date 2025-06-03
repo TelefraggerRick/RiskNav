@@ -2,25 +2,25 @@
 "use client";
 
 import type { AppUser, UserRole } from '@/lib/types';
-import { auth, db, rtdb } from '@/lib/firebase'; // Import db and rtdb for Firestore and Realtime Database
+import { auth, db, rtdb } from '@/lib/firebase';
 import { onAuthStateChanged, signOut, signInWithEmailAndPassword, type User as FirebaseAuthUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp as firestoreServerTimestamp } from 'firebase/firestore';
 import { ref, onValue, set, onDisconnect, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from "next/navigation";
+import { toast } from 'sonner'; // Changed to sonner
+import { useLanguage } from '@/contexts/LanguageContext'; // Added to use getTranslation
 
 interface UserContextType {
-  currentUser: AppUser | null; // This will be our app-specific user profile from Firestore
-  firebaseUser: FirebaseAuthUser | null; // Raw Firebase Auth user
+  currentUser: AppUser | null;
+  firebaseUser: FirebaseAuthUser | null;
   isLoadingAuth: boolean;
   login: (email: string, passwordAttempt: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  // availableUsers and switchUser are removed as they are for mock users
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// Default unauthenticated user representation for AppUser
 const unauthenticatedAppUser: AppUser = {
   uid: 'user-unauth',
   name: 'No User Selected',
@@ -33,26 +33,32 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [firebaseUser, setFirebaseUser] = useState<FirebaseAuthUser | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const router = useRouter();
+  const { getTranslation } = useLanguage(); // Get translation function
+
+  // Translations for UserContext
+  const T_USER_CONTEXT = {
+    loginSuccessTitle: { en: "Login Successful", fr: "Connexion réussie" },
+    loginSuccessDesc: { en: "Welcome back, {userName}!", fr: "Bon retour, {userName}!" },
+    profileNotFoundWarn: { en: "User profile not found in Firestore for UID: {uid}. Logging out.", fr: "Profil utilisateur non trouvé dans Firestore pour UID : {uid}. Déconnexion."}
+  };
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setIsLoadingAuth(true);
       if (user) {
         setFirebaseUser(user);
-        // Fetch user profile from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           setCurrentUser({ uid: user.uid, ...userDocSnap.data() } as AppUser);
         } else {
-          // Handle case where user exists in Auth but not Firestore (e.g., new registration if implemented)
-          // For now, we assume profiles are pre-created or logout
-          console.warn(`User profile not found in Firestore for UID: ${user.uid}. Logging out.`);
+          console.warn(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
+          toast.error(getTranslation(T_USER_CONTEXT.profileNotFoundWarn).replace('{uid}', user.uid));
           await signOut(auth);
-          setCurrentUser(null); // Or set to a default unauthenticated profile
+          setCurrentUser(null);
         }
 
-        // Setup RTDB presence
         const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
         const isOfflineForDatabase = {
           isOnline: false,
@@ -65,7 +71,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         onValue(ref(rtdb, '.info/connected'), (snapshot) => {
           if (snapshot.val() === false) {
-            return; // Not connected to RTDB, skip presence logic
+            return;
           }
           onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
             set(userStatusDatabaseRef, isOnlineForDatabase);
@@ -74,18 +80,18 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       } else {
         setFirebaseUser(null);
-        setCurrentUser(null); // No Firebase user, so no app user profile
+        setCurrentUser(null);
       }
       setIsLoadingAuth(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [getTranslation, T_USER_CONTEXT.profileNotFoundWarn]); // Added dependencies
 
   const login = useCallback(async (email: string, passwordAttempt: string): Promise<boolean> => {
     try {
       await signInWithEmailAndPassword(auth, email, passwordAttempt);
-      // onAuthStateChanged will handle setting currentUser and firebaseUser
+      // onAuthStateChanged will handle setting currentUser. Success toast is now in LoginPage.
       return true;
     } catch (error) {
       console.error("Login failed:", error);
@@ -95,7 +101,6 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = useCallback(async () => {
     if (firebaseUser) {
-      // Set offline status before signing out
       const userStatusDatabaseRef = ref(rtdb, `/status/${firebaseUser.uid}`);
       await set(userStatusDatabaseRef, {
         isOnline: false,
@@ -108,17 +113,13 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     router.push('/login');
   }, [router, firebaseUser]);
   
-  // Display a loading indicator or splash screen while auth state is being determined
   if (isLoadingAuth && currentUser === null) {
-     // Avoid rendering children if still loading and no user set,
-     // This helps prevent flashes of content meant for authenticated/unauthenticated states
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading authentication...</div>;
   }
 
-
   return (
     <UserContext.Provider value={{ 
-        currentUser: currentUser || unauthenticatedAppUser, // Provide a non-null currentUser for easier consumption
+        currentUser: currentUser || unauthenticatedAppUser,
         firebaseUser, 
         isLoadingAuth, 
         login, 

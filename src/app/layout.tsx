@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/layout/Header';
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from 'sonner'; // Changed import
 import { UserProvider } from '@/contexts/UserContext';
-import { LanguageProvider } from '@/contexts/LanguageContext'; // Added LanguageProvider
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -31,13 +31,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}>
         <UserProvider>
-          <LanguageProvider> {/* Added LanguageProvider */}
+          <LanguageProvider>
             <Header />
             <main className="flex-grow container mx-auto px-4 py-8 md:px-6">
               {children}
             </main>
-            <Toaster />
-          </LanguageProvider> {/* Added LanguageProvider */}
+            <SonnerToaster richColors closeButton /> {/* Changed to SonnerToaster, added richColors and closeButton for better UX */}
+          </LanguageProvider>
         </UserProvider>
       </body>
     </html>
