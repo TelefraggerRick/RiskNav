@@ -101,7 +101,6 @@ export default function DashboardPage() {
 
       if (!isValid(startA) || !isValid(endA) || !isValid(startB) || !isValid(endB)) return false;
 
-      // Overlap condition: (StartA <= EndB) and (EndA >= StartB)
       return (isBefore(startA, endB) || isEqual(startA, endB)) && (isAfter(endA, startB) || isEqual(endA, startB));
     } catch (e) {
       console.error("Error parsing dates for overlap check:", e);
@@ -111,39 +110,55 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (assessments.length > 0) {
-      const overlappingIds = new Set<string>();
-      const assessmentsByVesselAndDept: Record<string, RiskAssessment[]> = {};
+        const timerId = setTimeout(() => {
+            const newOverlappingIds = new Set<string>();
+            const assessmentsByVesselAndDept: Record<string, RiskAssessment[]> = {};
 
-      // Group assessments by vesselName and department
-      assessments.forEach(assessment => {
-        if (assessment.vesselName && assessment.department) {
-          const key = `${assessment.vesselName}-${assessment.department}`;
-          if (!assessmentsByVesselAndDept[key]) {
-            assessmentsByVesselAndDept[key] = [];
-          }
-          assessmentsByVesselAndDept[key].push(assessment);
-        }
-      });
+            assessments.forEach(assessment => {
+                if (assessment.vesselName && assessment.department) {
+                    const key = `${assessment.vesselName}-${assessment.department}`;
+                    if (!assessmentsByVesselAndDept[key]) {
+                        assessmentsByVesselAndDept[key] = [];
+                    }
+                    assessmentsByVesselAndDept[key].push(assessment);
+                }
+            });
 
-      // Check for overlaps within each group
-      Object.values(assessmentsByVesselAndDept).forEach(group => {
-        if (group.length < 2) return;
+            Object.values(assessmentsByVesselAndDept).forEach(group => {
+                if (group.length < 2) return;
+                for (let i = 0; i < group.length; i++) {
+                    for (let j = i + 1; j < group.length; j++) {
+                        const assessmentA = group[i];
+                        const assessmentB = group[j];
+                        if (datesOverlap(assessmentA.patrolStartDate, assessmentA.patrolEndDate, assessmentB.patrolStartDate, assessmentB.patrolEndDate)) {
+                            newOverlappingIds.add(assessmentA.id);
+                            newOverlappingIds.add(assessmentB.id);
+                        }
+                    }
+                }
+            });
 
-        for (let i = 0; i < group.length; i++) {
-          for (let j = i + 1; j < group.length; j++) {
-            const assessmentA = group[i];
-            const assessmentB = group[j];
+            setFsmOverlappingIds(currentOverlappingIds => {
+                // Check if new set is actually different from current set
+                if (newOverlappingIds.size === currentOverlappingIds.size &&
+                    [...newOverlappingIds].every(id => currentOverlappingIds.has(id))) {
+                    return currentOverlappingIds; // No change, return previous state to avoid re-render
+                }
+                return newOverlappingIds; // Update with the new set
+            });
+        }, 0); // Defer calculation
 
-            if (datesOverlap(assessmentA.patrolStartDate, assessmentA.patrolEndDate, assessmentB.patrolStartDate, assessmentB.patrolEndDate)) {
-              overlappingIds.add(assessmentA.id);
-              overlappingIds.add(assessmentB.id);
+        return () => clearTimeout(timerId); // Cleanup timer
+    } else {
+        // If there are no assessments, or assessments array is cleared, ensure the overlapping IDs set is also cleared.
+        setFsmOverlappingIds(currentOverlappingIds => {
+            if (currentOverlappingIds.size > 0) {
+                return new Set<string>(); // Clear if not already empty
             }
-          }
-        }
-      });
-      setFsmOverlappingIds(overlappingIds);
+            return currentOverlappingIds; // No change needed if already empty
+        });
     }
-  }, [assessments]);
+}, [assessments]);
 
 
   const loadAssessments = useCallback(async () => {
@@ -236,7 +251,7 @@ export default function DashboardPage() {
       if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
       if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
       
-      if (sortKey !== 'lastModified' && a.lastModified && b.lastModified) { // Fallback sort by lastModified
+      if (sortKey !== 'lastModified' && a.lastModified && b.lastModified) { 
         const timeA = parseISO(a.lastModified).getTime();
         const timeB = parseISO(b.lastModified).getTime();
         if (timeA < timeB) return 1; 
@@ -268,7 +283,7 @@ export default function DashboardPage() {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(key);
-      setSortDirection('desc'); // Default to descending for new sort key
+      setSortDirection('desc'); 
     }
   }, [sortKey]);
 
@@ -492,3 +507,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
