@@ -15,10 +15,31 @@ import {
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import React, { useState, useEffect } from 'react'; // Added useState, useEffect
 
 export default function Header() {
   const { currentUser, availableUsers, switchUser, logout } = useUser();
   const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); 
+  const [mockOnlineUsers, setMockOnlineUsers] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Generate initial mock online users count and set up an interval to fluctuate it
+    // This runs only on the client-side to avoid hydration issues
+    const initialCount = Math.floor(Math.random() * (15 - 5 + 1)) + 5; // Random between 5 and 15
+    setMockOnlineUsers(initialCount);
+
+    const intervalId = setInterval(() => {
+      setMockOnlineUsers(prevCount => {
+        if (prevCount === null) return initialCount;
+        const change = Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0;
+        const newCount = prevCount + change;
+        return Math.max(3, Math.min(20, newCount)); // Keep between 3 and 20
+      });
+    }, 3000); // Update every 3 seconds
+
+    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+  }, []);
+
 
   const getInitials = (name: string) => {
     const parts = name.split(' ');
@@ -33,12 +54,13 @@ export default function Header() {
     riskNav: { en: "RiskNav", fr: "NavRisques" },
     dashboard: { en: "Dashboard", fr: "Tableau de bord" },
     statistics: { en: "Statistics", fr: "Statistiques" },
-    calendar: { en: "Calendar", fr: "Calendrier" }, // Added
+    calendar: { en: "Calendar", fr: "Calendrier" }, 
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
     switchUser: { en: "Switch User (Dev)", fr: "Changer d'utilisateur (Dev)" },
     french: { en: "Français", fr: "English" },
+    onlineUsers: { en: "Online", fr: "En ligne" },
   };
 
   return (
@@ -54,9 +76,17 @@ export default function Header() {
               {getTranslation(T.govCanada)} / <span className="font-normal">{currentLanguage === 'en' ? T.govCanada.fr : T.govCanada.en}</span>
             </span>
           </div>
-          <Button variant="link" size="sm" className="text-sm text-foreground hover:text-primary" onClick={toggleLanguage}>
-            {getTranslation(T.french)}
-          </Button>
+          <div className="flex items-center gap-3">
+            {mockOnlineUsers !== null && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground" title={getTranslation(T.onlineUsers)}>
+                <Users className="h-3 w-3 text-green-500" />
+                <span>{mockOnlineUsers}</span>
+              </div>
+            )}
+            <Button variant="link" size="sm" className="text-sm text-foreground hover:text-primary h-auto p-0" onClick={toggleLanguage}>
+              {getTranslation(T.french)}
+            </Button>
+          </div>
         </div>
 
         {/* Main app header content */}
@@ -76,7 +106,7 @@ export default function Header() {
                 <span className="hidden sm:inline">{getTranslation(T.statistics)}</span>
               </Button>
             </Link>
-            <Link href="/calendar" passHref> {/* Added Calendar Link */}
+            <Link href="/calendar" passHref> 
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
                 <CalendarDays className="h-4 w-4 mr-0 sm:mr-2" />
                 <span className="hidden sm:inline">{getTranslation(T.calendar)}</span>
@@ -133,5 +163,3 @@ export default function Header() {
     </header>
   );
 }
-
-    
