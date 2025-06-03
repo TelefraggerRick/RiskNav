@@ -110,45 +110,41 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (assessments.length > 0) {
-        const timerId = setTimeout(() => {
-            const newOverlappingIds = new Set<string>();
-            const assessmentsByVesselAndDept: Record<string, RiskAssessment[]> = {};
+        const newOverlappingIds = new Set<string>();
+        const assessmentsByVesselAndDept: Record<string, RiskAssessment[]> = {};
 
-            assessments.forEach(assessment => {
-                if (assessment.vesselName && assessment.department) {
-                    const key = `${assessment.vesselName}-${assessment.department}`;
-                    if (!assessmentsByVesselAndDept[key]) {
-                        assessmentsByVesselAndDept[key] = [];
-                    }
-                    assessmentsByVesselAndDept[key].push(assessment);
+        assessments.forEach(assessment => {
+            if (assessment.vesselName && assessment.department) {
+                const key = `${assessment.vesselName}-${assessment.department}`;
+                if (!assessmentsByVesselAndDept[key]) {
+                    assessmentsByVesselAndDept[key] = [];
                 }
-            });
+                assessmentsByVesselAndDept[key].push(assessment);
+            }
+        });
 
-            Object.values(assessmentsByVesselAndDept).forEach(group => {
-                if (group.length < 2) return;
-                for (let i = 0; i < group.length; i++) {
-                    for (let j = i + 1; j < group.length; j++) {
-                        const assessmentA = group[i];
-                        const assessmentB = group[j];
-                        if (datesOverlap(assessmentA.patrolStartDate, assessmentA.patrolEndDate, assessmentB.patrolStartDate, assessmentB.patrolEndDate)) {
-                            newOverlappingIds.add(assessmentA.id);
-                            newOverlappingIds.add(assessmentB.id);
-                        }
+        Object.values(assessmentsByVesselAndDept).forEach(group => {
+            if (group.length < 2) return;
+            for (let i = 0; i < group.length; i++) {
+                for (let j = i + 1; j < group.length; j++) {
+                    const assessmentA = group[i];
+                    const assessmentB = group[j];
+                    if (datesOverlap(assessmentA.patrolStartDate, assessmentA.patrolEndDate, assessmentB.patrolStartDate, assessmentB.patrolEndDate)) {
+                        newOverlappingIds.add(assessmentA.id);
+                        newOverlappingIds.add(assessmentB.id);
                     }
                 }
-            });
+            }
+        });
 
-            setFsmOverlappingIds(currentOverlappingIds => {
-                // Check if new set is actually different from current set
-                if (newOverlappingIds.size === currentOverlappingIds.size &&
-                    [...newOverlappingIds].every(id => currentOverlappingIds.has(id))) {
-                    return currentOverlappingIds; // No change, return previous state to avoid re-render
-                }
-                return newOverlappingIds; // Update with the new set
-            });
-        }, 0); // Defer calculation
-
-        return () => clearTimeout(timerId); // Cleanup timer
+        setFsmOverlappingIds(currentOverlappingIds => {
+            // Check if new set is actually different from current set
+            if (newOverlappingIds.size === currentOverlappingIds.size &&
+                [...newOverlappingIds].every(id => currentOverlappingIds.has(id))) {
+                return currentOverlappingIds; // No change, return previous state to avoid re-render
+            }
+            return newOverlappingIds; // Update with the new set
+        });
     } else {
         // If there are no assessments, or assessments array is cleared, ensure the overlapping IDs set is also cleared.
         setFsmOverlappingIds(currentOverlappingIds => {
@@ -158,7 +154,7 @@ export default function DashboardPage() {
             return currentOverlappingIds; // No change needed if already empty
         });
     }
-}, [assessments]);
+  }, [assessments]);
 
 
   const loadAssessments = useCallback(async () => {
