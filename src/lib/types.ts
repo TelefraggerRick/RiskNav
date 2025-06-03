@@ -129,6 +129,7 @@ export interface AppUser {
   email: string;
   role: UserRole;
   region?: VesselRegion; // Added region to user profile
+  fcmTokens?: string[]; // For storing FCM registration tokens
 }
 
 export type Language = 'en' | 'fr';
