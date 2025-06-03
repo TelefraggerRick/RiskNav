@@ -11,33 +11,9 @@ let isRtdbConfigValid = true;
 
 if (!dbURL || typeof dbURL !== 'string' || dbURL.trim() === '' || !dbURL.startsWith('https://')) {
   isRtdbConfigValid = false;
-  console.error(
-    "-------------------------------------------------------------------------------------------"
-  );
-  console.error(
-    "CRITICAL Firebase Realtime Database Configuration Error:"
-  );
-  console.error(
-    "NEXT_PUBLIC_FIREBASE_DATABASE_URL is invalid or missing in your environment variables."
-  );
-  console.error(
-    "  - Expected format: https://<YOUR_PROJECT_ID>-default-rtdb.<REGION>.firebasedatabase.app"
-  );
-  console.error(
-    "                     or https://<YOUR_PROJECT_ID>.firebaseio.com"
-  );
-  console.error(
-    "  - Value received for NEXT_PUBLIC_FIREBASE_DATABASE_URL: ", `"${dbURL}"`
-  );
-  console.error(
-    "  - Please ensure this variable is correctly set in your .env file and you have RESTARTED your development server."
-  );
-  console.error(
-    "  - Realtime Database features (like user presence indicators) will be DISABLED until this is fixed."
-  );
-  console.error(
-    "-------------------------------------------------------------------------------------------"
-  );
+  // The verbose console.error block that was here has been removed.
+  // The invalid URL will be handled by setting firebaseConfig.databaseURL to undefined,
+  // and a console.warn will be issued later if RTDB initialization is skipped.
 }
 
 
@@ -49,7 +25,7 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  databaseURL: isRtdbConfigValid ? dbURL : undefined, // Pass undefined if invalid to avoid Firebase SDK error here, rtdb init will be skipped
+  databaseURL: isRtdbConfigValid ? dbURL : undefined,
 };
 
 let app: FirebaseApp;
@@ -69,22 +45,20 @@ db = getFirestore(app);
 storage = getStorage(app);
 authInstance = getAuth(app);
 
-if (isRtdbConfigValid && firebaseConfig.databaseURL) { // Only initialize if URL was valid and passed to config
+if (isRtdbConfigValid && firebaseConfig.databaseURL) {
   try {
     rtdb = getDatabase(app);
     console.log("Firebase Realtime Database initialized successfully.");
   } catch (e: any) {
     console.error("Error initializing Firebase Realtime Database even after URL validation. This is unexpected.", e);
-    // This catch might not be hit if firebaseConfig.databaseURL itself causes initializeApp to have issues with RTDB part.
-    // The primary defense is skipping getDatabase if dbURL was initially bad.
-    isRtdbConfigValid = false; // Ensure downstream knows it failed
+    isRtdbConfigValid = false; 
     rtdb = null;
      console.error(
       "  - Realtime Database features (like user presence indicators) will be DISABLED due to this secondary init failure."
     );
   }
 } else {
-   console.warn("Firebase Realtime Database URL is invalid or missing. RTDB features will be disabled.");
+   console.warn(`Firebase Realtime Database URL is invalid or missing (Value: "${dbURL}"). RTDB features will be disabled. Please check NEXT_PUBLIC_FIREBASE_DATABASE_URL in your .env file and restart your server.`);
 }
 
 
@@ -149,5 +123,5 @@ export const requestNotificationPermission = async (): Promise<string | null> =>
 };
 
 
-export { app, db, storage, authInstance as auth, rtdb, messagingInstance as messaging }; // Export authInstance as auth
+export { app, db, storage, authInstance as auth, rtdb, messagingInstance as messaging };
     
