@@ -65,7 +65,6 @@ export default function DashboardPage() {
   const [sortKey, setSortKey] = useState<SortKey>('lastModified');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { getTranslation, currentLanguage } = useLanguage();
-  const [fsmOverlappingIds, setFsmOverlappingIds] = useState<Set<string>>(new Set());
 
   const T = {
     dashboardTitle: { en: "Risk Assessments Dashboard", fr: "Tableau de bord des évaluations des risques" },
@@ -90,72 +89,6 @@ export default function DashboardPage() {
     loadingErrorTitle: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations"},
     loadingErrorDesc: { en: "Could not fetch risk assessments from the database. Please try again later.", fr: "Impossible de récupérer les évaluations des risques de la base de données. Veuillez réessayer plus tard."}
   };
-
-  const datesOverlap = (startAStr?: string, endAStr?: string, startBStr?: string, endBStr?: string): boolean => {
-    if (!startAStr || !endAStr || !startBStr || !endBStr) return false;
-    try {
-      const startA = parseISO(startAStr);
-      const endA = parseISO(endAStr);
-      const startB = parseISO(startBStr);
-      const endB = parseISO(endBStr);
-
-      if (!isValid(startA) || !isValid(endA) || !isValid(startB) || !isValid(endB)) return false;
-
-      return (isBefore(startA, endB) || isEqual(startA, endB)) && (isAfter(endA, startB) || isEqual(endA, startB));
-    } catch (e) {
-      console.error("Error parsing dates for overlap check:", e);
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    if (assessments.length > 0) {
-        const newOverlappingIds = new Set<string>();
-        const assessmentsByVesselAndDept: Record<string, RiskAssessment[]> = {};
-
-        assessments.forEach(assessment => {
-            if (assessment.vesselName && assessment.department) {
-                const key = `${assessment.vesselName}-${assessment.department}`;
-                if (!assessmentsByVesselAndDept[key]) {
-                    assessmentsByVesselAndDept[key] = [];
-                }
-                assessmentsByVesselAndDept[key].push(assessment);
-            }
-        });
-
-        Object.values(assessmentsByVesselAndDept).forEach(group => {
-            if (group.length < 2) return;
-            for (let i = 0; i < group.length; i++) {
-                for (let j = i + 1; j < group.length; j++) {
-                    const assessmentA = group[i];
-                    const assessmentB = group[j];
-                    if (datesOverlap(assessmentA.patrolStartDate, assessmentA.patrolEndDate, assessmentB.patrolStartDate, assessmentB.patrolEndDate)) {
-                        newOverlappingIds.add(assessmentA.id);
-                        newOverlappingIds.add(assessmentB.id);
-                    }
-                }
-            }
-        });
-
-        setFsmOverlappingIds(currentOverlappingIds => {
-            // Check if new set is actually different from current set
-            if (newOverlappingIds.size === currentOverlappingIds.size &&
-                [...newOverlappingIds].every(id => currentOverlappingIds.has(id))) {
-                return currentOverlappingIds; // No change, return previous state to avoid re-render
-            }
-            return newOverlappingIds; // Update with the new set
-        });
-    } else {
-        // If there are no assessments, or assessments array is cleared, ensure the overlapping IDs set is also cleared.
-        setFsmOverlappingIds(currentOverlappingIds => {
-            if (currentOverlappingIds.size > 0) {
-                return new Set<string>(); // Clear if not already empty
-            }
-            return currentOverlappingIds; // No change needed if already empty
-        });
-    }
-  }, [assessments]);
-
 
   const loadAssessments = useCallback(async () => {
     setIsLoading(true);
@@ -481,7 +414,6 @@ export default function DashboardPage() {
                     <RiskAssessmentCard 
                         key={assessment.id} 
                         assessment={assessment}
-                        hasFsmOverlapWarning={fsmOverlappingIds.has(assessment.id)} 
                     />
                   ))}
                 </div>
