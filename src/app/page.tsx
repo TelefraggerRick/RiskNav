@@ -3,11 +3,11 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
-import { ALL_VESSEL_REGIONS } from '@/lib/types'; // Import from types.ts
+import { ALL_VESSEL_REGIONS } from '@/lib/types';
 // import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard'; // Temporarily removed
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardTitle, CardDescription } from '@/components/ui/card'; // Added CardTitle and CardDescription
+import { Card, CardTitle, CardDescription } from '@/components/ui/card'; // Ensured CardTitle and CardDescription are imported
 import { AlertTriangle, Filter, ArrowUpDown, Search, X, ListFilter, Ship as ShipIcon, Globe as GlobeIcon, Package, Cog, Anchor, Info, Loader2 } from 'lucide-react';
 import { format, parseISO, isValid, isBefore, isEqual, isAfter } from 'date-fns';
 import {
@@ -91,25 +91,27 @@ export default function DashboardPage() {
   };
 
   const loadAssessments = useCallback(async () => {
-    console.log("DashboardPage: loadAssessments called, setting isLoading to true.");
+    console.log("DashboardPage: loadAssessments CALLED. Setting isLoading to true.");
     setIsLoading(true);
     try {
+      console.log("DashboardPage: loadAssessments - BEFORE calling getAllAssessmentsFromDB.");
       const data = await getAllAssessmentsFromDB();
-      console.log(`DashboardPage: getAllAssessmentsFromDB returned ${data.length} assessments.`);
+      console.log(`DashboardPage: loadAssessments - getAllAssessmentsFromDB SUCCEEDED, returned ${data.length} assessments.`);
       setAssessments(data);
     } catch (error) {
-      console.error("DashboardPage: Failed to load assessments:", error);
+      console.error("DashboardPage: loadAssessments - getAllAssessmentsFromDB FAILED or error during setAssessments:", error);
       toast.error(getTranslation(T.loadingErrorTitle), {
         description: getTranslation(T.loadingErrorDesc),
       });
       setAssessments([]);
     } finally {
-      console.log("DashboardPage: loadAssessments finally block, setting isLoading to false.");
+      console.log("DashboardPage: loadAssessments - FINALLY block. Setting isLoading to false.");
       setIsLoading(false);
     }
-  }, [getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]);
+  }, [getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]); // Keep T.x.y as deps or ensure T is stable reference
 
   useEffect(() => {
+    console.log("DashboardPage: Initial useEffect to call loadAssessments.");
     loadAssessments();
   }, [loadAssessments]);
 
