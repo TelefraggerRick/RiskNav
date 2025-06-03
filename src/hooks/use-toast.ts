@@ -10,7 +10,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 0 // Changed from 1000 to 0
+const TOAST_REMOVE_DELAY = 0 // Keep at 0 as per last successful attempt on this error type
 
 type ToasterToast = ToastProps & {
   id: string
@@ -80,8 +80,6 @@ export const reducer = (state: State, action: Action): State => {
     case "ADD_TOAST":
       {
         let evictedToastId: string | null = null;
-        // If the store is already at its limit, the oldest toast will be evicted.
-        // With TOAST_LIMIT = 1, this means any existing toast is evicted.
         if (state.toasts.length >= TOAST_LIMIT) {
           evictedToastId = state.toasts[state.toasts.length - TOAST_LIMIT]?.id;
         }
@@ -106,40 +104,36 @@ export const reducer = (state: State, action: Action): State => {
       }
 
     case "DISMISS_TOAST": {
-      const { toastId } = action
+      const { toastId } = action;
 
       if (toastId) {
-         // Check if the toast to dismiss still exists and is marked as open
-        const toastExistsAndIsOpen = state.toasts.find(
-          (t) => t.id === toastId && t.open
-        );
-        if (toastExistsAndIsOpen) {
-          addToRemoveQueue(toastId);
+        const toastToDismiss = state.toasts.find(t => t.id === toastId);
+
+        // Only proceed if the toast exists and is not already marked as closed (open is true or undefined)
+        if (toastToDismiss && toastToDismiss.open !== false) {
+          addToRemoveQueue(toastId); // Schedule its removal from the DOM
           return {
             ...state,
+            // Mark this specific toast as closed
             toasts: state.toasts.map((t) =>
               t.id === toastId ? { ...t, open: false } : t
             ),
           };
         }
-        // If toast doesn't exist or isn't open, no state change needed for open status
-        // but ensure remove queue is handled if it was previously scheduled
-        if (!toastExistsAndIsOpen && !toastTimeouts.has(toastId) && state.toasts.find(t=>t.id === toastId)) {
-            // It exists but is already marked as closed, ensure it's queued for removal if not already
-            addToRemoveQueue(toastId);
-        }
-        return state; // No change if toast not found or already closed by our state
-
+        // If toast not found, or already marked open:false, do nothing to prevent loops.
+        return state;
       } else {
         // Dismiss all toasts
-        state.toasts.forEach((toast) => {
-          if (toast.open) { // Only add to queue if it was open
-            addToRemoveQueue(toast.id);
+        const updatedToasts = state.toasts.map((t) => {
+          // Only queue for removal if it wasn't already marked as closing/closed
+          if (t.open !== false) { 
+            addToRemoveQueue(t.id);
           }
+          return { ...t, open: false };
         });
         return {
           ...state,
-          toasts: state.toasts.map((t) => ({ ...t, open: false })),
+          toasts: updatedToasts,
         };
       }
     }
@@ -179,8 +173,7 @@ function toast({ ...props }: Toast) {
       toast: { ...props, id },
     })
   
-  // This is the dismiss function that will be called either by external code or by onOpenChange
-  const dismissToast = () => {
+  const dismiss = () => {
     dispatch({ type: "DISMISS_TOAST", toastId: id });
   };
 
@@ -191,13 +184,12 @@ function toast({ ...props }: Toast) {
       id,
       open: true,
       onOpenChange: (isOpenByPrimitive) => {
-        // If the Radix primitive is signalling it's closing
         if (!isOpenByPrimitive) {
+          // Check against memoryState to ensure we only dismiss if our state thinks it's open.
+          // This helps prevent loops if onOpenChange is called multiple times by the primitive.
           const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
-          // If our state still thinks it's open, and the primitive says it's closing,
-          // then this is a legitimate "close" event to process.
-          if (currentToastInGlobalState && currentToastInGlobalState.open) {
-            dismissToast(); 
+          if (currentToastInGlobalState && currentToastInGlobalState.open !== false) {
+            dismiss(); 
           }
         }
       },
@@ -206,7 +198,7 @@ function toast({ ...props }: Toast) {
 
   return {
     id: id,
-    dismiss: dismissToast,
+    dismiss,
     update,
   }
 }
@@ -222,7 +214,7 @@ function useToast() {
         listeners.splice(index, 1);
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount/unmount
+  }, []); 
 
   return {
     ...state,
