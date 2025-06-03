@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -20,7 +19,7 @@ import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessme
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
 import { useUser } from '@/contexts/UserContext';
-import ApprovalDialog, { type ApprovalDialogFormData } from '@/components/risk-assessments/ApprovalDialog'; // Import FormData type
+import ApprovalDialog, { type ApprovalDialogFormData } from '@/components/risk-assessments/ApprovalDialog';
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService';
@@ -116,7 +115,7 @@ const T_DETAILS_PAGE = {
   actionRequiredDesc: { en: "Your current role ({currentUserRole}) does not match the required role for this action ({requiredRole}).", fr: "Votre rôle actuel ({currentUserRole}) ne correspond pas au rôle requis pour cette action ({requiredRole})." },
   assessmentFullyApproved: { en: "Assessment Fully Approved", fr: "Évaluation entièrement approuvée" },
   assessmentFullyApprovedDesc: { en: "This risk assessment has been approved by all required levels.", fr: "Cette évaluation des risques a été approuvée par tous les niveaux requis." },
-  assessmentRejected: { en: "Assessment Rejected", fr: "Évaluation rejetée" },
+  assessmentRejected: { en: "Assessment Rejected by {level}", fr: "Évaluation rejetée par {level}" },
   assessmentRejectedDesc: { en: "This risk assessment was rejected at the {level} stage. See details in the workflow steps above.", fr: "Cette évaluation des risques a été rejetée à l'étape {level}. Voir les détails dans les étapes du flux de travail ci-dessus." },
   informationRequested: { en: "Information Requested", fr: "Informations demandées" },
   informationRequestedDesc: { en: "Further information was requested at the {level} stage. See notes in the relevant step.", fr: "Des informations supplémentaires ont été demandées à l'étape {level}. Voir les notes dans l'étape correspondante." },
@@ -384,48 +383,80 @@ export default function AssessmentDetailPage() {
   }, [assessment, getTranslation]);
 
   const getCurrentApprovalStepInfo = useCallback(() => {
-    if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false, overallStatus: assessment?.status };
+    if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false, overallStatus: assessment?.status, rejectedByLevel: null };
 
     let currentLevelToAct: ApprovalLevel | null = null;
     let isHalted = false;
     let overallStatus: RiskAssessmentStatus = assessment.status;
+    let rejectedByLevel: ApprovalLevel | null = null;
 
     for (const level of approvalLevelsOrder) {
-      const step = assessment.approvalSteps.find(s => s.level === level);
-      if (!step || !step.decision) {
-        currentLevelToAct = level;
-        break;
-      }
-      if (step.decision === 'Rejected' || step.decision === 'Needs Information') {
-        currentLevelToAct = level;
-        isHalted = true;
-        overallStatus = step.decision === 'Rejected' ? 'Rejected' : 'Needs Information';
-        break;
-      }
-    }
-     if (!currentLevelToAct && assessment.approvalSteps.every(s => s.decision === 'Approved')) {
-      overallStatus = 'Approved';
-    }
-
-    let userIsApproverForCurrentStep = false;
-    if (currentUser.role && currentLevelToAct) {
-        if (currentLevelToAct === 'Crewing Standards and Oversight' && currentUser.role === 'CSO Officer') {
-            userIsApproverForCurrentStep = true;
-        } else if (currentLevelToAct === 'Senior Director' && currentUser.role === 'Senior Director') {
-            userIsApproverForCurrentStep = true;
-        } else if (currentLevelToAct === 'Director General' && currentUser.role === 'Director General') {
-            userIsApproverForCurrentStep = true;
-        } else if (currentUser.role === 'Admin') { // Admins can act on any step for now
-            userIsApproverForCurrentStep = true;
+        const step = assessment.approvalSteps.find(s => s.level === level);
+        if (!step || !step.decision) {
+            // This is the first un-actioned level, or a level after CSO rejection
+            if (level === 'Crewing Standards and Oversight' || 
+                (level === 'Senior Director' && assessment.approvalSteps.find(s => s.level === 'Crewing Standards and Oversight')?.decision) ||
+                (level === 'Director General' && assessment.approvalSteps.find(s => s.level === 'Senior Director')?.decision)) {
+                currentLevelToAct = level;
+                break;
+            }
+        }
+        if (step?.decision === 'Needs Information') {
+            currentLevelToAct = level;
+            isHalted = true;
+            overallStatus = 'Needs Information';
+            rejectedByLevel = level; // Technically not "rejected" but halted for info
+            break;
+        }
+        if (step?.decision === 'Rejected') {
+            currentLevelToAct = level; // This level is where the rejection occurred
+            rejectedByLevel = level;
+            // If CSO rejects, workflow continues to Senior Director, so not halted from overall perspective yet.
+            if (level === 'Senior Director' || level === 'Director General') {
+                isHalted = true;
+                overallStatus = 'Rejected';
+            } else if (level === 'Crewing Standards and Oversight') {
+                 // CSO rejected, but workflow continues. Check if SD has acted.
+                const sdStep = assessment.approvalSteps.find(s => s.level === 'Senior Director');
+                if (!sdStep || !sdStep.decision) {
+                    currentLevelToAct = 'Senior Director'; // Next actionable level
+                    // overallStatus remains 'Pending Senior Director' (set by handleApprovalAction)
+                } else if (sdStep.decision === 'Needs Information') {
+                    currentLevelToAct = 'Senior Director';
+                    isHalted = true;
+                    overallStatus = 'Needs Information';
+                    rejectedByLevel = 'Senior Director';
+                } else if (sdStep.decision === 'Rejected') {
+                    currentLevelToAct = 'Senior Director';
+                    isHalted = true;
+                    overallStatus = 'Rejected';
+                    rejectedByLevel = 'Senior Director';
+                }
+                // If SD approved, currentLevelToAct will become DG, handled by next loop iteration
+            }
+            if (isHalted) break;
         }
     }
 
+    if (!currentLevelToAct && !isHalted && assessment.approvalSteps.every(s => s.decision === 'Approved')) {
+        overallStatus = 'Approved';
+    }
+    
+    let userIsApproverForCurrentStep = false;
+    if (currentUser.role && currentLevelToAct) {
+        if (currentLevelToAct === 'Crewing Standards and Oversight' && currentUser.role === 'CSO Officer') userIsApproverForCurrentStep = true;
+        else if (currentLevelToAct === 'Senior Director' && currentUser.role === 'Senior Director') userIsApproverForCurrentStep = true;
+        else if (currentLevelToAct === 'Director General' && currentUser.role === 'Director General') userIsApproverForCurrentStep = true;
+        else if (currentUser.role === 'Admin') userIsApproverForCurrentStep = true;
+    }
+    
     const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
 
-    return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus };
+    return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus, rejectedByLevel };
   }, [assessment, currentUser]);
 
-  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted } = getCurrentApprovalStepInfo();
+
+  const { currentLevelToAct, canAct: userCanActOnCurrentStep, isHalted, rejectedByLevel } = getCurrentApprovalStepInfo();
 
   const handleOpenApprovalDialog = useCallback((decision: ApprovalDecision) => {
     setCurrentDecision(decision);
@@ -447,7 +478,8 @@ export default function AssessmentDetailPage() {
             userName: currentUser.name,
             date: nowISO,
             notes: approvalData.notes,
-            ...(currentLevelToAct === 'Crewing Standards and Oversight' && currentDecision === 'Approved' && {
+            // Save compliance flags if CSO is making a decision (Approve or Reject)
+            ...(currentLevelToAct === 'Crewing Standards and Oversight' && (currentDecision === 'Approved' || currentDecision === 'Rejected') && {
               isAgainstFSM: approvalData.isAgainstFSM,
               isAgainstMPR: approvalData.isAgainstMPR,
               isAgainstCrewingProfile: approvalData.isAgainstCrewingProfile,
@@ -457,8 +489,9 @@ export default function AssessmentDetailPage() {
     );
 
     let newStatus: RiskAssessmentStatus = assessment.status;
+    const currentIndex = approvalLevelsOrder.indexOf(currentLevelToAct);
+
     if (currentDecision === 'Approved') {
-      const currentIndex = approvalLevelsOrder.indexOf(currentLevelToAct);
       if (currentIndex === approvalLevelsOrder.length - 1) {
         newStatus = 'Approved';
       } else {
@@ -466,9 +499,15 @@ export default function AssessmentDetailPage() {
         newStatus = `Pending ${nextLevel}` as RiskAssessmentStatus;
       }
     } else if (currentDecision === 'Rejected') {
-      newStatus = 'Rejected';
+      if (currentLevelToAct === 'Crewing Standards and Oversight') {
+        // CSO rejected, but workflow continues to Senior Director
+        newStatus = 'Pending Senior Director';
+      } else {
+        // Senior Director or Director General rejected, workflow halts
+        newStatus = 'Rejected';
+      }
     } else if (currentDecision === 'Needs Information') {
-      newStatus = 'Needs Information';
+      newStatus = 'Needs Information'; // This status halts the workflow at the current level
     }
 
     const updates: Partial<RiskAssessment> = {
@@ -820,7 +859,7 @@ export default function AssessmentDetailPage() {
                           {step.userName && <p><strong>{getTranslation(T_DETAILS_PAGE.by)}</strong> {step.userName}</p>}
                           {step.date && <p><strong>{getTranslation(T_DETAILS_PAGE.date)}</strong> {formatDateSafe(step.date, "PPP p")}</p>}
                           {step.notes && <p className="mt-1"><strong>{getTranslation(T_DETAILS_PAGE.notes)}</strong> <span className="whitespace-pre-wrap">{step.notes}</span></p>}
-                          {step.level === 'Crewing Standards and Oversight' && step.decision === 'Approved' && (step.isAgainstFSM || step.isAgainstMPR || step.isAgainstCrewingProfile) && (
+                          {step.level === 'Crewing Standards and Oversight' && (step.isAgainstFSM || step.isAgainstMPR || step.isAgainstCrewingProfile) && (
                             <div className="mt-2 pt-2 border-t border-dashed">
                                 <p className="text-xs font-semibold text-orange-700">{getTranslation(T_DETAILS_PAGE.complianceFlags)}</p>
                                 <div className="flex flex-wrap gap-2 mt-1">
@@ -876,18 +915,18 @@ export default function AssessmentDetailPage() {
                   <AlertDescription className="text-green-600">{getTranslation(T_DETAILS_PAGE.assessmentFullyApprovedDesc)}</AlertDescription>
                 </Alert>
             )}
-            {(assessment.status === 'Rejected' && isHalted) && (
+            {(assessment.status === 'Rejected' && isHalted && rejectedByLevel) && (
                  <Alert variant="destructive" className="mt-6 card-print-styles">
                   <XCircle className="h-5 w-5" />
-                  <AlertTitle className="font-semibold">{getTranslation(T_DETAILS_PAGE.assessmentRejected)}</AlertTitle>
-                  <AlertDescription>{getTranslation(T_DETAILS_PAGE.assessmentRejectedDesc).replace('{level}', String(currentLevelToAct))}</AlertDescription>
+                  <AlertTitle className="font-semibold">{getTranslation(T_DETAILS_PAGE.assessmentRejected).replace('{level}', rejectedByLevel)}</AlertTitle>
+                  <AlertDescription>{getTranslation(T_DETAILS_PAGE.assessmentRejectedDesc).replace(/{level}/g, rejectedByLevel)}</AlertDescription>
                 </Alert>
             )}
-             {(assessment.status === 'Needs Information' && isHalted) && (
+             {(assessment.status === 'Needs Information' && isHalted && rejectedByLevel) && ( // rejectedByLevel is used here for the level that requested info
                  <Alert variant="default" className="mt-6 bg-orange-50 border-orange-200 card-print-styles">
                   <FileWarning className="h-5 w-5 text-orange-600" />
                   <AlertTitle className="text-orange-700 font-semibold">{getTranslation(T_DETAILS_PAGE.informationRequested)}</AlertTitle>
-                  <AlertDescription className="text-orange-600">{getTranslation(T_DETAILS_PAGE.informationRequestedDesc).replace('{level}', String(currentLevelToAct))}</AlertDescription>
+                  <AlertDescription className="text-orange-600">{getTranslation(T_DETAILS_PAGE.informationRequestedDesc).replace('{level}', String(rejectedByLevel))}</AlertDescription>
                 </Alert>
             )}
              {!currentLevelToAct && !['Approved', 'Rejected', 'Needs Information'].includes(assessment.status) && assessment.approvalSteps.every(s => !s.decision) && (

@@ -1,11 +1,10 @@
-
 "use client";
 
-import { useEffect } from "react"; // Import useEffect
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import type { ApprovalDecision, ApprovalLevel } from "@/lib/types"; // Added ApprovalLevel
+import type { ApprovalDecision, ApprovalLevel } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox"; // Added Checkbox
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -34,9 +33,9 @@ export type ApprovalDialogFormData = z.infer<typeof approvalDialogSchema>;
 interface ApprovalDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: ApprovalDialogFormData) => void; // Changed to accept object
+  onSubmit: (data: ApprovalDialogFormData) => void;
   decision?: ApprovalDecision;
-  currentApprovalLevel?: ApprovalLevel; // Added currentApprovalLevel
+  currentApprovalLevel?: ApprovalLevel;
   isLoading?: boolean;
 }
 
@@ -54,7 +53,7 @@ export default function ApprovalDialog({ isOpen, onClose, onSubmit, decision, cu
 
   useEffect(() => {
     if (isOpen) {
-      form.reset({ // Reset form when dialog opens, especially for checkbox defaults
+      form.reset({
         notes: "",
         isAgainstFSM: false,
         isAgainstMPR: false,
@@ -71,8 +70,8 @@ export default function ApprovalDialog({ isOpen, onClose, onSubmit, decision, cu
     dialogDescription: { en: "Please provide notes for your decision. This information will be recorded.", fr: "Veuillez fournir des notes pour votre décision. Ces informations seront enregistrées." },
     notesLabel: { en: "Notes *", fr: "Notes *" },
     notesPlaceholder: { en: "Enter your notes for {action}...", fr: "Entrez vos notes pour {action}..." },
-    complianceFlagsTitle: { en: "Compliance Flags (CSO Only)", fr: "Indicateurs de conformité (BCN seulement)" },
-    complianceFlagsDesc: { en: "If approving, please indicate if this exemption is against:", fr: "Si vous approuvez, veuillez indiquer si cette exemption est contraire à :" },
+    complianceFlagsTitle: { en: "Compliance Flags (CSO Decision)", fr: "Indicateurs de conformité (Décision BCN)" },
+    complianceFlagsDesc: { en: "If making a decision, please indicate if this exemption is against:", fr: "Si vous prenez une décision, veuillez indiquer si cette exemption est contraire à :" },
     isAgainstFSMLabel: { en: "Fleet Safety Manual (FSM)", fr: "Manuel de sécurité de la flotte (MSF)" },
     isAgainstMPRLabel: { en: "Marine Personnel Regulations (MPR)", fr: "Règlement sur le personnel maritime (RPM)" },
     isAgainstCrewingProfileLabel: { en: "Vessel Crewing Profile", fr: "Profil d'armement du navire" },
@@ -82,8 +81,7 @@ export default function ApprovalDialog({ isOpen, onClose, onSubmit, decision, cu
   };
 
   const handleSubmit = (data: ApprovalDialogFormData) => {
-    onSubmit(data); // Submit the whole data object
-    // Form reset is now handled by useEffect on isOpen change
+    onSubmit(data);
   };
 
   const getDialogTitle = () => {
@@ -111,7 +109,7 @@ export default function ApprovalDialog({ isOpen, onClose, onSubmit, decision, cu
     return getTranslation(baseText).replace('{action}', decision || getTranslation(T.confirmAction).toLowerCase());
   }
 
-  const showComplianceFlags = decision === 'Approved' && currentApprovalLevel === 'Crewing Standards and Oversight';
+  const showComplianceFlags = (decision === 'Approved' || decision === 'Rejected') && currentApprovalLevel === 'Crewing Standards and Oversight';
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { form.reset(); onClose(); } }}>
@@ -136,7 +134,7 @@ export default function ApprovalDialog({ isOpen, onClose, onSubmit, decision, cu
                   <FormControl>
                     <Textarea
                       placeholder={getActionText(T.notesPlaceholder)}
-                      rows={showComplianceFlags ? 3 : 5} // Adjust rows based on flag visibility
+                      rows={showComplianceFlags ? 3 : 5}
                       {...field}
                     />
                   </FormControl>
