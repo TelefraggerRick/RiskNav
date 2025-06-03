@@ -1,25 +1,37 @@
 [
-    {
-      "origin": ["http://localhost:3000", "https://your-app-domain.web.app", "https://studio--risknav.us-central1.hosted.app"],
-      "method": ["GET", "POST", "PUT", "HEAD", "DELETE", "OPTIONS"],
-      "responseHeader": [
-        "Content-Type",
-        "Authorization",
-        "Origin",
-        "Accept",
-        "Accept-Encoding",
-        "Content-Length",
-        "X-Requested-With",
-        "X-Goog-Resumable",
-        "X-Goog-Meta-*",
-        "X-Goog-Content-Length-Range",
-        "X-Upload-Content-Type",
-        "X-Upload-Content-Length",
-        "x-goog-if-generation-match",
-        "x-goog-if-metageneration-match",
-        "x-firebase-gmpid",
-        "Access-Control-Allow-Origin"
-      ],
-      "maxAgeSeconds": 3600
-    }
-  ]
+  {
+    "origin": [
+      "http://localhost:3000",
+      "https://your-app-domain.web.app", 
+      "https://studio--risknav.us-central1.hosted.app"
+    ],
+    "method": [
+      "GET",
+      "POST",
+      "PUT",
+      "HEAD",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "Origin",
+      "Accept",
+      "Accept-Encoding",
+      "Content-Length",
+      "X-Requested-With",
+      "X-Goog-Resumable",
+      "X-Goog-Meta-*",
+      "X-Goog-Content-Length-Range",
+      "X-Upload-Content-Type",
+      "X-Upload-Content-Length",
+      "x-goog-if-generation-match",
+      "x-goog-if-metageneration-match",
+      "x-firebase-gmpid",
+      "x-firebase-storage-version",
+      "x-goog-upload-protocol"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]
