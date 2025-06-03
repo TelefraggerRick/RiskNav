@@ -2,20 +2,20 @@
 "use server";
 
 import { z } from "zod";
-import { admin } from "@/lib/firebaseAdmin"; // Assuming dbAdmin is exported as admin from firebaseAdmin
+import { admin } from "@/lib/firebaseAdmin";
 import type { UserRecord } from "firebase-admin/auth";
-import type { UserRole } from "@/lib/types";
-import { assignableUserRoles } from "@/lib/types";
+import type { UserRole, VesselRegion } from "@/lib/types";
+import { assignableUserRoles, ALL_VESSEL_REGIONS } from "@/lib/types";
 
-// Ensure assignableUserRoles is compatible with z.enum
-// It expects a non-empty array of string literals.
 const roleEnumValues = assignableUserRoles as [string, ...string[]];
+const regionEnumValues = ALL_VESSEL_REGIONS; // z.enum can take readonly string[]
 
 const CreateUserSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   role: z.enum(roleEnumValues, { errorMap: () => ({ message: "Please select a valid role."}) }),
+  region: z.enum(regionEnumValues).optional(), // Added region, optional
 });
 
 export interface CreateUserResult {
@@ -29,18 +29,19 @@ export async function createNewUserAction(formData: {
   email: string;
   password: string;
   role: UserRole;
+  region?: VesselRegion; // Added region
 }): Promise<CreateUserResult> {
   try {
     const validation = CreateUserSchema.safeParse(formData);
     if (!validation.success) {
       const errorMessages = Object.values(validation.error.flatten().fieldErrors)
         .flat()
-        .filter(Boolean) // Ensure no undefined/null messages
+        .filter(Boolean) 
         .join('. ');
       return { success: false, message: "Invalid form data: " + errorMessages };
     }
 
-    const { email, password, name, role } = validation.data;
+    const { email, password, name, role, region } = validation.data;
 
     if (!admin) {
       throw new Error("Firebase Admin SDK is not initialized.");
@@ -48,20 +49,16 @@ export async function createNewUserAction(formData: {
     const db = admin.firestore();
 
 
-    // Check if user already exists in Firebase Auth
     try {
         await admin.auth().getUserByEmail(email);
         return { success: false, message: `User with email ${email} already exists in Firebase Authentication.` };
     } catch (error: any) {
         if (error.code !== 'auth/user-not-found') {
-            // Different error, re-throw or handle as Firebase Auth error
             console.error("Error checking existing user in Auth:", error);
             return { success: false, message: "Error checking for existing user in Auth: " + error.message };
         }
-        // If 'auth/user-not-found', it's good, we can proceed to create
     }
     
-    // Check if a user document with this email already exists in Firestore
     const usersRef = db.collection('users');
     const existingUserQuery = await usersRef.where('email', '==', email.toLowerCase()).limit(1).get();
 
@@ -74,20 +71,20 @@ export async function createNewUserAction(formData: {
       email,
       password,
       displayName: name,
-      emailVerified: true, // Or false, depending on your flow
+      emailVerified: true, 
     });
 
-    // User created successfully in Firebase Auth, now create Firestore document
-    const userProfile = {
+    const userProfile: AppUser = {
       uid: userRecord.uid,
       name,
-      email: email.toLowerCase(), // Store email consistently, e.g., lowercase
+      email: email.toLowerCase(), 
       role,
+      ...(region && { region }), // Add region if provided
     };
 
     await db.collection("users").doc(userRecord.uid).set(userProfile);
 
-    return { success: true, message: `User ${name} (${email}) created successfully with role ${role}.`, userId: userRecord.uid };
+    return { success: true, message: `User ${name} (${email}) created successfully with role ${role}${region ? ` and region ${region}`: ''}.`, userId: userRecord.uid };
 
   } catch (error: any) {
     console.error("Error creating new user (Action):", error);
@@ -102,4 +99,3 @@ export async function createNewUserAction(formData: {
     return { success: false, message: errorMessage };
   }
 }
-

@@ -15,12 +15,13 @@ import {
   orderBy,
   DocumentData,
   DocumentSnapshot,
+  FieldValue,
+  deleteField,
 } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase'; // Import storage
-import type { RiskAssessment, Attachment, ApprovalStep, AppUser, UserRole } from '@/lib/types';
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase Storage imports
+import { db, storage } from '@/lib/firebase';
+import type { RiskAssessment, Attachment, ApprovalStep, AppUser, UserRole, VesselRegion } from '@/lib/types';
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
-// Helper to convert Firestore Timestamps to ISO strings recursively
 const convertTimestampsToISO = (data: any): any => {
   if (data === null || typeof data !== 'object') {
     return data;
@@ -38,7 +39,6 @@ const convertTimestampsToISO = (data: any): any => {
   return result;
 };
 
-// Helper to map a Firestore document snapshot to a RiskAssessment object
 const mapDocToRiskAssessment = (docSnap: DocumentSnapshot<DocumentData>): RiskAssessment => {
     const data = docSnap.data();
     if (!data) throw new Error(`Document data undefined for doc id: ${docSnap.id}`);
@@ -46,12 +46,9 @@ const mapDocToRiskAssessment = (docSnap: DocumentSnapshot<DocumentData>): RiskAs
     return convertTimestampsToISO(assessmentWithTimestamps);
 };
 
-// Helper to map a Firestore document snapshot to an AppUser object
 const mapDocToAppUser = (docSnap: DocumentSnapshot<DocumentData>): AppUser => {
     const data = docSnap.data();
     if (!data) throw new Error(`User document data undefined for doc id: ${docSnap.id}`);
-    // Assuming user data in Firestore does not typically contain timestamps that need conversion
-    // If there were, you'd use convertTimestampsToISO here as well.
     return { uid: docSnap.id, ...data } as AppUser;
 };
 
@@ -85,7 +82,6 @@ export const getAssessmentByIdFromDB = async (id: string): Promise<RiskAssessmen
   }
 };
 
-// Helper to prepare data for Firestore: convert date strings/objects to Timestamps and remove undefined
 const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): DocumentData => {
   const firestoreData: DocumentData = { ...data };
 
@@ -216,7 +212,6 @@ export const uploadFileToStorage = async (file: File, storagePath: string): Prom
             console.log(`FirestoreService: Upload is paused for ${file.name}`);
             break;
           case 'running':
-            // console.log(`FirestoreService: Upload is running for ${file.name}`); // Can be too noisy
             break;
         }
       },
@@ -253,13 +248,10 @@ export const uploadFileToStorage = async (file: File, storagePath: string): Prom
   });
 };
 
-// New function to fetch all users
 export const getAllUsersFromDB = async (): Promise<AppUser[]> => {
   try {
     const usersCol = collection(db, 'users');
-    // Optionally, order users, e.g., by name or email
-    // const q = query(usersCol, orderBy('name', 'asc'));
-    const usersSnapshot = await getDocs(usersCol); // Use usersCol directly if no specific order needed
+    const usersSnapshot = await getDocs(usersCol);
     const userList = usersSnapshot.docs.map(doc => mapDocToAppUser(doc));
     return userList;
   } catch (error) {
@@ -268,20 +260,34 @@ export const getAllUsersFromDB = async (): Promise<AppUser[]> => {
   }
 };
 
-// New function to update a user's role
-export const updateUserRoleInDB = async (uid: string, newRole: UserRole): Promise<void> => {
+export const updateUserProfileInDB = async (uid: string, data: { role?: UserRole; region?: VesselRegion | null }): Promise<void> => {
   try {
-    if (newRole === 'Unauthenticated') {
+    if (data.role === 'Unauthenticated') {
       throw new Error("Cannot assign 'Unauthenticated' role.");
     }
     const userDocRef = doc(db, 'users', uid);
-    await updateDoc(userDocRef, {
-      role: newRole,
-    });
-    console.log(`Successfully updated role for user ${uid} to ${newRole}`);
+    const updatesToApply: any = {}; 
+
+    if (data.role) {
+      updatesToApply.role = data.role;
+    }
+    if (data.hasOwnProperty('region')) { 
+      if (data.region === null || data.region === undefined) { 
+        updatesToApply.region = deleteField(); // Use deleteField to remove the field
+      } else {
+        updatesToApply.region = data.region;
+      }
+    }
+
+    if (Object.keys(updatesToApply).length === 0) {
+      console.log(`No profile changes to apply for user ${uid}`);
+      return;
+    }
+
+    await updateDoc(userDocRef, updatesToApply);
+    console.log(`Successfully updated profile for user ${uid} with data:`, updatesToApply);
   } catch (error) {
-    console.error(`Error updating role for user ${uid}: `, error);
+    console.error(`Error updating profile for user ${uid}: `, error);
     throw error;
   }
 };
-    

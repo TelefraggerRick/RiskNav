@@ -2,12 +2,12 @@
 export interface Attachment {
   id: string;
   name: string;
-  url: string; 
+  url: string;
   type: string;
-  size: number; 
-  uploadedAt: string; 
-  file?: File; 
-  dataAiHint?: string; 
+  size: number;
+  uploadedAt: string;
+  file?: File;
+  dataAiHint?: string;
 }
 
 export type YesNoOptional = 'Yes' | 'No' | undefined;
@@ -21,12 +21,12 @@ export interface ExemptionIndividualAssessmentData {
   deptHeadConfidenceReason?: string;
   employeeFamiliarizationProvided?: YesNoOptional;
   workedInDepartmentLast12Months?: YesNoOptional;
-  workedInDepartmentDetails?: string; 
+  workedInDepartmentDetails?: string;
   similarResponsibilityExperience?: YesNoOptional;
-  similarResponsibilityDetails?: string; 
+  similarResponsibilityDetails?: string;
   individualHasRequiredSeaService?: YesNoOptional;
   individualWorkingTowardsCertification?: YesNoOptional;
-  certificationProgressSummary?: string; 
+  certificationProgressSummary?: string;
 }
 
 export interface OperationalConsiderationsData {
@@ -35,11 +35,11 @@ export interface OperationalConsiderationsData {
   crewCompositionSufficientForSafety?: YesNoOptional;
   detailedCrewCompetencyAssessment?: string;
   crewContinuityAsPerProfile?: YesNoOptional;
-  crewContinuityDetails?: string; 
+  crewContinuityDetails?: string;
   // Voyage
   specialVoyageConsiderations?: string;
   reductionInVesselProgramRequirements?: YesNoOptional;
-  rocNotificationOfLimitations?: YesNoOptional; 
+  rocNotificationOfLimitations?: YesNoOptional;
 }
 
 
@@ -49,9 +49,9 @@ export type ApprovalLevel = 'Crewing Standards and Oversight' | 'Senior Director
 export interface ApprovalStep {
   level: ApprovalLevel;
   decision?: ApprovalDecision;
-  userId?: string; 
-  userName?: string; 
-  date?: string; 
+  userId?: string;
+  userName?: string;
+  date?: string;
   notes?: string;
 }
 
@@ -66,22 +66,24 @@ export type RiskAssessmentStatus =
 
 export type VesselDepartment = 'Navigation' | 'Deck' | 'Engine Room' | 'Logistics' | 'Other';
 export type VesselRegion = 'Atlantic' | 'Central' | 'Western' | 'Arctic';
+export const ALL_VESSEL_REGIONS: [VesselRegion, ...VesselRegion[]] = ['Atlantic', 'Central', 'Western', 'Arctic'];
+
 
 export interface RiskAssessment extends ExemptionIndividualAssessmentData, OperationalConsiderationsData {
   id: string;
   referenceNumber: string;
-  maritimeExemptionNumber?: string; 
+  maritimeExemptionNumber?: string;
   vesselName: string;
-  imoNumber?: string; 
+  imoNumber?: string;
   department?: VesselDepartment;
   region?: VesselRegion;
   voyageDetails: string;
   reasonForRequest: string;
   personnelShortages: string;
   proposedOperationalDeviations: string;
-  submittedBy: string; 
-  submittedByUid?: string; 
-  submissionDate: string; 
+  submittedBy: string;
+  submittedByUid?: string;
+  submissionDate: string;
   status: RiskAssessmentStatus;
   attachments: Attachment[];
   approvalSteps: ApprovalStep[];
@@ -89,17 +91,17 @@ export interface RiskAssessment extends ExemptionIndividualAssessmentData, Opera
   aiGeneratedSummary?: string;
   aiSuggestedMitigations?: string;
   aiRegulatoryConsiderations?: string;
-  aiLikelihoodScore?: number; 
-  aiConsequenceScore?: number; 
-  lastModified: string; 
+  aiLikelihoodScore?: number;
+  aiConsequenceScore?: number;
+  lastModified: string;
 
-  patrolStartDate?: string; 
-  patrolEndDate?: string; 
+  patrolStartDate?: string;
+  patrolEndDate?: string;
   patrolLengthDays?: number;
 }
 
 export interface RiskAssessmentFormData extends Omit<RiskAssessment, 'id' | 'referenceNumber' | 'submissionDate' | 'lastModified' | 'attachments' | 'approvalSteps' | 'status' | 'submittedBy' | 'submittedByUid' | 'patrolLengthDays'> {
-  attachments?: Array<Partial<Attachment> & { file?: File }>; 
+  attachments?: Array<Partial<Attachment> & { file?: File }>;
 }
 
 
@@ -124,9 +126,9 @@ export const assignableUserRoles: Exclude<UserRole, 'Unauthenticated'>[] = [
 export interface AppUser {
   uid: string; // Firebase Auth UID
   name: string;
-  email: string; 
+  email: string;
   role: UserRole;
+  region?: VesselRegion; // Added region to user profile
 }
 
 export type Language = 'en' | 'fr';
-

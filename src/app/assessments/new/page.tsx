@@ -3,13 +3,13 @@
 
 import RiskAssessmentForm from "@/components/risk-assessments/RiskAssessmentForm";
 import type { RiskAssessmentFormData } from "@/lib/schemas";
-import { useState, useEffect } from "react";
-import { toast } from 'sonner'; // Changed to sonner
+import { useState, useEffect, useMemo } from "react"; // Added useMemo
+import { toast } from 'sonner';
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, ApprovalStep } from "@/lib/types";
+import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, ApprovalStep, VesselRegion } from "@/lib/types";
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { addAssessmentToDB, uploadFileToStorage } from '@/lib/firestoreService'; 
@@ -120,7 +120,7 @@ export default function NewAssessmentPage() {
         vesselName: data.vesselName,
         imoNumber: data.imoNumber || undefined,
         department: data.department,
-        region: data.region,
+        region: data.region || currentUser.region, // Use form data region, fallback to user's region
         patrolStartDate: data.patrolStartDate || undefined,
         patrolEndDate: data.patrolEndDate || undefined,
         patrolLengthDays: calculatePatrolLengthDays(data.patrolStartDate, data.patrolEndDate),
@@ -185,7 +185,15 @@ export default function NewAssessmentPage() {
     }
   };
 
-  if (isLoadingAuth || !currentUser) {
+  const initialFormValues = useMemo(() => {
+    const data: Partial<RiskAssessmentFormData> = {};
+    if (currentUser && currentUser.uid !== 'user-unauth' && currentUser.region) {
+      data.region = currentUser.region;
+    }
+    return data;
+  }, [currentUser]);
+
+  if (isLoadingAuth || !currentUser || currentUser.uid === 'user-unauth') {
     return (
         <div className="flex flex-col justify-center items-center h-[calc(100vh-200px)] gap-4">
             <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -205,7 +213,11 @@ export default function NewAssessmentPage() {
           </Link>
         </Button>
       </div>
-      <RiskAssessmentForm onSubmit={handleSubmit} isLoading={isLoading} />
+      <RiskAssessmentForm 
+        onSubmit={handleSubmit} 
+        isLoading={isLoading} 
+        initialData={initialFormValues}
+      />
     </div>
   );
 }

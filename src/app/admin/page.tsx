@@ -4,9 +4,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import type { AppUser, UserRole } from '@/lib/types';
-import { assignableUserRoles } from '@/lib/types';
-import { getAllUsersFromDB, updateUserRoleInDB } from '@/lib/firestoreService';
+import type { AppUser, UserRole, VesselRegion } from '@/lib/types';
+import { assignableUserRoles, ALL_VESSEL_REGIONS } from '@/lib/types';
+import { getAllUsersFromDB, updateUserProfileInDB } from '@/lib/firestoreService';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, UserCog, Users, ShieldAlert, Save, PlusCircle, UserPlus } from 'lucide-react';
+import { Loader2, UserCog, Users, ShieldAlert, Save, PlusCircle, UserPlus, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
@@ -38,7 +38,7 @@ import { createNewUserAction, type CreateUserResult } from './actions';
 
 const T_ADMIN_PAGE = {
   pageTitle: { en: "Admin - User Management", fr: "Admin - Gestion des utilisateurs" },
-  pageDescription: { en: "View, manage user roles, and create new users.", fr: "Visualisez, gérez les rôles des utilisateurs et créez de nouveaux utilisateurs." },
+  pageDescription: { en: "View, manage user roles & regions, and create new users.", fr: "Visualisez, gérez les rôles et régions des utilisateurs, et créez de nouveaux utilisateurs." },
   loadingUsers: { en: "Loading users...", fr: "Chargement des utilisateurs..." },
   accessDeniedTitle: { en: "Access Denied", fr: "Accès refusé" },
   accessDeniedDesc: { en: "You do not have permission to view this page.", fr: "Vous n'avez pas la permission de visualiser cette page." },
@@ -51,19 +51,23 @@ const T_ADMIN_PAGE = {
   emailHeader: { en: "Email", fr: "Courriel" },
   currentRoleHeader: { en: "Current Role", fr: "Rôle actuel" },
   newRoleHeader: { en: "Assign New Role", fr: "Attribuer un nouveau rôle" },
+  currentRegionHeader: { en: "Current Region", fr: "Région actuelle" },
+  newRegionHeader: { en: "Assign New Region", fr: "Attribuer une nouvelle région" },
   actionsHeader: { en: "Actions", fr: "Actions" },
   selectRolePlaceholder: { en: "Select role...", fr: "Sélectionner un rôle..." },
-  saveRoleButton: { en: "Save Role", fr: "Enregistrer le rôle" },
+  selectRegionPlaceholder: { en: "Select region...", fr: "Sélectionner une région..." },
+  noRegionOption: { en: "No Region", fr: "Aucune région"},
+  saveProfileButton: { en: "Save Profile", fr: "Enregistrer le profil" },
   savingButton: { en: "Saving...", fr: "Enregistrement..." },
-  roleUpdateSuccessTitle: { en: "Role Updated", fr: "Rôle mis à jour" },
-  roleUpdateSuccessDesc: { en: "Role for {userName} has been updated to {newRole}.", fr: "Le rôle pour {userName} a été mis à jour vers {newRole}." },
-  roleUpdateErrorTitle: { en: "Update Failed", fr: "Échec de la mise à jour" },
-  roleUpdateErrorDesc: { en: "Could not update role for {userName}. Please try again.", fr: "Impossible de mettre à jour le rôle pour {userName}. Veuillez réessayer." },
-  cannotChangeOwnRole: { en: "Cannot change own role", fr: "Impossible de modifier son propre rôle" },
-  cannotChangeOwnRoleDesc: { en: "Administrators cannot change their own role via this interface.", fr: "Les administrateurs ne peuvent pas modifier leur propre rôle via cette interface."},
+  profileUpdateSuccessTitle: { en: "Profile Updated", fr: "Profil mis à jour" },
+  profileUpdateSuccessDesc: { en: "Profile for {userName} has been updated.", fr: "Le profil pour {userName} a été mis à jour." },
+  profileUpdateErrorTitle: { en: "Update Failed", fr: "Échec de la mise à jour" },
+  profileUpdateErrorDesc: { en: "Could not update profile for {userName}. Please try again.", fr: "Impossible de mettre à jour le profil pour {userName}. Veuillez réessayer." },
+  cannotChangeOwnProfile: { en: "Cannot change own profile", fr: "Impossible de modifier son propre profil" },
+  cannotChangeOwnProfileDesc: { en: "Administrators cannot change their own role or region via this interface.", fr: "Les administrateurs ne peuvent pas modifier leur propre rôle ou région via cette interface."},
   createNewUserButton: { en: "Create New User", fr: "Créer un nouvel utilisateur" },
   createUserDialogTitle: { en: "Create New User Account", fr: "Créer un nouveau compte utilisateur" },
-  createUserDialogDesc: { en: "Enter the details for the new user. An email and initial password will be set.", fr: "Entrez les détails du nouvel utilisateur. Un courriel et un mot de passe initial seront définis." },
+  createUserDialogDesc: { en: "Enter the details for the new user. An email, initial password, role and optional region will be set.", fr: "Entrez les détails du nouvel utilisateur. Un courriel, un mot de passe initial, un rôle et une région facultative seront définis." },
   nameLabel: { en: "Full Name", fr: "Nom complet" },
   namePlaceholder: { en: "e.g., Jane Doe", fr: "ex : Jeanne Dupont" },
   emailLabel: { en: "Email Address", fr: "Adresse courriel" },
@@ -72,24 +76,25 @@ const T_ADMIN_PAGE = {
   passwordPlaceholder: { en: "Min. 6 characters", fr: "Min. 6 caractères" },
   confirmPasswordLabel: { en: "Confirm Password", fr: "Confirmer le mot de passe" },
   roleLabel: { en: "Role", fr: "Rôle" },
+  regionLabel: { en: "Region (Optional)", fr: "Région (Facultatif)" },
   createUserButton: { en: "Create User", fr: "Créer l'utilisateur" },
   creatingUserButton: { en: "Creating...", fr: "Création en cours..." },
   userCreateSuccessTitle: { en: "User Created", fr: "Utilisateur créé" },
-  userCreateSuccessDesc: { en: "User {userName} ({userEmail}) has been created with role {userRole}.", fr: "L'utilisateur {userName} ({userEmail}) a été créé avec le rôle {userRole}." },
+  userCreateSuccessDesc: { en: "User {userName} ({userEmail}) has been created.", fr: "L'utilisateur {userName} ({userEmail}) a été créé." },
   userCreateErrorTitle: { en: "Creation Failed", fr: "Échec de la création" },
   cancelButton: { en: "Cancel", fr: "Annuler" },
 };
 
-// Ensure assignableUserRoles is compatible with z.enum
-// It expects a non-empty array of string literals.
 const roleEnumValues = assignableUserRoles as [string, ...string[]];
+const regionEnumValues = ALL_VESSEL_REGIONS;
 
 const createUserFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string().min(6, { message: "Please confirm your password." }),
-  role: z.enum(roleEnumValues, { errorMap: () => ({ message: "Please select a valid role."}) })
+  role: z.enum(roleEnumValues, { errorMap: () => ({ message: "Please select a valid role."}) }),
+  region: z.enum(regionEnumValues).optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match.",
   path: ["confirmPassword"],
@@ -106,13 +111,14 @@ export default function AdminPage() {
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<Record<string, UserRole>>({});
-  const [isUpdatingRole, setIsUpdatingRole] = useState<Record<string, boolean>>({});
+  const [selectedRegions, setSelectedRegions] = useState<Record<string, VesselRegion | undefined | null>>({}); // null for "No Region"
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState<Record<string, boolean>>({});
   const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   const createUserForm = useForm<CreateUserFormValues>({
     resolver: zodResolver(createUserFormSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "", role: "Submitter" },
+    defaultValues: { name: "", email: "", password: "", confirmPassword: "", role: "Submitter", region: undefined },
   });
 
   const fetchUsers = useCallback(async () => {
@@ -122,8 +128,13 @@ export default function AdminPage() {
       const fetchedUsers = await getAllUsersFromDB();
       setUsers(fetchedUsers);
       const initialSelectedRoles: Record<string, UserRole> = {};
-      fetchedUsers.forEach(user => { initialSelectedRoles[user.uid] = user.role; });
+      const initialSelectedRegions: Record<string, VesselRegion | undefined | null> = {};
+      fetchedUsers.forEach(user => {
+        initialSelectedRoles[user.uid] = user.role;
+        initialSelectedRegions[user.uid] = user.region || null; // Store null if no region
+      });
       setSelectedRoles(initialSelectedRoles);
+      setSelectedRegions(initialSelectedRegions);
     } catch (err) {
       console.error("Error fetching users:", err);
       setError(getTranslation(T_ADMIN_PAGE.failedToLoadUsers));
@@ -151,45 +162,59 @@ export default function AdminPage() {
     setSelectedRoles(prev => ({ ...prev, [userId]: newRole }));
   };
 
-  const handleSaveRole = async (userId: string) => {
+  const handleRegionSelectionChange = (userId: string, newRegionValue: string) => {
+    const newRegion = newRegionValue === "NO_REGION" ? null : newRegionValue as VesselRegion;
+    setSelectedRegions(prev => ({ ...prev, [userId]: newRegion }));
+  };
+
+  const handleSaveUserProfile = async (userId: string) => {
     if (currentUser && userId === currentUser.uid) {
-        toast.error(getTranslation(T_ADMIN_PAGE.cannotChangeOwnRole), { description: getTranslation(T_ADMIN_PAGE.cannotChangeOwnRoleDesc) });
+        toast.error(getTranslation(T_ADMIN_PAGE.cannotChangeOwnProfile), { description: getTranslation(T_ADMIN_PAGE.cannotChangeOwnProfileDesc) });
         return;
     }
     const newRole = selectedRoles[userId];
+    const newRegion = selectedRegions[userId]; // Can be VesselRegion, undefined, or null
     const userToUpdate = users.find(u => u.uid === userId);
-    if (!newRole || !userToUpdate || newRole === userToUpdate.role) return;
 
-    setIsUpdatingRole(prev => ({ ...prev, [userId]: true }));
+    if (!userToUpdate) return;
+    const roleChanged = newRole !== userToUpdate.role;
+    const regionChanged = newRegion !== (userToUpdate.region || null); // Compare with null if undefined
+
+    if (!roleChanged && !regionChanged) return; // No changes to save
+
+    setIsUpdatingProfile(prev => ({ ...prev, [userId]: true }));
     try {
-      await updateUserRoleInDB(userId, newRole);
-      toast.success(getTranslation(T_ADMIN_PAGE.roleUpdateSuccessTitle), {
-        description: getTranslation(T_ADMIN_PAGE.roleUpdateSuccessDesc).replace('{userName}', userToUpdate.name || 'User').replace('{newRole}', newRole),
+      const updates: { role?: UserRole; region?: VesselRegion | null } = {};
+      if (roleChanged && newRole) updates.role = newRole;
+      if (regionChanged) updates.region = newRegion; // newRegion can be null to clear
+
+      await updateUserProfileInDB(userId, updates);
+      toast.success(getTranslation(T_ADMIN_PAGE.profileUpdateSuccessTitle), {
+        description: getTranslation(T_ADMIN_PAGE.profileUpdateSuccessDesc).replace('{userName}', userToUpdate.name || 'User'),
       });
-      setUsers(prevUsers => prevUsers.map(u => u.uid === userId ? { ...u, role: newRole } : u));
+      setUsers(prevUsers => prevUsers.map(u => u.uid === userId ? { ...u, ...updates, region: newRegion === null ? undefined : newRegion } : u));
     } catch (err) {
-      console.error(`Error updating role for user ${userId}:`, err);
-      toast.error(getTranslation(T_ADMIN_PAGE.roleUpdateErrorTitle), {
-        description: getTranslation(T_ADMIN_PAGE.roleUpdateErrorDesc).replace('{userName}', userToUpdate.name || 'User'),
+      console.error(`Error updating profile for user ${userId}:`, err);
+      toast.error(getTranslation(T_ADMIN_PAGE.profileUpdateErrorTitle), {
+        description: getTranslation(T_ADMIN_PAGE.profileUpdateErrorDesc).replace('{userName}', userToUpdate.name || 'User'),
       });
+      // Revert optimistic updates
       setSelectedRoles(prev => ({...prev, [userId]: userToUpdate.role }));
+      setSelectedRegions(prev => ({...prev, [userId]: userToUpdate.region || null}));
     } finally {
-      setIsUpdatingRole(prev => ({ ...prev, [userId]: false }));
+      setIsUpdatingProfile(prev => ({ ...prev, [userId]: false }));
     }
   };
 
   const handleCreateUserSubmit = async (values: CreateUserFormValues) => {
     setIsCreatingUser(true);
-    const result: CreateUserResult = await createNewUserAction(values);
+    const result: CreateUserResult = await createNewUserAction(values); // Values include optional region
     if (result.success && result.userId) {
       toast.success(getTranslation(T_ADMIN_PAGE.userCreateSuccessTitle), {
         description: getTranslation(T_ADMIN_PAGE.userCreateSuccessDesc)
           .replace('{userName}', values.name)
-          .replace('{userEmail}', values.email)
-          .replace('{userRole}', values.role),
+          .replace('{userEmail}', values.email),
       });
-      // Add new user to local state or re-fetch all users
-      // For simplicity, re-fetching:
       await fetchUsers();
       setIsCreateUserDialogOpen(false);
       createUserForm.reset();
@@ -280,6 +305,17 @@ export default function AdminPage() {
                         </Select> <FormMessage />
                       </FormItem>
                     )}/>
+                     <FormField control={createUserForm.control} name="region" render={({ field }) => (
+                      <FormItem> <FormLabel>{getTranslation(T_ADMIN_PAGE.regionLabel)}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger><SelectValue placeholder={getTranslation(T_ADMIN_PAGE.selectRegionPlaceholder)} /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="">{getTranslation(T_ADMIN_PAGE.noRegionOption)}</SelectItem>
+                            {ALL_VESSEL_REGIONS.map(region => ( <SelectItem key={region} value={region}>{region}</SelectItem> ))}
+                          </SelectContent>
+                        </Select> <FormMessage />
+                      </FormItem>
+                    )}/>
                     <DialogFooter className="pt-4">
                        <DialogClose asChild><Button type="button" variant="outline">{getTranslation(T_ADMIN_PAGE.cancelButton)}</Button></DialogClose>
                       <Button type="submit" disabled={isCreatingUser}>
@@ -307,48 +343,75 @@ export default function AdminPage() {
                   <TableHead>{getTranslation(T_ADMIN_PAGE.emailHeader)}</TableHead>
                   <TableHead>{getTranslation(T_ADMIN_PAGE.currentRoleHeader)}</TableHead>
                   <TableHead>{getTranslation(T_ADMIN_PAGE.newRoleHeader)}</TableHead>
+                  <TableHead>{getTranslation(T_ADMIN_PAGE.currentRegionHeader)}</TableHead>
+                  <TableHead>{getTranslation(T_ADMIN_PAGE.newRegionHeader)}</TableHead>
                   <TableHead className="text-right">{getTranslation(T_ADMIN_PAGE.actionsHeader)}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.uid}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role}</TableCell>
-                    <TableCell>
-                      <Select
-                        value={selectedRoles[user.uid] || user.role}
-                        onValueChange={(newRole) => handleRoleSelectionChange(user.uid, newRole as UserRole)}
-                        disabled={isUpdatingRole[user.uid] || (currentUser?.uid === user.uid)}
-                      >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder={getTranslation(T_ADMIN_PAGE.selectRolePlaceholder)} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assignableUserRoles.map(role => (
-                            <SelectItem key={role} value={role}>
-                              {role}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        onClick={() => handleSaveRole(user.uid)}
-                        disabled={isUpdatingRole[user.uid] || selectedRoles[user.uid] === user.role || (currentUser?.uid === user.uid)}
-                      >
-                        {isUpdatingRole[user.uid] ? (
-                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_ADMIN_PAGE.savingButton)}</>
-                        ) : (
-                          <><Save className="mr-2 h-4 w-4" />{getTranslation(T_ADMIN_PAGE.saveRoleButton)}</>
-                        )}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {users.map((user) => {
+                  const roleChanged = selectedRoles[user.uid] !== user.role;
+                  const regionChanged = selectedRegions[user.uid] !== (user.region || null);
+                  const isCurrentUserAdmin = currentUser?.uid === user.uid;
+                  return (
+                    <TableRow key={user.uid}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{user.role}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={selectedRoles[user.uid] || user.role}
+                          onValueChange={(newRole) => handleRoleSelectionChange(user.uid, newRole as UserRole)}
+                          disabled={isUpdatingProfile[user.uid] || isCurrentUserAdmin}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder={getTranslation(T_ADMIN_PAGE.selectRolePlaceholder)} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {assignableUserRoles.map(role => (
+                              <SelectItem key={role} value={role}>
+                                {role}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{user.region || getTranslation(T_ADMIN_PAGE.noRegionOption)}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={selectedRegions[user.uid] === null ? "NO_REGION" : selectedRegions[user.uid] || "NO_REGION"}
+                          onValueChange={(newRegionValue) => handleRegionSelectionChange(user.uid, newRegionValue)}
+                          disabled={isUpdatingProfile[user.uid] || isCurrentUserAdmin}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder={getTranslation(T_ADMIN_PAGE.selectRegionPlaceholder)} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="NO_REGION">{getTranslation(T_ADMIN_PAGE.noRegionOption)}</SelectItem>
+                            {ALL_VESSEL_REGIONS.map(region => (
+                              <SelectItem key={region} value={region}>
+                                {region}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveUserProfile(user.uid)}
+                          disabled={isUpdatingProfile[user.uid] || (!roleChanged && !regionChanged) || isCurrentUserAdmin}
+                        >
+                          {isUpdatingProfile[user.uid] ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_ADMIN_PAGE.savingButton)}</>
+                          ) : (
+                            <><Save className="mr-2 h-4 w-4" />{getTranslation(T_ADMIN_PAGE.saveProfileButton)}</>
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
