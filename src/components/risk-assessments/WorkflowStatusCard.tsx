@@ -139,9 +139,9 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="p-3 sm:p-4">
         <TooltipProvider delayDuration={100}>
-            <div className="flex flex-row items-stretch justify-center gap-1.5 md:gap-2 overflow-x-auto py-2">
+            <div className="flex flex-row items-stretch justify-center gap-1.5 md:gap-2 overflow-x-auto py-1">
             {approvalLevelsOrder.map((level, index) => {
                 const step = assessment.approvalSteps.find(s => s.level === level);
                 const decision = step?.decision || 'Pending';
@@ -159,7 +159,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 
                 const stageElement = (
                     <div className={cn(
-                        "flex-shrink-0 w-[140px] flex flex-col items-center p-2 rounded-md border",
+                        "flex-shrink-0 w-[140px] flex flex-col items-center p-1.5 rounded-md border",
                         isHighlighted ? 'ring-2 ring-primary shadow-md bg-background' : 'bg-muted/40 hover:bg-muted/70 transition-colors'
                     )}>
                         <Icon className={cn("h-5 w-5 mb-1", badgeConfig.textClass?.split(' ').find(c => c.startsWith('text-')) || 'text-foreground')} />
@@ -193,7 +193,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
             })}
             </div>
         </TooltipProvider>
-        <div className="mt-6 text-right">
+        <div className="mt-4 text-right">
           <Button variant="outline" size="sm" asChild>
             <Link href={`/assessments/${assessment.id}`}>
               {getTranslation(T_STATUS_CARD.viewDetails)}
@@ -206,3 +206,4 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 };
 
 export default WorkflowStatusCard;
+
