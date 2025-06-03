@@ -30,8 +30,7 @@ const CcgStrikeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
     <title>Canadian Coast Guard Strike</title>
     {/* Angled Red Strike (Parallelogram slanting down from left to right) */}
     {/* Coordinates: M top-left L top-right L bottom-right L bottom-left Z */}
-    {/* Y_top = 7.5, Y_bottom = 12.5. Slant offset (S) = 10 */}
-    <path d="M0,7.5 L30,7.5 L40,12.5 L10,12.5 Z" fill="#D8262C" />
+    <path d="M0,6 L30,9 L40,14 L10,11 Z" fill="#D8262C" />
   </svg>
 );
 
