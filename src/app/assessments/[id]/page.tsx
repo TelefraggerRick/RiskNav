@@ -1,8 +1,10 @@
+
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { RiskAssessment, Attachment, ApprovalStep, ApprovalDecision, ApprovalLevel, RiskAssessmentStatus, YesNoOptional, UserRole } from '@/lib/types';
+import { approvalLevelsOrder } from '@/lib/types'; // Import from types
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +28,7 @@ import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreSe
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+// const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General']; // Removed, will import
 
 const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },

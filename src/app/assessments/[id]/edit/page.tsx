@@ -5,8 +5,10 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RiskAssessmentForm from "@/components/risk-assessments/RiskAssessmentForm";
 import type { RiskAssessmentFormData } from "@/lib/schemas";
+import { riskAssessmentFormSchema } from "@/lib/schemas";
 import type { RiskAssessment, Attachment as AttachmentType } from "@/lib/types";
-import { toast } from 'sonner'; // Changed to sonner
+import { approvalLevelsOrder } from "@/lib/types"; // Import approvalLevelsOrder
+import { toast } from 'sonner';
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { getAssessmentByIdFromDB, updateAssessmentInDB, uploadFileToStorage } from "@/lib/firestoreService";
@@ -34,7 +36,9 @@ const T_EDIT_PAGE = {
   errorFetchingAssessment: { en: "Error", fr: "Erreur" },
   failedLoadAssessmentData: { en: "Failed to load assessment data.", fr: "Échec du chargement des données de l'évaluation." },
   errorIdMissing: { en: "Assessment ID, reference number, or submission date missing.", fr: "ID d'évaluation, numéro de référence ou date de soumission manquant." },
-  errorInvalidSubmissionDate: { en: "Invalid submission date for assessment. Cannot determine upload year.", fr: "Date de soumission invalide pour l'évaluation. Impossible de déterminer l'année de téléversement."}
+  errorInvalidSubmissionDate: { en: "Invalid submission date for assessment. Cannot determine upload year.", fr: "Date de soumission invalide pour l'évaluation. Impossible de déterminer l'année de téléversement."},
+  workflowResetToast: { en: "Workflow Reset", fr: "Réinitialisation du flux de travail"},
+  workflowResetDesc: { en: "Assessment updated and workflow reset to 'Pending Crewing Standards and Oversight' due to significant changes.", fr: "L'évaluation a été mise à jour et le flux de travail réinitialisé à 'En attente Bureau de la conformité et des normes' en raison de modifications importantes."},
 };
 
 export default function EditAssessmentPage() {
@@ -205,6 +209,80 @@ export default function EditAssessmentPage() {
         specialVoyageConsiderations: data.specialVoyageConsiderations, reductionInVesselProgramRequirements: data.reductionInVesselProgramRequirements,
         rocNotificationOfLimitations: data.rocNotificationOfLimitations,
       };
+
+      // Workflow Reset Logic
+      let shouldResetWorkflow = false;
+      const originalAssessmentData = assessment; // The assessment state *before* form edits
+
+      const substantiveFieldsToCompare: (keyof RiskAssessmentFormData)[] = [
+        'vesselName', 'imoNumber', 'maritimeExemptionNumber', 'department', 'region',
+        'patrolStartDate', 'patrolEndDate', 'voyageDetails', 'reasonForRequest',
+        'personnelShortages', 'proposedOperationalDeviations',
+        'employeeName', 'certificateHeld', 'requiredCertificate', 'coDeptHeadSupportExemption',
+        'deptHeadConfidentInIndividual', 'deptHeadConfidenceReason', 'employeeFamiliarizationProvided',
+        'workedInDepartmentLast12Months', 'workedInDepartmentDetails', 'similarResponsibilityExperience',
+        'similarResponsibilityDetails', 'individualHasRequiredSeaService', 'individualWorkingTowardsCertification',
+        'certificationProgressSummary', 'requestCausesVacancyElsewhere', 'crewCompositionSufficientForSafety',
+        'detailedCrewCompetencyAssessment', 'crewContinuityAsPerProfile', 'crewContinuityDetails',
+        'specialVoyageConsiderations', 'reductionInVesselProgramRequirements', 'rocNotificationOfLimitations'
+      ];
+
+      let hasSubstantiveChanges = false;
+      for (const key of substantiveFieldsToCompare) {
+        const formValue = data[key]; // 'data' is the current form submission
+        const originalValue = originalAssessmentData[key as keyof RiskAssessment];
+        const normalizedFormValue = (formValue === undefined || formValue === "") ? null : formValue;
+        const normalizedOriginalValue = (originalValue === undefined || originalValue === "") ? null : originalValue;
+
+        if (JSON.stringify(normalizedFormValue) !== JSON.stringify(normalizedOriginalValue)) {
+          hasSubstantiveChanges = true;
+          break;
+        }
+      }
+      
+      if (!hasSubstantiveChanges) {
+        const originalAttachments = originalAssessmentData.attachments || [];
+        if (processedAttachments.length !== originalAttachments.length) {
+            hasSubstantiveChanges = true;
+        } else {
+            const newFilesAdded = processedAttachments.some(att => !att.id); // New files won't have an ID yet from the form
+            const originalAttachmentIds = new Set(originalAttachments.map(att => att.id));
+            const currentAttachmentIds = new Set(processedAttachments.filter(att => att.id).map(att => att.id));
+            if (newFilesAdded || originalAttachmentIds.size !== currentAttachmentIds.size || 
+                !Array.from(currentAttachmentIds).every(id => originalAttachmentIds.has(id!))) {
+                hasSubstantiveChanges = true;
+            }
+        }
+      }
+
+      if (
+        currentUser &&
+        hasSubstantiveChanges &&
+        originalAssessmentData.status !== 'Draft' &&
+        originalAssessmentData.status !== 'Pending Crewing Standards and Oversight'
+      ) {
+        if (currentUser.uid === originalAssessmentData.submittedByUid || currentUser.role === 'Admin') {
+          shouldResetWorkflow = true;
+        }
+      }
+
+      if (shouldResetWorkflow) {
+        fieldsToUpdateFromForm.status = 'Pending Crewing Standards and Oversight';
+        fieldsToUpdateFromForm.approvalSteps = approvalLevelsOrder.map(level => ({
+          level,
+          decision: undefined,
+          userId: undefined,
+          userName: undefined,
+          date: undefined,
+          notes: undefined,
+          isAgainstFSM: false,
+          isAgainstMPR: false,
+          isAgainstCrewingProfile: false,
+        }));
+        toast.info(getTranslation(T_EDIT_PAGE.workflowResetToast), {
+          description: getTranslation(T_EDIT_PAGE.workflowResetDesc)
+        });
+      }
       
       await updateAssessmentInDB(assessment.id, fieldsToUpdateFromForm);
 

@@ -4,6 +4,7 @@
 import React from 'react';
 import Link from 'next/link';
 import type { RiskAssessment, ApprovalLevel, ApprovalDecision, ApprovalStep } from '@/lib/types';
+import { approvalLevelsOrder } from '@/lib/types'; // Import from types
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ interface WorkflowStatusCardProps {
   assessment: RiskAssessment;
 }
 
-const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+// const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General']; // Removed, will import
 
 const T_STATUS_CARD = {
   viewDetails: { en: "View Details", fr: "Voir les détails" },
@@ -140,7 +141,7 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
       </CardHeader>
       <CardContent className="p-4 sm:p-6">
         <TooltipProvider delayDuration={100}>
-            <div className="flex flex-row items-center justify-center gap-1.5 md:gap-2 overflow-x-auto py-2">
+            <div className="flex flex-row items-stretch justify-center gap-1.5 md:gap-2 overflow-x-auto py-2">
             {approvalLevelsOrder.map((level, index) => {
                 const step = assessment.approvalSteps.find(s => s.level === level);
                 const decision = step?.decision || 'Pending';
@@ -205,4 +206,3 @@ const WorkflowStatusCard: React.FC<WorkflowStatusCardProps> = ({ assessment }) =
 };
 
 export default WorkflowStatusCard;
-

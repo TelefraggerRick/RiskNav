@@ -9,12 +9,13 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import type { RiskAssessment, ApprovalLevel, Attachment as AttachmentType, ApprovalStep, VesselRegion } from "@/lib/types";
+import type { RiskAssessment, Attachment as AttachmentType, ApprovalStep, VesselRegion } from "@/lib/types";
+import { approvalLevelsOrder } from "@/lib/types"; // Import approvalLevelsOrder
 import { useUser } from "@/contexts/UserContext";
 import { useLanguage } from '@/contexts/LanguageContext';
 import { addAssessmentToDB, uploadFileToStorage } from '@/lib/firestoreService'; 
 
-const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+// const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General']; // Removed, will import
 
 export default function NewAssessmentPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -132,7 +133,12 @@ export default function NewAssessmentPage() {
         submittedByUid: currentUser.uid,
         status: 'Pending Crewing Standards and Oversight',
         attachments: processedAttachments, 
-        approvalSteps: approvalLevelsOrder.map(level => ({ level } as ApprovalStep)),
+        approvalSteps: approvalLevelsOrder.map(level => ({
+          level,
+          isAgainstFSM: false, // Default to false
+          isAgainstMPR: false, // Default to false
+          isAgainstCrewingProfile: false, // Default to false
+        } as ApprovalStep)),
         
         employeeName: data.employeeName || undefined,
         certificateHeld: data.certificateHeld || undefined,

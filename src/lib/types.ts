@@ -46,6 +46,8 @@ export interface OperationalConsiderationsData {
 export type ApprovalDecision = 'Approved' | 'Rejected' | 'Needs Information';
 export type ApprovalLevel = 'Crewing Standards and Oversight' | 'Senior Director' | 'Director General';
 
+export const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
+
 export interface ApprovalStep {
   level: ApprovalLevel;
   decision?: ApprovalDecision;
