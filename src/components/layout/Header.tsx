@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog } from 'lucide-react'; // Added UserCog
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow } from 'lucide-react'; // Added UserCog, Workflow
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -60,8 +60,9 @@ export default function Header() {
     dashboard: { en: "Dashboard", fr: "Tableau de bord" },
     statistics: { en: "Statistics", fr: "Statistiques" },
     calendar: { en: "Calendar", fr: "Calendrier" }, 
+    workflowStatus: { en: "Workflow Status", fr: "État du flux" }, // New translation
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
-    admin: { en: "Admin", fr: "Admin" }, // New translation
+    admin: { en: "Admin", fr: "Admin" }, 
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
     french: { en: "Français", fr: "English" },
@@ -105,6 +106,12 @@ export default function Header() {
           <nav className="flex items-center gap-1 sm:gap-2">
             <Link href="/" passHref>
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">{getTranslation(T.dashboard)}</Button>
+            </Link>
+            <Link href="/workflow-status" passHref>
+              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
+                <Workflow className="h-4 w-4 mr-0 sm:mr-2" />
+                <span className="hidden sm:inline">{getTranslation(T.workflowStatus)}</span>
+              </Button>
             </Link>
             <Link href="/statistics" passHref>
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
