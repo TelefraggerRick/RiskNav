@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { RiskAssessment, RiskAssessmentStatus, VesselRegion, VesselDepartment } from '@/lib/types';
 import { ALL_VESSEL_REGIONS } from '@/lib/types'; // Import from types.ts
-import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard';
+// import RiskAssessmentCard from '@/components/risk-assessments/RiskAssessmentCard'; // Temporarily removed
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -91,17 +91,20 @@ export default function DashboardPage() {
   };
 
   const loadAssessments = useCallback(async () => {
+    console.log("DashboardPage: loadAssessments called, setting isLoading to true.");
     setIsLoading(true);
     try {
       const data = await getAllAssessmentsFromDB();
+      console.log(`DashboardPage: getAllAssessmentsFromDB returned ${data.length} assessments.`);
       setAssessments(data);
     } catch (error) {
-      console.error("Failed to load assessments:", error);
+      console.error("DashboardPage: Failed to load assessments:", error);
       toast.error(getTranslation(T.loadingErrorTitle), {
         description: getTranslation(T.loadingErrorDesc),
       });
       setAssessments([]);
     } finally {
+      console.log("DashboardPage: loadAssessments finally block, setting isLoading to false.");
       setIsLoading(false);
     }
   }, [getTranslation, T.loadingErrorTitle, T.loadingErrorDesc]);
@@ -127,86 +130,6 @@ export default function DashboardPage() {
     );
   };
 
-  const groupedAndSortedAssessments = useMemo(() => {
-    let filtered = assessments;
-
-    if (searchTerm) {
-      const lowerSearchTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(assessment =>
-        assessment.vesselName.toLowerCase().includes(lowerSearchTerm) ||
-        assessment.referenceNumber.toLowerCase().includes(lowerSearchTerm) ||
-        (assessment.department && assessment.department.toLowerCase().includes(lowerSearchTerm)) ||
-        (assessment.reasonForRequest && assessment.reasonForRequest.toLowerCase().includes(lowerSearchTerm)) ||
-        (assessment.region && assessment.region.toLowerCase().includes(lowerSearchTerm))
-      );
-    }
-
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter(assessment => selectedStatuses.includes(assessment.status));
-    }
-
-    if (selectedRegions.length > 0) {
-      filtered = filtered.filter(assessment => assessment.region && selectedRegions.includes(assessment.region));
-    }
-
-
-    const sortedAssessments = [...filtered].sort((a, b) => {
-      let valA, valB;
-      switch (sortKey) {
-        case 'submissionDate':
-          valA = a.submissionDate ? parseISO(a.submissionDate).getTime() : 0;
-          valB = b.submissionDate ? parseISO(b.submissionDate).getTime() : 0;
-          break;
-        case 'lastModified':
-          valA = a.lastModified ? parseISO(a.lastModified).getTime() : 0;
-          valB = b.lastModified ? parseISO(b.lastModified).getTime() : 0;
-          break;
-        case 'status':
-          valA = a.status;
-          valB = b.status;
-          break;
-        case 'vesselName':
-          valA = a.vesselName.toLowerCase();
-          valB = b.vesselName.toLowerCase();
-          break;
-        case 'region':
-          valA = a.region || '';
-          valB = b.region || '';
-          break;
-        default:
-          return 0;
-      }
-
-      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
-      
-      if (sortKey !== 'lastModified' && a.lastModified && b.lastModified) { 
-        const timeA = parseISO(a.lastModified).getTime();
-        const timeB = parseISO(b.lastModified).getTime();
-        if (timeA < timeB) return 1; 
-        if (timeA > timeB) return -1;
-      }
-      return 0;
-    });
-
-    const groupedByPatrol: Record<string, RiskAssessment[]> = sortedAssessments.reduce((acc, assessment) => {
-      const patrolKey = `${assessment.patrolStartDate || 'NO_START_DATE'}-${assessment.patrolEndDate || 'NO_END_DATE'}`;
-      const groupKey = `${assessment.vesselName}|${patrolKey}`;
-      if (!acc[groupKey]) {
-        acc[groupKey] = [];
-      }
-      acc[groupKey].push(assessment);
-      return acc;
-    }, {} as Record<string, RiskAssessment[]>);
-
-    const sortedPatrolGroups = Object.entries(groupedByPatrol).sort(([keyA], [keyB]) =>
-      keyA.localeCompare(keyB)
-    );
-
-    return sortedPatrolGroups;
-
-  }, [assessments, searchTerm, selectedStatuses, selectedRegions, sortKey, sortDirection]);
-
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -215,7 +138,6 @@ export default function DashboardPage() {
       setSortDirection('desc'); 
     }
   }, [sortKey]);
-
 
   const currentSortLabel = sortOptions.find(opt => opt.value === sortKey)?.[currentLanguage === 'fr' ? 'fr_label' : 'label'] || getTranslation(T.sort);
 
@@ -227,34 +149,6 @@ export default function DashboardPage() {
     ? getTranslation(T.allRegions)
     : `${selectedRegions.length} ${getTranslation(T.selected)}`;
 
-  const getGroupDisplayTitle = (assessmentsInGroup: RiskAssessment[]): string => {
-    if (!assessmentsInGroup || assessmentsInGroup.length === 0) return "Unknown Group";
-    const firstAssessment = assessmentsInGroup[0];
-    const { vesselName, patrolStartDate, patrolEndDate } = firstAssessment;
-
-    const formatDateSafe = (dateStr: string | undefined, formatStr: string) => {
-        if (!dateStr) return "...";
-        try {
-            const parsed = parseISO(dateStr);
-            if (isValid(parsed)) return format(parsed, formatStr);
-        } catch (e) { /* fall through */ }
-        return "..."; 
-    };
-    
-    const formattedStartDate = formatDateSafe(patrolStartDate, "MMM d, yyyy");
-    const formattedEndDate = formatDateSafe(patrolEndDate, "MMM d, yyyy");
-
-    if (patrolStartDate && patrolEndDate) {
-        return `${vesselName} (${getTranslation(T.patrolLabel)} ${formattedStartDate} - ${formattedEndDate})`;
-    }
-    if (patrolStartDate) {
-        return `${vesselName} (${getTranslation(T.patrolLabel)} ${formattedStartDate} - ...)`;
-    }
-    if (patrolEndDate) {
-        return `${vesselName} (... - ${getTranslation(T.patrolLabel)} ${formattedEndDate})`;
-    }
-    return `${vesselName} (${getTranslation(T.generalAssessmentsLabel)})`;
-  };
 
   if (isLoading) {
     return (
@@ -395,6 +289,25 @@ export default function DashboardPage() {
         </div>
       </Card>
 
+      {/* Simplified rendering for diagnostics */}
+      <Card className="p-6">
+        <CardTitle>Assessments Loaded</CardTitle>
+        <CardDescription>
+          Number of assessments fetched: {assessments.length}
+        </CardDescription>
+        {assessments.length === 0 && !isLoading && (
+            <div className="mt-4">
+                <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-semibold mb-2">{getTranslation(T.noAssessmentsFound)}</h2>
+                <p className="text-muted-foreground">
+                {getTranslation(T.noMatchFilters)}
+                </p>
+            </div>
+        )}
+      </Card>
+
+      {/* 
+      // Temporarily removed complex rendering
       {groupedAndSortedAssessments.length > 0 ? (
         <div className="space-y-8">
           {groupedAndSortedAssessments.map(([groupKey, patrolAssessments]) => {
@@ -431,8 +344,9 @@ export default function DashboardPage() {
             </p>
           </Card>
         )
-      )}
+      )} 
+      */}
     </div>
   );
 }
-
+    
