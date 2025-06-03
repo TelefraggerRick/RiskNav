@@ -48,16 +48,16 @@ if (!admin.apps.length) {
       console.log(`Firebase Admin SDK initialized successfully for Project ID: ${adminApp.options.projectId}`);
       try {
         dbAdminInstance = admin.firestore();
-        // Set ignoreUndefinedProperties to true
+        // Set ignoreUndefinedProperties to true ONLY during initial setup
         dbAdminInstance.settings({ ignoreUndefinedProperties: true });
-        console.log('Firestore admin instance obtained and ignoreUndefinedProperties set to true.');
+        console.log('Firestore admin instance obtained. ignoreUndefinedProperties set to true (initial setup).');
         
         storageAdminInstance = admin.storage();
-        console.log('Storage admin instance obtained.');
+        console.log('Storage admin instance obtained (initial setup).');
 
         // Diagnostic: Attempt to list collections
         if (dbAdminInstance) {
-          console.log('Attempting diagnostic: dbAdminInstance.listCollections()');
+          console.log('Attempting diagnostic: dbAdminInstance.listCollections() (initial setup)');
           dbAdminInstance.listCollections()
             .then(collections => {
               console.log(`DIAGNOSTIC SUCCESS: listCollections() found ${collections.length} collections.`);
@@ -107,12 +107,15 @@ if (!admin.apps.length) {
   if (adminApp.options.projectId) {
       if (!dbAdminInstance) {
         dbAdminInstance = admin.firestore();
-        dbAdminInstance.settings({ ignoreUndefinedProperties: true }); // Also set here for safety
+        // DO NOT call settings() here, as it would have been called during initial app init.
+        console.log('Firestore admin instance obtained (re-used, settings assumed to be applied on initial setup).');
       }
-      if (!storageAdminInstance) storageAdminInstance = admin.storage();
+      if (!storageAdminInstance) {
+        storageAdminInstance = admin.storage();
+        console.log('Storage admin instance obtained (re-used).');
+      }
       // console.log('Firebase Admin SDK already initialized. Using existing instances.');
   } else {
-      // This case should ideally be caught by initial checks as well
       console.warn('Firebase Admin SDK was already initialized, but no Project ID detected. Previous initialization likely failed to determine it.');
   }
 }
