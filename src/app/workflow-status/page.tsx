@@ -7,14 +7,15 @@ import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Loader2, AlertTriangle, Workflow, PlusCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, AlertTriangle, Workflow, PlusCircle, ArrowLeft, Users, Building, UserCheck as UserCheckIcon, UserCircle, Sigma } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import WorkflowStatusCard from '@/components/risk-assessments/WorkflowStatusCard';
+import WorkflowTimelineRow from '@/components/risk-assessments/WorkflowTimelineRow'; // New component
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
 const T_WORKFLOW_PAGE = {
   pageTitle: { en: "Workflow Status Overview", fr: "Aperçu de l'état du flux de travail" },
+  pageDescription: { en: "Track assessments through their approval stages.", fr: "Suivez les évaluations à travers leurs étapes d'approbation."},
   loadingAssessments: { en: "Loading assessments...", fr: "Chargement des évaluations..." },
   noAssessmentsTitle: { en: "No Risk Assessments Found", fr: "Aucune évaluation des risques trouvée" },
   noAssessmentsDescription: { en: "There are currently no risk assessments in the system.", fr: "Il n'y a actuellement aucune évaluation des risques dans le système." },
@@ -22,6 +23,12 @@ const T_WORKFLOW_PAGE = {
   errorLoadingTitle: { en: "Error Loading Assessments", fr: "Erreur de chargement des évaluations" },
   errorLoadingDescription: { en: "Could not fetch assessments. Please try again later.", fr: "Impossible de charger les évaluations. Veuillez réessayer plus tard." },
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
+  assessmentHeader: { en: "Assessment", fr: "Évaluation" },
+  csoHeader: { en: "CSO", fr: "BCN" }, // Bureau de la conformité et des normes
+  sdHeader: { en: "Sr. Director", fr: "Dir. Principal" },
+  dgHeader: { en: "Dir. General", fr: "Dir. Générale" },
+  overallStatusHeader: { en: "Overall Status", fr: "Statut Général" },
+  actionsHeader: { en: "Actions", fr: "Actions" },
 };
 
 export default function WorkflowStatusPage() {
@@ -36,7 +43,6 @@ export default function WorkflowStatusPage() {
     setError(null);
     try {
       const data = await getAllAssessmentsFromDB();
-      // Sort assessments by lastModified date, newest first
       data.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
       setAssessments(data);
     } catch (err) {
@@ -80,12 +86,15 @@ export default function WorkflowStatusPage() {
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-6 pb-12">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-2">
-          <Workflow className="h-7 w-7" />
-          {getTranslation(T_WORKFLOW_PAGE.pageTitle)}
-        </h1>
+        <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-2">
+            <Workflow className="h-7 w-7" />
+            {getTranslation(T_WORKFLOW_PAGE.pageTitle)}
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">{getTranslation(T_WORKFLOW_PAGE.pageDescription)}</p>
+        </div>
         <Button variant="outline" onClick={() => router.push('/')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           {getTranslation(T_WORKFLOW_PAGE.backToDashboard)}
@@ -109,10 +118,24 @@ export default function WorkflowStatusPage() {
             </Button>
         </div>
       ) : (
-        <div className="space-y-6">
-          {assessments.map((assessment) => (
-            <WorkflowStatusCard key={assessment.id} assessment={assessment} />
-          ))}
+        <div className="overflow-x-auto">
+          <div className="min-w-[1000px] xl:min-w-full"> {/* Ensure table is scrollable on small screens */}
+            {/* Header Row */}
+            <div className="grid grid-cols-[2fr_repeat(3,_minmax(100px,_1fr))_1.5fr_1fr] gap-2 p-3 bg-muted rounded-t-md sticky top-0 z-10">
+              <div className="font-semibold text-sm text-muted-foreground">{getTranslation(T_WORKFLOW_PAGE.assessmentHeader)}</div>
+              <div className="font-semibold text-sm text-muted-foreground text-center flex items-center justify-center gap-1"><Building size={16}/>{getTranslation(T_WORKFLOW_PAGE.csoHeader)}</div>
+              <div className="font-semibold text-sm text-muted-foreground text-center flex items-center justify-center gap-1"><UserCheckIcon size={16}/>{getTranslation(T_WORKFLOW_PAGE.sdHeader)}</div>
+              <div className="font-semibold text-sm text-muted-foreground text-center flex items-center justify-center gap-1"><UserCircle size={16}/>{getTranslation(T_WORKFLOW_PAGE.dgHeader)}</div>
+              <div className="font-semibold text-sm text-muted-foreground text-center flex items-center justify-center gap-1"><Sigma size={16}/>{getTranslation(T_WORKFLOW_PAGE.overallStatusHeader)}</div>
+              <div className="font-semibold text-sm text-muted-foreground text-right">{getTranslation(T_WORKFLOW_PAGE.actionsHeader)}</div>
+            </div>
+            {/* Data Rows */}
+            <div className="space-y-2 mt-1">
+              {assessments.map((assessment) => (
+                <WorkflowTimelineRow key={assessment.id} assessment={assessment} />
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
