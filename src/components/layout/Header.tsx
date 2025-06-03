@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow } from 'lucide-react'; // Added UserCog, Workflow
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown } from 'lucide-react'; // Added LayoutGrid, ChevronDown
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -26,7 +26,7 @@ export default function Header() {
   const [onlineUsersCount, setOnlineUsersCount] = useState<number | null>(null);
 
   useEffect(() => {
-    if (rtdb) { // Only setup if RTDB is available
+    if (rtdb) { 
       const statusRef = ref(rtdb, '/status');
       const unsubscribe = onValue(statusRef, (snapshot) => {
         const statuses = snapshot.val();
@@ -40,7 +40,7 @@ export default function Header() {
       return () => unsubscribe(); 
     } else {
       console.warn("Header: RTDB not available, online user count feature disabled.");
-      setOnlineUsersCount(null); // Indicate unavailability
+      setOnlineUsersCount(null); 
     }
   }, []);
 
@@ -60,13 +60,14 @@ export default function Header() {
     dashboard: { en: "Dashboard", fr: "Tableau de bord" },
     statistics: { en: "Statistics", fr: "Statistiques" },
     calendar: { en: "Calendar", fr: "Calendrier" }, 
-    workflowStatus: { en: "Workflow Status", fr: "État du flux" }, // New translation
+    workflowStatus: { en: "Workflow Status", fr: "État du flux" },
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
     admin: { en: "Admin", fr: "Admin" }, 
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
     french: { en: "Français", fr: "English" },
     onlineUsers: { en: "Online", fr: "En ligne" },
+    viewsMenu: { en: "Views", fr: "Vues" }, // New translation for the dropdown
   };
 
   const userIsAuthenticated = currentUser && currentUser.uid !== 'user-unauth';
@@ -107,24 +108,37 @@ export default function Header() {
             <Link href="/" passHref>
               <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">{getTranslation(T.dashboard)}</Button>
             </Link>
-            <Link href="/workflow-status" passHref>
-              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
-                <Workflow className="h-4 w-4 mr-0 sm:mr-2" />
-                <span className="hidden sm:inline">{getTranslation(T.workflowStatus)}</span>
-              </Button>
-            </Link>
-            <Link href="/statistics" passHref>
-              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
-                <BarChart3 className="h-4 w-4 mr-0 sm:mr-2" />
-                <span className="hidden sm:inline">{getTranslation(T.statistics)}</span>
-              </Button>
-            </Link>
-            <Link href="/calendar" passHref> 
-              <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
-                <CalendarDays className="h-4 w-4 mr-0 sm:mr-2" />
-                <span className="hidden sm:inline">{getTranslation(T.calendar)}</span>
-              </Button>
-            </Link>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
+                  <LayoutGrid className="h-4 w-4 mr-0 sm:mr-2" />
+                  <span className="hidden sm:inline">{getTranslation(T.viewsMenu)}</span>
+                  <ChevronDown className="h-4 w-4 ml-1 hidden sm:inline" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link href="/workflow-status" className="flex items-center w-full">
+                    <Workflow className="h-4 w-4 mr-2" />
+                    {getTranslation(T.workflowStatus)}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/statistics" className="flex items-center w-full">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    {getTranslation(T.statistics)}
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/calendar" className="flex items-center w-full">
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    {getTranslation(T.calendar)}
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {isAdmin && (
                  <Link href="/admin" passHref>
                     <Button variant="ghost" className="text-sm sm:text-base text-foreground hover:bg-accent hover:text-accent-foreground">
