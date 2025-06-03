@@ -29,10 +29,10 @@ const CanadaFlagIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
   >
     <rect width="1000" height="500" fill="#D8262C" /> {/* Red background */}
     <rect x="250" width="500" height="500" fill="#FFFFFF" /> {/* White center square */}
-    {/* Simplified Maple Leaf */}
+    {/* Updated Maple Leaf Path */}
     <path
       fill="#D8262C" // Red maple leaf
-      d="M500,125 L445,210 L460,210 L420,280 L450,280 L450,330 L550,330 L550,280 L580,280 L540,210 L555,210 Z M500,125 L525,180 L475,180 Z M500,375 L470,340 L530,340 Z"
+      d="M499.998 168.464L441.324 235.905L468.572 235.905L420.098 291.536L462.329 291.536L462.329 353.607L537.668 353.607L537.668 291.536L579.902 291.536L531.428 235.905L558.676 235.905L499.998 168.464ZM522.984 198.46L499.998 225.011L477.012 198.46L522.984 198.46Z M499.998 381.536L468.742 363.208L531.258 363.208L499.998 381.536Z"
     />
   </svg>
 );
@@ -212,6 +212,8 @@ export default function Header() {
     </header>
   );
 }
+    
+
     
 
     
