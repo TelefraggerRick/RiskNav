@@ -1,17 +1,20 @@
 
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { RiskAssessment } from '@/lib/types';
 import { getAllAssessmentsFromDB } from '@/lib/firestoreService';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Loader2, AlertTriangle, Workflow, PlusCircle, ArrowLeft, Users, Building, UserCheck as UserCheckIcon, UserCircle, Sigma } from 'lucide-react';
+import { Loader2, AlertTriangle, Workflow, PlusCircle, ArrowLeft, Users, Building, UserCheck as UserCheckIcon, UserCircle, Sigma, Filter } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import WorkflowTimelineRow from '@/components/risk-assessments/WorkflowTimelineRow'; // New component
+import WorkflowTimelineRow from '@/components/risk-assessments/WorkflowTimelineRow';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { parseISO, isValid, endOfDay } from 'date-fns';
 
 const T_WORKFLOW_PAGE = {
   pageTitle: { en: "Workflow Status Overview", fr: "Aperçu de l'état du flux de travail" },
@@ -29,12 +32,14 @@ const T_WORKFLOW_PAGE = {
   dgHeader: { en: "Dir. General", fr: "Dir. Générale" },
   overallStatusHeader: { en: "Overall Status", fr: "Statut Général" },
   actionsHeader: { en: "Actions", fr: "Actions" },
+  hideCompletedPatrolsLabel: { en: "Hide Completed Patrols", fr: "Masquer les patrouilles terminées" },
 };
 
 export default function WorkflowStatusPage() {
-  const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
+  const [allAssessments, setAllAssessments] = useState<RiskAssessment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hideCompletedPatrols, setHideCompletedPatrols] = useState(true);
   const { getTranslation } = useLanguage();
   const router = useRouter();
 
@@ -44,7 +49,7 @@ export default function WorkflowStatusPage() {
     try {
       const data = await getAllAssessmentsFromDB();
       data.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
-      setAssessments(data);
+      setAllAssessments(data);
     } catch (err) {
       console.error("Error fetching assessments for workflow status page:", err);
       setError(getTranslation(T_WORKFLOW_PAGE.errorLoadingDescription));
@@ -59,6 +64,20 @@ export default function WorkflowStatusPage() {
   useEffect(() => {
     loadAssessments();
   }, [loadAssessments]);
+
+  const filteredAssessments = useMemo(() => {
+    const today = endOfDay(new Date()); // Use end of today for comparison
+    return allAssessments.filter(assessment => {
+      if (!hideCompletedPatrols) {
+        return true; // Show all if checkbox is unchecked
+      }
+      // If checkbox is checked (hide completed):
+      // Show if no patrol end date, or if end date is invalid, or if end date is not in the past
+      return !assessment.patrolEndDate || 
+             !isValid(parseISO(assessment.patrolEndDate)) || 
+             (isValid(parseISO(assessment.patrolEndDate)) && endOfDay(parseISO(assessment.patrolEndDate)) >= today);
+    });
+  }, [allAssessments, hideCompletedPatrols]);
 
   if (isLoading) {
     return (
@@ -87,7 +106,7 @@ export default function WorkflowStatusPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-2">
             <Workflow className="h-7 w-7" />
@@ -101,26 +120,41 @@ export default function WorkflowStatusPage() {
         </Button>
       </div>
 
-      {assessments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[calc(100vh-300px)] gap-6 text-center">
+      <div className="flex items-center space-x-2 my-4 p-4 border bg-card rounded-md shadow-sm">
+        <Checkbox
+          id="hide-completed-patrols-workflow"
+          checked={hideCompletedPatrols}
+          onCheckedChange={(checked) => setHideCompletedPatrols(checked as boolean)}
+        />
+        <Label htmlFor="hide-completed-patrols-workflow" className="text-sm font-medium flex items-center gap-1">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            {getTranslation(T_WORKFLOW_PAGE.hideCompletedPatrolsLabel)}
+        </Label>
+      </div>
+
+      {filteredAssessments.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-400px)] gap-6 text-center">
             <Workflow className="h-20 w-20 text-muted-foreground/50" />
              <div className="space-y-2">
                 <h2 className="text-2xl font-semibold">{getTranslation(T_WORKFLOW_PAGE.noAssessmentsTitle)}</h2>
                 <p className="text-muted-foreground max-w-md">
-                    {getTranslation(T_WORKFLOW_PAGE.noAssessmentsDescription)}
+                    {allAssessments.length > 0 
+                      ? "No assessments match the current filter." 
+                      : getTranslation(T_WORKFLOW_PAGE.noAssessmentsDescription)}
                 </p>
             </div>
-            <Button asChild size="lg">
-            <Link href="/assessments/new">
-                <PlusCircle className="mr-2 h-5 w-5" />
-                {getTranslation(T_WORKFLOW_PAGE.createNewAssessment)}
-            </Link>
-            </Button>
+            {allAssessments.length === 0 && (
+                <Button asChild size="lg">
+                    <Link href="/assessments/new">
+                        <PlusCircle className="mr-2 h-5 w-5" />
+                        {getTranslation(T_WORKFLOW_PAGE.createNewAssessment)}
+                    </Link>
+                </Button>
+            )}
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[1000px] xl:min-w-full"> {/* Ensure table is scrollable on small screens */}
-            {/* Header Row */}
+          <div className="min-w-[1000px] xl:min-w-full">
             <div className="grid grid-cols-[2fr_repeat(3,_minmax(100px,_1fr))_1.5fr_1fr] gap-2 p-3 bg-muted rounded-t-md sticky top-0 z-10">
               <div className="font-semibold text-sm text-muted-foreground">{getTranslation(T_WORKFLOW_PAGE.assessmentHeader)}</div>
               <div className="font-semibold text-sm text-muted-foreground text-center flex items-center justify-center gap-1"><Building size={16}/>{getTranslation(T_WORKFLOW_PAGE.csoHeader)}</div>
@@ -129,9 +163,8 @@ export default function WorkflowStatusPage() {
               <div className="font-semibold text-sm text-muted-foreground text-center flex items-center justify-center gap-1"><Sigma size={16}/>{getTranslation(T_WORKFLOW_PAGE.overallStatusHeader)}</div>
               <div className="font-semibold text-sm text-muted-foreground text-right">{getTranslation(T_WORKFLOW_PAGE.actionsHeader)}</div>
             </div>
-            {/* Data Rows */}
             <div className="space-y-2 mt-1">
-              {assessments.map((assessment) => (
+              {filteredAssessments.map((assessment) => (
                 <WorkflowTimelineRow key={assessment.id} assessment={assessment} />
               ))}
             </div>
@@ -141,3 +174,4 @@ export default function WorkflowStatusPage() {
     </div>
   );
 }
+
