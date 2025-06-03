@@ -10,7 +10,7 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 1000000 // This is a very long delay
 
 type ToasterToast = ToastProps & {
   id: string
@@ -61,7 +61,9 @@ const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
 
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
-    return
+    // If a timeout already exists, clear it before setting a new one.
+    // This can happen if dismiss is called multiple times for the same toast.
+    clearTimeout(toastTimeouts.get(toastId)!)
   }
 
   const timeout = setTimeout(() => {
@@ -94,11 +96,10 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
+        // If no toastId is provided, dismiss all toasts
         state.toasts.forEach((toast) => {
           addToRemoveQueue(toast.id)
         })
@@ -110,7 +111,7 @@ export const reducer = (state: State, action: Action): State => {
           t.id === toastId || toastId === undefined
             ? {
                 ...t,
-                open: false,
+                open: false, // Mark as not open
               }
             : t
         ),
@@ -118,6 +119,7 @@ export const reducer = (state: State, action: Action): State => {
     }
     case "REMOVE_TOAST":
       if (action.toastId === undefined) {
+        // Remove all toasts if no specific ID is given
         return {
           ...state,
           toasts: [],
@@ -159,28 +161,23 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
-      onOpenChange: (open) => {
-        const currentToast = memoryState.toasts.find(t => t.id === id);
-        if (!open) {
-          // If the primitive is signaling it's closed:
-          // Only call dismiss if our internal state for this toast is still 'open'.
-          // This prevents re-calling dismiss if dismiss() itself caused the onOpenChange.
-          if (currentToast && currentToast.open) {
-            dismiss();
-          } else if (currentToast && !currentToast.open) {
-            // Our state already knows it's closed, but the primitive might be
-            // calling onOpenChange again (e.g. on unmount or if prop changes rapidly).
-            // Ensure it's in the remove queue.
-            addToRemoveQueue(id);
-          } else if (!currentToast) {
-            // The toast was already removed from state (e.g., by TOAST_LIMIT),
-            // but the primitive might still call onOpenChange on unmount.
-            // We can ensure its timeout is cleared if it exists.
-            if (toastTimeouts.has(id)) {
-              clearTimeout(toastTimeouts.get(id));
-              toastTimeouts.delete(id);
-            }
+      onOpenChange: (isOpenByPrimitive) => {
+        // This callback is invoked by the Radix Toast primitive when its open state changes.
+        // `isOpenByPrimitive` is the new open state from the primitive's perspective.
+        if (!isOpenByPrimitive) {
+          // The primitive is indicating it wants to close or has closed.
+          // We check our central state (`memoryState`) to see if we still consider this toast open.
+          const currentToastInGlobalState = memoryState.toasts.find(t => t.id === id);
+          
+          // Only call `dismiss()` if our global state still thinks this toast is open.
+          // This is the crucial part to prevent a loop: if `dismiss()` was already called
+          // (which sets `currentToastInGlobalState.open` to false), we don't call it again.
+          if (currentToastInGlobalState && currentToastInGlobalState.open) {
+            dismiss(); // This will set `open: false` in `memoryState` and queue the toast for eventual removal.
           }
+          // If `currentToastInGlobalState.open` is already `false`, or if the toast is not found
+          // (e.g., removed due to TOAST_LIMIT), then our state already reflects closure or removal,
+          // so no further action is needed from this specific `onOpenChange` event.
         }
       },
     },
