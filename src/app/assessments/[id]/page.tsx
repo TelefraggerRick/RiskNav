@@ -15,7 +15,7 @@ import {
 import { format, parseISO, isValid } from 'date-fns';
 import Link from 'next/link';
 import { Progress } from "@/components/ui/progress";
-import { toast } from 'sonner'; 
+import { toast } from 'sonner';
 import { generateRiskAssessmentSummary } from '@/ai/flows/generate-risk-assessment-summary';
 import { generateRiskScoreAndRecommendations } from '@/ai/flows/generate-risk-score-and-recommendations';
 import { cn } from "@/lib/utils";
@@ -34,6 +34,11 @@ const T_DETAILS_PAGE = {
   editAssessment: { en: "Edit Assessment", fr: "Modifier l'évaluation" },
   printToPdf: { en: "Print to PDF", fr: "Imprimer en PDF" },
   generatingPdf: { en: "Generating PDF...", fr: "Génération PDF..." },
+  pdfGeneratedSuccess: { en: "PDF generated successfully!", fr: "PDF généré avec succès !" },
+  pdfError: { en: "Error generating PDF", fr: "Erreur lors de la génération du PDF" },
+  pdfErrorContent: { en: "Could not find printable content.", fr: "Impossible de trouver le contenu imprimable."},
+  pdfErrorStopped: { en: "PDF generation stopped after 20 pages to prevent performance issues.", fr: "La génération du PDF a été arrêtée après 20 pages pour éviter les problèmes de performances."},
+  pdfErrorFail: { en: "Failed to generate PDF. See console for details.", fr: "Échec de la génération du PDF. Voir la console pour les détails."},
   imo: { en: "IMO", fr: "IMO" },
   maritimeExemptionNumber: { en: "Maritime Exemption #", fr: "N° d'exemption maritime" },
   lastModified: { en: "Last Modified", fr: "Dernière modification" },
@@ -137,12 +142,12 @@ const handleDownloadAttachment = (attachment: Attachment) => {
     if (attachment.url.startsWith('https://firebasestorage.googleapis.com') || attachment.url.startsWith('http')) {
         const link = document.createElement('a');
         link.href = attachment.url;
-        link.target = '_blank'; 
-        link.download = attachment.name; 
+        link.target = '_blank';
+        link.download = attachment.name;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    } else if (attachment.url.startsWith('data:')) { 
+    } else if (attachment.url.startsWith('data:')) {
         const link = document.createElement('a');
         link.href = attachment.url;
         link.download = attachment.name;
@@ -150,10 +155,10 @@ const handleDownloadAttachment = (attachment: Attachment) => {
         link.click();
         document.body.removeChild(link);
     } else {
-      alert(`Download link for ${attachment.name} is not a standard web URL or data URI.`);
+      toast.error(`Download link for ${attachment.name} is not a standard web URL or data URI.`);
     }
   } else {
-    alert(`Download link for ${attachment.name} is not available.`);
+    toast.error(`Download link for ${attachment.name} is not available.`);
   }
 };
 
@@ -199,7 +204,7 @@ export default function AssessmentDetailPage() {
 
     const input = document.getElementById('assessment-print-area');
     if (!input) {
-      toast.error("Error: Could not find printable content.");
+      toast.error(getTranslation(T_DETAILS_PAGE.pdfError), { description: getTranslation(T_DETAILS_PAGE.pdfErrorContent) });
       setIsPrinting(false);
       return;
     }
@@ -208,73 +213,73 @@ export default function AssessmentDetailPage() {
       await new Promise(resolve => setTimeout(resolve, 200));
 
       const canvas = await html2canvas(input, {
-        scale: 2, 
-        useCORS: true, 
-        logging: false, 
-        width: input.scrollWidth, 
-        height: input.scrollHeight, 
-        scrollX: 0, 
-        scrollY: 0, 
-        windowWidth: input.scrollWidth, 
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: input.scrollWidth,
+        height: input.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: input.scrollWidth,
         windowHeight: input.scrollHeight,
       });
 
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'in', 'letter'); // Portrait, inches, Letter size
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth(); // inches
-      const pdfHeight = pdf.internal.pageSize.getHeight(); // inches
-      
-      const imgProps = pdf.getImageProperties(imgData);
-      const canvasOriginalWidth = imgProps.width; // pixels
-      const canvasOriginalHeight = imgProps.height; // pixels
+      const pdf = new jsPDF('p', 'in', 'letter');
 
-      const scaledCanvasHeightForPdfWidth = (canvasOriginalHeight * pdfWidth) / canvasOriginalWidth; // inches
-      
-      let currentYPositionInCanvas = 0; 
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const canvasOriginalWidth = imgProps.width;
+      const canvasOriginalHeight = imgProps.height;
+
+      const scaledCanvasHeightForPdfWidth = (canvasOriginalHeight * pdfWidth) / canvasOriginalWidth;
+
+      let currentYPositionInCanvas = 0;
       let pages = 0;
 
       while (currentYPositionInCanvas < canvasOriginalHeight) {
         if (pages > 0) {
           pdf.addPage();
         }
-        
-        const segmentHeightInCanvas = pdfHeight * (canvasOriginalWidth / pdfWidth); // pixels
+
+        const segmentHeightInCanvas = pdfHeight * (canvasOriginalWidth / pdfWidth);
         const actualSegmentHeight = Math.min(segmentHeightInCanvas, canvasOriginalHeight - currentYPositionInCanvas);
 
         if (actualSegmentHeight <= 0) break;
 
         pdf.addImage(
-          imgData,                
-          'PNG',                  
-          0,                      
-          0,                      
-          pdfWidth,               
-          (actualSegmentHeight * pdfWidth) / canvasOriginalWidth, 
-          undefined,              
-          'NONE',                 
-          0,                      
-          0,                      
-          currentYPositionInCanvas, 
-          canvasOriginalWidth,    
-          actualSegmentHeight     
+          imgData,
+          'PNG',
+          0,
+          0,
+          pdfWidth,
+          (actualSegmentHeight * pdfWidth) / canvasOriginalWidth,
+          undefined,
+          'NONE',
+          0,
+          0,
+          currentYPositionInCanvas,
+          canvasOriginalWidth,
+          actualSegmentHeight
         );
-        
+
         currentYPositionInCanvas += actualSegmentHeight;
         pages++;
 
-        if (pages > 20) { 
-          toast.warning("PDF generation stopped after 20 pages to prevent performance issues.");
+        if (pages > 20) {
+          toast.warning(getTranslation(T_DETAILS_PAGE.pdfErrorStopped));
           break;
         }
       }
-      
+
       pdf.save(`RiskAssessment-${assessment.referenceNumber || assessment.id}.pdf`);
-      toast.success("PDF generated successfully!");
+      toast.success(getTranslation(T_DETAILS_PAGE.pdfGeneratedSuccess));
 
     } catch (error) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate PDF. See console for details.");
+      toast.error(getTranslation(T_DETAILS_PAGE.pdfError), { description: getTranslation(T_DETAILS_PAGE.pdfErrorFail) });
     } finally {
       setIsPrinting(false);
     }
@@ -397,7 +402,7 @@ export default function AssessmentDetailPage() {
      if (!currentLevelToAct && assessment.approvalSteps.every(s => s.decision === 'Approved')) {
       overallStatus = 'Approved';
     }
-    
+
     let userIsApproverForCurrentStep = false;
     if (currentUser.role && currentLevelToAct) {
         if (currentLevelToAct === 'Crewing Standards and Oversight' && currentUser.role === 'CSO Officer') {
@@ -406,11 +411,11 @@ export default function AssessmentDetailPage() {
             userIsApproverForCurrentStep = true;
         } else if (currentLevelToAct === 'Director General' && currentUser.role === 'Director General') {
             userIsApproverForCurrentStep = true;
-        } else if (currentUser.role === 'Admin') { 
+        } else if (currentUser.role === 'Admin') {
             userIsApproverForCurrentStep = true;
         }
     }
-    
+
     const canAct = !!currentLevelToAct && !isHalted && userIsApproverForCurrentStep;
 
     return { currentLevelToAct, canAct, isHalted, userIsApproverForCurrentStep, overallStatus };
@@ -458,7 +463,7 @@ export default function AssessmentDetailPage() {
 
     try {
         await updateAssessmentInDB(assessment.id, updates);
-        setAssessment(prev => prev ? {...prev, ...updates } : null); 
+        setAssessment(prev => prev ? {...prev, ...updates } : null);
         toast.success(getTranslation(T_DETAILS_PAGE.assessmentActionToastTitle).replace('{decision}', currentDecision), {
             description: getTranslation(T_DETAILS_PAGE.assessmentActionToastDesc).replace('{decision}', currentDecision.toLowerCase()),
         });
@@ -495,7 +500,7 @@ export default function AssessmentDetailPage() {
       </Alert>
     );
   }
-  
+
   const statusConfig: Record<RiskAssessmentStatus, { icon: React.ElementType, badgeClass: string, progressClass?: string }> = {
     'Draft': { icon: EditIcon, badgeClass: 'bg-gray-100 text-gray-800 border border-gray-300', progressClass: '[&>div]:bg-gray-500' },
     'Pending Crewing Standards and Oversight': { icon: Building, badgeClass: 'bg-yellow-100 text-yellow-800 border border-yellow-400', progressClass: '[&>div]:bg-yellow-500' },
@@ -546,7 +551,7 @@ export default function AssessmentDetailPage() {
         return format(parsedDate, formatTemplate);
       }
     } catch (e) { /* fall through */ }
-    return dateStr; 
+    return dateStr;
   };
 
   return (
@@ -878,3 +883,4 @@ export default function AssessmentDetailPage() {
   );
 }
 
+    
