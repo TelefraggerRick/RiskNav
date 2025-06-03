@@ -24,6 +24,8 @@ import ApprovalDialog from '@/components/risk-assessments/ApprovalDialog';
 import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General'];
 
@@ -31,6 +33,7 @@ const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
   editAssessment: { en: "Edit Assessment", fr: "Modifier l'évaluation" },
   printToPdf: { en: "Print to PDF", fr: "Imprimer en PDF" },
+  generatingPdf: { en: "Generating PDF...", fr: "Génération PDF..." },
   imo: { en: "IMO", fr: "IMO" },
   maritimeExemptionNumber: { en: "Maritime Exemption #", fr: "N° d'exemption maritime" },
   lastModified: { en: "Last Modified", fr: "Dernière modification" },
@@ -187,6 +190,100 @@ export default function AssessmentDetailPage() {
   const [isApprovalDialogOpen, setIsApprovalDialogOpen] = useState(false);
   const [currentDecision, setCurrentDecision] = useState<ApprovalDecision | undefined>(undefined);
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const generatePdf = async () => {
+    if (!assessment) return;
+    setIsPrinting(true);
+    toast.info("Generating PDF, please wait...", { duration: 5000 });
+
+    const input = document.getElementById('assessment-print-area');
+    if (!input) {
+      toast.error("Error: Could not find printable content.");
+      setIsPrinting(false);
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 2, // Increase scale for better resolution
+        useCORS: true, // For external images if any
+        logging: true,
+        onclone: (document) => {
+          // This function is called after the document is cloned but before it's rendered.
+          // Useful for making temporary DOM changes for printing that shouldn't affect the live page.
+          // For example, ensuring all content is visible, removing scrollbars from specific elements, etc.
+          // document.body.style.setProperty('overflow', 'visible', 'important'); // Example
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4'); // Portrait, millimeters, A4
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = imgWidth / imgHeight;
+
+      let imgHeightInPdf = pdfWidth / ratio;
+      let yPosition = 0;
+      let heightLeft = imgHeightInPdf;
+
+      if (imgHeightInPdf <= pdfHeight) { // Fits on one page
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, imgHeightInPdf);
+      } else { // Multi-page
+        let page = 1;
+        while (heightLeft > 0) {
+          if (page > 1) {
+            pdf.addPage();
+          }
+          // Calculate the portion of the image to draw on this page
+          // The source arguments for addImage (sx, sy, sw, sh) would be complex here
+          // A simpler approach for html2canvas is to slice the canvas image itself,
+          // or re-render sections, but that's much more complex.
+          // For now, jsPDF's addImage will clip if the image height exceeds page height.
+          // Let's try a more direct approach for splitting:
+          const pageCanvas = document.createElement('canvas');
+          const pageCtx = pageCanvas.getContext('2d');
+          
+          // Calculate the height of the slice for the current PDF page in canvas pixels
+          const sliceHeightCanvas = (pdfHeight / pdfWidth) * imgWidth * (imgHeightInPdf / imgHeight); 
+          // Correction: sliceHeightCanvas should be based on remaining canvas height or pdf page capacity
+          const sourceY = (page - 1) * sliceHeightCanvas;
+          const sourceHeight = Math.min(sliceHeightCanvas, imgHeight - sourceY);
+
+          if (sourceHeight <=0) break;
+
+
+          pageCanvas.width = imgWidth;
+          pageCanvas.height = sourceHeight;
+          
+          pageCtx?.drawImage(canvas, 0, sourceY, imgWidth, sourceHeight, 0, 0, imgWidth, sourceHeight);
+          const pageImgData = pageCanvas.toDataURL('image/png');
+
+          pdf.addImage(pageImgData, 'PNG', 0, 0, pdfWidth, (sourceHeight / imgWidth) * pdfWidth);
+          
+          heightLeft -= (sourceHeight / imgWidth) * pdfWidth;
+          page++;
+           if (page > 20) { // Safety break for very long content
+            toast.warning("PDF generation stopped after 20 pages to prevent performance issues.");
+            break;
+          }
+        }
+      }
+      
+      pdf.save(`RiskAssessment-${assessment.referenceNumber || assessment.id}.pdf`);
+      toast.success("PDF generated successfully!");
+
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. See console for details.");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
 
   const fetchAssessment = useCallback(async () => {
     const assessmentId = params.id as string;
@@ -457,7 +554,7 @@ export default function AssessmentDetailPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div id="assessment-print-area" className="space-y-6 pb-12">
       <div className="flex items-center justify-between print-hide">
         <Button variant="outline" onClick={() => router.push('/')} size="sm">
             <ArrowLeft className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.backToDashboard)}
@@ -470,8 +567,12 @@ export default function AssessmentDetailPage() {
                 </Link>
             </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer className="mr-2 h-4 w-4" /> {getTranslation(T_DETAILS_PAGE.printToPdf)}
+            <Button variant="outline" size="sm" onClick={generatePdf} disabled={isPrinting}>
+                {isPrinting ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.generatingPdf)}</>
+                ) : (
+                    <><Printer className="mr-2 h-4 w-4" />{getTranslation(T_DETAILS_PAGE.printToPdf)}</>
+                )}
             </Button>
         </div>
       </div>
@@ -596,10 +697,10 @@ export default function AssessmentDetailPage() {
           </section>
           <Separator className="separator-print-styles"/>
 
-          <section className="print-hide">
+          <section >
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-3">
               <SectionTitle icon={Bot} title={getTranslation(T_DETAILS_PAGE.aiInsights)} className="mb-0"/>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 print-hide">
                 <Button onClick={runAiSummary} disabled={isAiLoading.summary || !!assessment.aiGeneratedSummary} variant="outline" size="sm">
                   {isAiLoading.summary ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{getTranslation(T_DETAILS_PAGE.generating)}</> : (assessment.aiGeneratedSummary ? getTranslation(T_DETAILS_PAGE.summaryGenerated) : getTranslation(T_DETAILS_PAGE.generateSummary))}
                 </Button>
@@ -608,10 +709,10 @@ export default function AssessmentDetailPage() {
                 </Button>
               </div>
             </div>
-            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore)) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse`} />}
+            {(isAiLoading.summary && !assessment.aiGeneratedSummary) || (isAiLoading.riskScore && (!assessment.aiRiskScore || !assessment.aiLikelihoodScore)) && <Progress value={50} className={`w-full my-2 h-1.5 ${currentStatusConfig.progressClass || ''} animate-pulse print-hide`} />}
 
             {assessment.aiGeneratedSummary && (
-              <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
+              <Alert className="mb-4 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700 card-print-styles">
                 <AlertTitle className="font-semibold text-blue-700 dark:text-blue-300">{getTranslation(T_DETAILS_PAGE.aiGeneratedSummary)}</AlertTitle>
                 <AlertDescription className="text-blue-600 dark:text-blue-400 whitespace-pre-wrap">{assessment.aiGeneratedSummary}</AlertDescription>
               </Alert>
@@ -619,8 +720,8 @@ export default function AssessmentDetailPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               {assessment.aiRiskScore !== undefined && (
-                <Card className="my-4 p-4 bg-muted/30 md:col-span-1">
-                  <CardHeader className="p-0 pb-2">
+                <Card className="my-4 p-4 bg-muted/30 md:col-span-1 card-print-styles">
+                  <CardHeader className="p-0 pb-2 card-header-print-styles">
                       <CardTitle className="text-base font-semibold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /> {getTranslation(T_DETAILS_PAGE.aiRiskScore)}: {assessment.aiRiskScore}/100</CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -642,22 +743,22 @@ export default function AssessmentDetailPage() {
               )}
 
               {(assessment.aiLikelihoodScore !== undefined && assessment.aiConsequenceScore !== undefined) && (
-                 <div className="my-4 md:col-span-1">
+                 <div className="my-4 md:col-span-1 risk-matrix-print-container">
                     <RiskMatrix likelihoodScore={assessment.aiLikelihoodScore} consequenceScore={assessment.aiConsequenceScore} />
                  </div>
               )}
             </div>
 
             {!assessment.aiRiskScore && !assessment.aiLikelihoodScore && !assessment.aiGeneratedSummary && !isAiLoading.summary && !isAiLoading.riskScore &&
-              <Alert variant="default" className="border-dashed">
+              <Alert variant="default" className="border-dashed card-print-styles print-hide">
                 <BarChartBig className="h-4 w-4" />
                 <AlertDescription>{getTranslation(T_DETAILS_PAGE.runAiTools)}</AlertDescription>
               </Alert>
             }
           </section>
-          <Separator className="separator-print-styles print-hide"/>
+          <Separator className="separator-print-styles"/>
 
-          <section className="print-hide">
+          <section>
             <SectionTitle icon={Users} title={getTranslation(T_DETAILS_PAGE.approvalWorkflow)} />
             <div className="space-y-4">
               {assessment.approvalSteps.map((step, index) => {
@@ -690,8 +791,8 @@ export default function AssessmentDetailPage() {
                               {step.decision}
                             </Badge>
                           ) : ( step.level === currentLevelToAct && !isHalted ?
-                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm badge-print-styles">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge>
-                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm badge-print-styles">{getTranslation(T_DETAILS_PAGE.queued)}</Badge>
+                            <Badge variant="outline" className="border-yellow-400 text-yellow-600 text-xs px-2 py-0.5 rounded-sm badge-print-styles print-hide">{getTranslation(T_DETAILS_PAGE.pendingAction)}</Badge>
+                            : <Badge variant="outline" className="text-xs px-2 py-0.5 rounded-sm badge-print-styles print-hide">{getTranslation(T_DETAILS_PAGE.queued)}</Badge>
                           )}
                         </CardTitle>
                       </CardHeader>
@@ -714,7 +815,7 @@ export default function AssessmentDetailPage() {
             </div>
 
             {currentLevelToAct && !isHalted && (
-                <div className="mt-6 pt-4 border-t">
+                <div className="mt-6 pt-4 border-t print-hide">
                     <h4 className="text-md font-semibold mb-3">{getTranslation(T_DETAILS_PAGE.actionsFor).replace('{level}', currentLevelToAct)}</h4>
                     {currentUser && userCanActOnCurrentStep ? (
                       <div className="flex flex-wrap gap-3">
@@ -761,7 +862,7 @@ export default function AssessmentDetailPage() {
                 </Alert>
             )}
              {!currentLevelToAct && !['Approved', 'Rejected', 'Needs Information'].includes(assessment.status) && assessment.approvalSteps.every(s => !s.decision) && (
-                 <Alert variant="default" className="mt-6 border-dashed card-print-styles">
+                 <Alert variant="default" className="mt-6 border-dashed card-print-styles print-hide">
                     <Users className="h-4 w-4" />
                     <AlertDescription>{getTranslation(T_DETAILS_PAGE.awaitingInitialReview)}</AlertDescription>
                 </Alert>
