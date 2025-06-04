@@ -87,6 +87,7 @@ const T_ADMIN_PAGE = {
 
 const roleEnumValues = assignableUserRoles as [string, ...string[]];
 const regionEnumValues = ALL_VESSEL_REGIONS;
+const NO_REGION_SELECTED_VALUE = "---NO_REGION_SELECTED---"; // Special value for "No Region"
 
 const createUserFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -305,17 +306,42 @@ export default function AdminPage() {
                         </Select> <FormMessage />
                       </FormItem>
                     )}/>
-                     <FormField control={createUserForm.control} name="region" render={({ field }) => (
-                      <FormItem> <FormLabel>{getTranslation(T_ADMIN_PAGE.regionLabel)}</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger><SelectValue placeholder={getTranslation(T_ADMIN_PAGE.selectRegionPlaceholder)} /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="">{getTranslation(T_ADMIN_PAGE.noRegionOption)}</SelectItem>
-                            {ALL_VESSEL_REGIONS.map(region => ( <SelectItem key={region} value={region}>{region}</SelectItem> ))}
-                          </SelectContent>
-                        </Select> <FormMessage />
-                      </FormItem>
-                    )}/>
+                     <FormField
+                      control={createUserForm.control}
+                      name="region"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{getTranslation(T_ADMIN_PAGE.regionLabel)}</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              if (value === NO_REGION_SELECTED_VALUE) {
+                                field.onChange(undefined); 
+                              } else {
+                                field.onChange(value as VesselRegion); 
+                              }
+                            }}
+                            value={field.value || ""} 
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={getTranslation(T_ADMIN_PAGE.selectRegionPlaceholder)} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value={NO_REGION_SELECTED_VALUE}>
+                                {getTranslation(T_ADMIN_PAGE.noRegionOption)}
+                              </SelectItem>
+                              {ALL_VESSEL_REGIONS.map(region => (
+                                <SelectItem key={region} value={region}>
+                                  {region}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <DialogFooter className="pt-4">
                        <DialogClose asChild><Button type="button" variant="outline">{getTranslation(T_ADMIN_PAGE.cancelButton)}</Button></DialogClose>
                       <Button type="submit" disabled={isCreatingUser}>
@@ -420,3 +446,4 @@ export default function AdminPage() {
     </div>
   );
 }
+
