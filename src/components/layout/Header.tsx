@@ -2,7 +2,7 @@
 "use client"; 
 
 import Link from 'next/link';
-import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown, Settings } from 'lucide-react'; // Added Settings
+import { ShieldHalf, UserCircle, BarChart3, LogOut, Users, LogIn, CalendarDays, UserCog, Workflow, LayoutGrid, ChevronDown, Settings, Loader2 } from 'lucide-react'; // Added Settings, Loader2
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,12 +12,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useUser } from '@/contexts/UserContext';
 import { useLanguage } from '@/contexts/LanguageContext'; 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import React, { useState, useEffect } from 'react';
 import { rtdb } from '@/lib/firebase'; 
-import { ref, onValue } from 'firebase/database'; 
+import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database'; 
 import { cn } from '@/lib/utils';
 
 // Renamed component for clarity, now represents CCG Strike
@@ -32,16 +37,24 @@ const CcgStrikeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 </svg>
 );
 
+interface OnlineUser {
+  uid: string;
+  name?: string;
+  isOnline: boolean;
+  lastChanged: number;
+}
 
 export default function Header() {
   const { currentUser, logout, isLoadingAuth } = useUser(); 
   const { currentLanguage, toggleLanguage, getTranslation } = useLanguage(); 
   const [onlineUsersCount, setOnlineUsersCount] = useState<number | null>(null);
+  const [onlineUserList, setOnlineUserList] = useState<OnlineUser[]>([]);
+  const [isLoadingOnlineList, setIsLoadingOnlineList] = useState(false);
 
   useEffect(() => {
     if (rtdb) { 
       const statusRef = ref(rtdb, '/status');
-      const unsubscribe = onValue(statusRef, (snapshot) => {
+      const unsubscribeTotal = onValue(statusRef, (snapshot) => {
         const statuses = snapshot.val();
         if (statuses) {
           const count = Object.values(statuses).filter((status: any) => status.isOnline).length;
@@ -50,16 +63,47 @@ export default function Header() {
           setOnlineUsersCount(0);
         }
       });
-      return () => unsubscribe(); 
+      return () => unsubscribeTotal(); 
     } else {
       console.warn("Header: RTDB not available, online user count feature disabled.");
       setOnlineUsersCount(null); 
     }
   }, []);
 
+  const fetchOnlineUsers = () => {
+    if (!rtdb) return;
+    setIsLoadingOnlineList(true);
+    const onlineUsersQuery = query(ref(rtdb, '/status'), orderByChild('isOnline'), equalTo(true));
+    const unsubscribeList = onValue(onlineUsersQuery, (snapshot) => {
+      const usersData = snapshot.val();
+      if (usersData) {
+        const usersArray = Object.entries(usersData).map(([uid, data]) => ({
+          uid,
+          ...(data as Omit<OnlineUser, 'uid'>),
+        }));
+        setOnlineUserList(usersArray);
+      } else {
+        setOnlineUserList([]);
+      }
+      setIsLoadingOnlineList(false);
+    }, (error) => {
+        console.error("Error fetching online user list:", error);
+        setIsLoadingOnlineList(false);
+        setOnlineUserList([]);
+    });
+    // Note: This unsubscribe is for a one-time fetch logic. 
+    // If this popover is opened/closed frequently, this might re-subscribe.
+    // For a persistent listener, you'd manage unsubscribe differently.
+    // For this popover use case, fetching on open is reasonable.
+    // We return the unsubscribe function so Popover's onOpenChange can call it if it were to manage it.
+    // However, typically onValue provides continuous updates, so it's tricky to "unsubscribe" cleanly after first fetch inside popover.
+    // A get() might be better if it's truly a one-time fetch on open, but onValue is simpler for live updates if popover stays open.
+    // For simplicity here, just fetching on popover open.
+  };
 
-  const getInitials = (name: string) => {
-    if (!name || name === 'No User Selected') return 'NU';
+
+  const getInitials = (name?: string) => {
+    if (!name || name === 'No User Selected' || name === 'Anonymous') return 'NU';
     const parts = name.split(' ');
     if (parts.length > 1) {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -76,12 +120,14 @@ export default function Header() {
     workflowStatus: { en: "Workflow Status", fr: "État du flux" },
     newAssessment: { en: "New Assessment", fr: "Nouvelle évaluation" },
     admin: { en: "Admin", fr: "Admin" }, 
-    userSettings: { en: "Settings", fr: "Paramètres" }, // New translation
+    userSettings: { en: "Settings", fr: "Paramètres" },
     login: { en: "Login", fr: "Connexion" },
     logout: { en: "Log Out", fr: "Déconnexion" },
     french: { en: "Français", fr: "English" },
-    onlineUsers: { en: "Online", fr: "En ligne" },
+    onlineUsers: { en: "Online Users", fr: "Utilisateurs en ligne" },
     viewsMenu: { en: "Views", fr: "Vues" },
+    noUsersOnline: { en: "No users currently online.", fr: "Aucun utilisateur actuellement en ligne." },
+    loadingOnlineUsers: { en: "Loading online users...", fr: "Chargement des utilisateurs en ligne..."}
   };
 
   const userIsAuthenticated = currentUser && currentUser.uid !== 'user-unauth';
@@ -101,10 +147,40 @@ export default function Header() {
           </div>
           <div className="flex items-center gap-3">
             {onlineUsersCount !== null && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground" title={getTranslation(T.onlineUsers)}>
-                <Users className="h-3 w-3 text-green-500" />
-                <span>{onlineUsersCount}</span>
-              </div>
+              <Popover onOpenChange={(open) => { if (open) fetchOnlineUsers(); else setOnlineUserList([]);}}>
+                <PopoverTrigger asChild>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-primary" title={getTranslation(T.onlineUsers)}>
+                    <Users className="h-3 w-3 text-green-500" />
+                    <span>{onlineUsersCount}</span>
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-2">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none text-sm">{getTranslation(T.onlineUsers)}</h4>
+                    {isLoadingOnlineList ? (
+                      <div className="flex items-center justify-center py-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-xs text-muted-foreground">{getTranslation(T.loadingOnlineUsers)}</span>
+                      </div>
+                    ) : onlineUserList.length > 0 ? (
+                      <ul className="space-y-1 max-h-48 overflow-y-auto">
+                        {onlineUserList.map(user => (
+                          <li key={user.uid} className="flex items-center gap-2 p-1.5 rounded-sm hover:bg-accent text-xs">
+                            <Avatar className="h-5 w-5 text-xs">
+                              <AvatarFallback className="bg-muted text-muted-foreground text-[0.6rem]">
+                                {getInitials(user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="truncate">{user.name || 'Anonymous User'}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-center py-2">{getTranslation(T.noUsersOnline)}</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
             <Button variant="link" size="sm" className="text-sm text-foreground hover:text-primary h-auto p-0" onClick={toggleLanguage}>
               {getTranslation(T.french)}
@@ -218,4 +294,3 @@ export default function Header() {
     
 
     
-

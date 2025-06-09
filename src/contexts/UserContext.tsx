@@ -56,8 +56,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               
               if (rtdb) {
                 const userStatusDatabaseRef = ref(rtdb, `/status/${user.uid}`);
-                const isOfflineForDatabase = { isOnline: false, lastChanged: rtdbServerTimestamp() };
-                const isOnlineForDatabase = { isOnline: true, lastChanged: rtdbServerTimestamp() };
+                const isOfflineForDatabase = { isOnline: false, lastChanged: rtdbServerTimestamp(), name: appUser.name };
+                const isOnlineForDatabase = { isOnline: true, lastChanged: rtdbServerTimestamp(), name: appUser.name }; // Add name here
                 
                 const connectedRefUnsubscribe = onValue(ref(rtdb, '.info/connected'), (snapshot) => {
                   if (snapshot.val() === false) { return; }
@@ -93,7 +93,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setCurrentUser(unauthenticatedAppUser);
         if (rtdb && firebaseUser?.uid) { // If there was a previous firebaseUser, try to set them offline
             const userStatusDatabaseRef = ref(rtdb, `/status/${firebaseUser.uid}`);
-            set(userStatusDatabaseRef, { isOnline: false, lastChanged: rtdbServerTimestamp() })
+            set(userStatusDatabaseRef, { 
+                isOnline: false, 
+                lastChanged: rtdbServerTimestamp(),
+                name: currentUser.name !== 'No User Selected' ? currentUser.name : 'Anonymous' // Attempt to use last known name or fallback
+            })
                 .catch(err => console.warn("Error setting user offline on logout:", err));
         }
         setIsLoadingAuth(false); // Auth process complete for logged-out user
@@ -102,7 +106,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getTranslation]); // firebaseUser was re-added to deps by previous step, keep if needed for RTDB logic, but main auth flow should be fine without it for setCurrentUser/isLoadingAuth
+  }, [getTranslation]); // firebaseUser removed from deps to avoid re-triggering on its change, name added to offline status
 
 
   const login = useCallback(async (email: string, passwordAttempt: string): Promise<boolean> => {
@@ -121,6 +125,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = useCallback(async () => {
     setIsLoadingAuth(true); 
     const currentFirebaseUserUid = firebaseUser?.uid; // Capture UID before it's nulled
+    const currentUserName = currentUser?.name; // Capture name
 
     if (currentFirebaseUserUid && rtdb) { 
       const userStatusDatabaseRef = ref(rtdb, `/status/${currentFirebaseUserUid}`);
@@ -128,6 +133,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await set(userStatusDatabaseRef, {
           isOnline: false,
           lastChanged: rtdbServerTimestamp(),
+          name: currentUserName !== 'No User Selected' ? currentUserName : 'Anonymous' // Use captured name
         });
       } catch (error) {
         console.error("Error setting user offline in RTDB during logout:", error);
@@ -147,7 +153,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
        setIsLoadingAuth(false);
        router.push('/login');
     }
-  }, [router, firebaseUser, getTranslation, T_USER_CONTEXT.rtdbUnavailableWarn]); 
+  }, [router, firebaseUser, currentUser, getTranslation, T_USER_CONTEXT.rtdbUnavailableWarn]); 
   
   return (
     <UserContext.Provider value={{ 
