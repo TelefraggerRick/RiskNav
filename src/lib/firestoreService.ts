@@ -83,55 +83,98 @@ export const getAssessmentByIdFromDB = async (id: string): Promise<RiskAssessmen
 };
 
 const prepareAssessmentDataForFirestore = (data: Partial<RiskAssessment>): DocumentData => {
-  const firestoreData: DocumentData = { ...data };
+  const firestoreData: DocumentData = JSON.parse(JSON.stringify(data)); // Deep clone to avoid mutating original
 
+  // Convert top-level date strings/Dates to Timestamps
   const dateFieldsToConvert: (keyof RiskAssessment)[] = [
     'submissionDate', 'lastModified', 'patrolStartDate', 'patrolEndDate'
   ];
   dateFieldsToConvert.forEach(field => {
     if (firestoreData[field] && typeof firestoreData[field] === 'string') {
-      firestoreData[field] = Timestamp.fromDate(new Date(firestoreData[field] as string));
+      try {
+        const parsedDate = new Date(firestoreData[field] as string);
+        if (!isNaN(parsedDate.getTime())) {
+          firestoreData[field] = Timestamp.fromDate(parsedDate);
+        } else {
+          // If parsing fails, consider removing or logging, rather than sending invalid date
+          delete firestoreData[field];
+        }
+      } catch (e) {
+        delete firestoreData[field]; // Remove if any error during date conversion
+      }
     } else if (firestoreData[field] instanceof Date) {
       firestoreData[field] = Timestamp.fromDate(firestoreData[field] as Date);
     }
   });
-  
-  if (firestoreData.attachments) {
-    firestoreData.attachments = firestoreData.attachments.map((att: Partial<Attachment>) => {
+
+  // Process attachments
+  if (Array.isArray(firestoreData.attachments)) {
+    firestoreData.attachments = firestoreData.attachments.map((att: any) => {
+      if (typeof att !== 'object' || att === null) return att; // Skip if not an object
       const attachmentData: Partial<Attachment> = { ...att };
       if (att.uploadedAt && typeof att.uploadedAt === 'string') {
-        attachmentData.uploadedAt = Timestamp.fromDate(new Date(att.uploadedAt)) as any;
+        try {
+          const parsedDate = new Date(att.uploadedAt);
+          if(!isNaN(parsedDate.getTime())) {
+            attachmentData.uploadedAt = Timestamp.fromDate(parsedDate) as any;
+          } else {
+            delete attachmentData.uploadedAt;
+          }
+        } catch (e) { delete attachmentData.uploadedAt; }
       } else if (att.uploadedAt instanceof Date) {
         attachmentData.uploadedAt = Timestamp.fromDate(att.uploadedAt) as any;
       }
-      delete attachmentData.file; 
-      if (attachmentData.dataAiHint === undefined || attachmentData.dataAiHint === null || attachmentData.dataAiHint === '') { 
-        delete attachmentData.dataAiHint;
-      }
+      delete attachmentData.file; // Always remove File object
+
+      // Clean undefined/null keys within each attachment, keep empty strings if they are valid
+      Object.keys(attachmentData).forEach(keyStr => {
+        const key = keyStr as keyof Partial<Attachment>;
+        if (attachmentData[key] === undefined) {
+          delete attachmentData[key];
+        }
+      });
       return attachmentData;
     });
   }
 
-  if (firestoreData.approvalSteps) {
-    firestoreData.approvalSteps = firestoreData.approvalSteps.map((step: Partial<ApprovalStep>) => {
+  // Process approvalSteps
+  if (Array.isArray(firestoreData.approvalSteps)) {
+    firestoreData.approvalSteps = firestoreData.approvalSteps.map((step: any) => {
+      if (typeof step !== 'object' || step === null) return step; // Skip if not an object
       const stepData: Partial<ApprovalStep> = { ...step };
       if (step.date && typeof step.date === 'string') {
-        stepData.date = Timestamp.fromDate(new Date(step.date)) as any;
+         try {
+          const parsedDate = new Date(step.date);
+           if(!isNaN(parsedDate.getTime())) {
+            stepData.date = Timestamp.fromDate(parsedDate) as any;
+           } else {
+             delete stepData.date;
+           }
+        } catch (e) { delete stepData.date; }
       } else if (step.date instanceof Date) {
          stepData.date = Timestamp.fromDate(step.date) as any;
       }
+      // Clean undefined/null keys within each step
+      Object.keys(stepData).forEach(keyStr => {
+        const key = keyStr as keyof Partial<ApprovalStep>;
+        if (stepData[key] === undefined) {
+          delete stepData[key];
+        }
+      });
       return stepData;
     });
   }
-  
-  delete firestoreData.file; 
-  
+
+  // Delete file property if it exists at the top level
+  delete firestoreData.file;
+
+  // Final cleanup for any top-level undefined/null properties
   Object.keys(firestoreData).forEach(key => {
     if (firestoreData[key] === undefined) {
       delete firestoreData[key];
     }
   });
-
+  console.log("FirestoreService: Data prepared for Firestore:", JSON.parse(JSON.stringify(firestoreData)));
   return firestoreData;
 };
 
@@ -162,14 +205,21 @@ export const updateAssessmentInDB = async (
   id: string,
   updates: Partial<RiskAssessment>
 ): Promise<void> => {
-  console.log(`FirestoreService: updateAssessmentInDB called for ID: ${id} with updates:`, JSON.parse(JSON.stringify(updates)));
+  console.log(`FirestoreService: updateAssessmentInDB called for ID: ${id} with raw updates:`, JSON.parse(JSON.stringify(updates)));
   try {
     const assessmentDocRef = doc(db, 'riskAssessments', id);
-    const { submissionDate, ...updatesForFirestore } = updates;
+    const { submissionDate, ...updatesForFirestore } = updates; // submissionDate should not be updated manually here
     
     const preparedUpdates = prepareAssessmentDataForFirestore(updatesForFirestore);
     console.log(`FirestoreService: updateAssessmentInDB - prepared updates for Firestore for ID ${id}:`, JSON.parse(JSON.stringify(preparedUpdates)));
     
+    if (Object.keys(preparedUpdates).length === 0) {
+        console.warn(`FirestoreService: updateAssessmentInDB - No valid fields to update for ID ${id} after preparation. Skipping update to prevent empty operation error.`);
+        // Optionally, update just the lastModified timestamp if that's desired behavior for "empty" updates
+        // await updateDoc(assessmentDocRef, { lastModified: serverTimestamp() });
+        return;
+    }
+
     console.log(`FirestoreService: BEFORE actual updateDoc call for ID ${id}`);
     await updateDoc(assessmentDocRef, {
       ...preparedUpdates,
