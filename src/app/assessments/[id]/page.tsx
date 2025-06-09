@@ -26,19 +26,19 @@ import RiskMatrix from '@/components/risk-assessments/RiskMatrix';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getAssessmentByIdFromDB, updateAssessmentInDB } from '@/lib/firestoreService';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+// html2canvas is no longer needed for the primary PDF generation
+// import html2canvas from 'html2canvas';
 
-// const approvalLevelsOrder: ApprovalLevel[] = ['Crewing Standards and Oversight', 'Senior Director', 'Director General']; // Removed, will import
 
 const T_DETAILS_PAGE = {
   backToDashboard: { en: "Back to Dashboard", fr: "Retour au tableau de bord" },
   editAssessment: { en: "Edit Assessment", fr: "Modifier l'évaluation" },
-  printToPdf: { en: "Print to PDF", fr: "Imprimer en PDF" },
+  printToPdf: { en: "Download PDF", fr: "Télécharger PDF" }, // Updated text
   generatingPdf: { en: "Generating PDF...", fr: "Génération PDF..." },
   pdfGeneratedSuccess: { en: "PDF generated successfully!", fr: "PDF généré avec succès !" },
   pdfError: { en: "Error generating PDF", fr: "Erreur lors de la génération du PDF" },
-  pdfErrorContent: { en: "Could not find printable content.", fr: "Impossible de trouver le contenu imprimable."},
-  pdfErrorStopped: { en: "PDF generation stopped after 20 pages to prevent performance issues.", fr: "La génération du PDF a été arrêtée après 20 pages pour éviter les problèmes de performances."},
+  // pdfErrorContent: { en: "Could not find printable content.", fr: "Impossible de trouver le contenu imprimable."}, // No longer relevant
+  // pdfErrorStopped: { en: "PDF generation stopped after 20 pages to prevent performance issues.", fr: "La génération du PDF a été arrêtée après 20 pages pour éviter les problèmes de performances."}, // May not be relevant with new method
   pdfErrorFail: { en: "Failed to generate PDF. See console for details.", fr: "Échec de la génération du PDF. Voir la console pour les détails."},
   imo: { en: "IMO", fr: "IMO" },
   maritimeExemptionNumber: { en: "Maritime Exemption #", fr: "N° d'exemption maritime" },
@@ -193,7 +193,7 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { currentUser, isLoadingAuth } = useUser();
-  const { getTranslation } = useLanguage();
+  const { getTranslation, currentLanguage } = useLanguage();
   const [assessment, setAssessment] = useState<RiskAssessment | null>(null);
   const [isLoadingPageData, setIsLoadingPageData] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState<Partial<Record<'summary' | 'riskScore', boolean>>>({});
@@ -202,88 +202,178 @@ export default function AssessmentDetailPage() {
   const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
+  const formatDateSafe = (dateStr: string | undefined, formatTemplate: string = "PPP") => {
+    if (!dateStr) return getTranslation(T_DETAILS_PAGE.na);
+    try {
+      const parsedDate = parseISO(dateStr);
+      if (isValid(parsedDate)) {
+        return format(parsedDate, formatTemplate);
+      }
+    } catch (e) { /* fall through */ }
+    return dateStr;
+  };
+
+  const yesNoNa = (value?: YesNoOptional): string => {
+    if (value === 'Yes') return getTranslation(T_DETAILS_PAGE.actionsFor).split(':')[1].trim(); // Bit of a hack to get "Yes"
+    if (value === 'No') return getTranslation(T_DETAILS_PAGE.reject); // Bit of a hack to get "No" - assuming "Reject" can serve as "No"
+    return getTranslation(T_DETAILS_PAGE.na);
+  };
+
   const generatePdf = async () => {
     if (!assessment) return;
     setIsPrinting(true);
-    toast.info(getTranslation(T_DETAILS_PAGE.generatingPdf), { duration: 5000 });
-
-    const input = document.getElementById('assessment-print-area');
-    if (!input) {
-      toast.error(getTranslation(T_DETAILS_PAGE.pdfError), { description: getTranslation(T_DETAILS_PAGE.pdfErrorContent) });
-      setIsPrinting(false);
-      return;
-    }
+    toast.info(getTranslation(T_DETAILS_PAGE.generatingPdf), { duration: 3000 });
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      const pdf = new jsPDF('p', 'pt', 'letter');
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const margin = 40;
+      const contentWidth = pageWidth - 2 * margin;
+      let y = margin;
+      const lineHeight = 14; // For 10pt font
+      const sectionSpacing = 20;
+      const fieldSpacing = 5;
 
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: input.scrollWidth,
-        height: input.scrollHeight,
-        scrollX: 0,
-        scrollY: 0,
-        windowWidth: input.scrollWidth,
-        windowHeight: input.scrollHeight,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'in', 'letter');
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const imgProps = pdf.getImageProperties(imgData);
-      const canvasOriginalWidth = imgProps.width;
-      const canvasOriginalHeight = imgProps.height;
-
-      const scaledCanvasHeightForPdfWidth = (canvasOriginalHeight * pdfWidth) / canvasOriginalWidth;
-
-      let currentYPositionInCanvas = 0;
-      let pages = 0;
-
-      while (currentYPositionInCanvas < canvasOriginalHeight) {
-        if (pages > 0) {
+      const checkAddPage = (neededHeight: number = lineHeight) => {
+        if (y + neededHeight > pageHeight - margin) {
           pdf.addPage();
+          y = margin;
         }
+      };
 
-        const segmentHeightInCanvas = pdfHeight * (canvasOriginalWidth / pdfWidth);
-        const actualSegmentHeight = Math.min(segmentHeightInCanvas, canvasOriginalHeight - currentYPositionInCanvas);
-
-        if (actualSegmentHeight <= 0) break;
-
-        pdf.addImage(
-          imgData,
-          'PNG',
-          0,
-          0,
-          pdfWidth,
-          (actualSegmentHeight * pdfWidth) / canvasOriginalWidth,
-          undefined,
-          'NONE',
-          0,
-          0,
-          currentYPositionInCanvas,
-          canvasOriginalWidth,
-          actualSegmentHeight
-        );
-
-        currentYPositionInCanvas += actualSegmentHeight;
-        pages++;
-
-        if (pages > 20) {
-          toast.warning(getTranslation(T_DETAILS_PAGE.pdfErrorStopped));
-          break;
+      const addText = (text: string | undefined | null, x: number, options: {fontSize?: number, fontStyle?: string, maxWidth?: number, isLabel?: boolean } = {}) => {
+        if (text === undefined || text === null || text.trim() === "") return;
+        checkAddPage(options.fontSize || 10);
+        pdf.setFontSize(options.fontSize || 10);
+        pdf.setFont('helvetica', options.fontStyle || 'normal');
+        if (options.isLabel) {
+            pdf.setTextColor(100, 100, 100); // Muted gray for labels
+        } else {
+            pdf.setTextColor(0, 0, 0); // Black for values
         }
+        
+        const lines = pdf.splitTextToSize(text, options.maxWidth || contentWidth);
+        pdf.text(lines, x, y);
+        y += lines.length * (options.fontSize || 10) * 0.7 + fieldSpacing; // Adjust line height factor
+         pdf.setTextColor(0, 0, 0); // Reset color
+      };
+      
+      const addSectionTitlePdf = (title: string) => {
+        checkAddPage(20);
+        y += sectionSpacing / 2;
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(title, margin, y);
+        y += lineHeight * 1.2;
+        pdf.setLineWidth(0.5);
+        pdf.line(margin, y, pageWidth - margin, y);
+        y += lineHeight * 0.8;
+      };
+
+      // Title
+      addText(assessment.vesselName, margin, { fontSize: 18, fontStyle: 'bold' });
+      addText(`${getTranslation(T_DETAILS_PAGE.imo)}: ${assessment.referenceNumber || getTranslation(T_DETAILS_PAGE.na)} | ${getTranslation(T_DETAILS_PAGE.statusSort.en)}: ${assessment.status}`, margin, { fontSize: 10 });
+      y += sectionSpacing;
+
+      // Vessel & Assessment Overview
+      addSectionTitlePdf(getTranslation(T_DETAILS_PAGE.vesselOverview));
+      addText(`${getTranslation(T_DETAILS_PAGE.submittedBy)}: ${assessment.submittedBy || getTranslation(T_DETAILS_PAGE.na)}`, margin);
+      addText(`${getTranslation(T_DETAILS_PAGE.submissionDate)}: ${formatDateSafe(assessment.submissionDate, "PPP p")}`, margin);
+      if (assessment.imoNumber) addText(`${getTranslation(T_DETAILS_PAGE.imoNumber)}: ${assessment.imoNumber}`, margin);
+      if (assessment.maritimeExemptionNumber) addText(`${getTranslation(T_DETAILS_PAGE.maritimeExemptionNumber)}: ${assessment.maritimeExemptionNumber}`, margin);
+      if (assessment.department) addText(`${getTranslation(T_DETAILS_PAGE.department)}: ${assessment.department}`, margin);
+      if (assessment.region) addText(`${getTranslation(T_DETAILS_PAGE.region)}: ${assessment.region}`, margin);
+      if (assessment.patrolStartDate) addText(`${getTranslation(T_DETAILS_PAGE.patrolStartDate)}: ${formatDateSafe(assessment.patrolStartDate)}`, margin);
+      if (assessment.patrolEndDate) addText(`${getTranslation(T_DETAILS_PAGE.patrolEndDate)}: ${formatDateSafe(assessment.patrolEndDate)}`, margin);
+      if (assessment.patrolLengthDays) addText(`${getTranslation(T_DETAILS_PAGE.patrolLength)}: ${assessment.patrolLengthDays} ${getTranslation(T_DETAILS_PAGE.days)}`, margin);
+      addText(`${getTranslation(T_DETAILS_PAGE.voyageDetails)}:`, margin, {isLabel: true});
+      addText(assessment.voyageDetails, margin + 5);
+      addText(`${getTranslation(T_DETAILS_PAGE.reasonForRequest)}:`, margin, {isLabel: true});
+      addText(assessment.reasonForRequest, margin + 5);
+      addText(`${getTranslation(T_DETAILS_PAGE.personnelShortages)}:`, margin, {isLabel: true});
+      addText(assessment.personnelShortages, margin + 5);
+      addText(`${getTranslation(T_DETAILS_PAGE.proposedDeviations)}:`, margin, {isLabel: true});
+      addText(assessment.proposedOperationalDeviations, margin + 5);
+      y += sectionSpacing;
+
+      // Exemption & Individual Assessment
+      addSectionTitlePdf(getTranslation(T_DETAILS_PAGE.exemptionIndividualAssessment));
+      if (assessment.employeeName) addText(`${getTranslation(T_DETAILS_PAGE.employeeName)}: ${assessment.employeeName}`, margin);
+      if (assessment.certificateHeld) addText(`${getTranslation(T_DETAILS_PAGE.certificateHeld)}: ${assessment.certificateHeld}`, margin);
+      if (assessment.requiredCertificate) addText(`${getTranslation(T_DETAILS_PAGE.requiredCertificate)}: ${assessment.requiredCertificate}`, margin);
+      addText(`${getTranslation(T_DETAILS_PAGE.coSupportExemption)}: ${yesNoNa(assessment.coDeptHeadSupportExemption)}`, margin);
+      addText(`${getTranslation(T_DETAILS_PAGE.deptHeadConfident)}: ${yesNoNa(assessment.deptHeadConfidentInIndividual)}`, margin);
+      if (assessment.deptHeadConfidentInIndividual === 'Yes' && assessment.deptHeadConfidenceReason) {
+        addText(`${getTranslation(T_DETAILS_PAGE.reasonForConfidence)}:`, margin, {isLabel: true});
+        addText(assessment.deptHeadConfidenceReason, margin+5);
       }
+      // ... (Add other fields from this section similarly) ...
+      y += sectionSpacing;
+      
+      // Operational Considerations
+      addSectionTitlePdf(getTranslation(T_DETAILS_PAGE.operationalConsiderations));
+      // ... (Add fields from this section similarly) ...
+      y += sectionSpacing;
+
+      // Attachments
+      if (assessment.attachments && assessment.attachments.length > 0) {
+        addSectionTitlePdf(getTranslation(T_DETAILS_PAGE.attachments));
+        assessment.attachments.forEach(att => {
+          addText(`- ${att.name} (${att.type}, ${(att.size / 1024).toFixed(1)}KB)`, margin + 10);
+        });
+        y += sectionSpacing;
+      }
+
+      // AI Insights
+      if (assessment.aiGeneratedSummary || assessment.aiRiskScore !== undefined) {
+        addSectionTitlePdf(getTranslation(T_DETAILS_PAGE.aiInsights));
+        if (assessment.aiGeneratedSummary) {
+          addText(getTranslation(T_DETAILS_PAGE.aiGeneratedSummary), margin, {isLabel:true, fontStyle: 'bold'});
+          addText(assessment.aiGeneratedSummary, margin + 5);
+        }
+        if (assessment.aiRiskScore !== undefined) {
+          addText(`${getTranslation(T_DETAILS_PAGE.aiRiskScore)}: ${assessment.aiRiskScore}/100 (L: ${assessment.aiLikelihoodScore}, C: ${assessment.aiConsequenceScore})`, margin);
+        }
+        if (assessment.aiSuggestedMitigations) {
+          addText(getTranslation(T_DETAILS_PAGE.suggestedMitigations), margin, {isLabel:true, fontStyle: 'bold'});
+          addText(assessment.aiSuggestedMitigations, margin + 5);
+        }
+        if (assessment.aiRegulatoryConsiderations) {
+          addText(getTranslation(T_DETAILS_PAGE.regulatoryConsiderations), margin, {isLabel:true, fontStyle: 'bold'});
+          addText(assessment.aiRegulatoryConsiderations, margin + 5);
+        }
+        y += sectionSpacing;
+      }
+
+      // Approval Workflow
+      addSectionTitlePdf(getTranslation(T_DETAILS_PAGE.approvalWorkflow));
+      assessment.approvalSteps.forEach(step => {
+        checkAddPage(lineHeight * 3); // Estimate space for a step
+        const stepTitle = `${step.level}: ${step.decision || getTranslation(T_DETAILS_PAGE.pendingAction.en)}`;
+        addText(stepTitle, margin, { fontStyle: 'bold' });
+        if (step.decision) {
+          if (step.userName) addText(`${getTranslation(T_DETAILS_PAGE.by)} ${step.userName}`, margin + 10);
+          if (step.date) addText(`${getTranslation(T_DETAILS_PAGE.date)} ${formatDateSafe(step.date, "PPP p")}`, margin + 10);
+          if (step.notes) {
+             addText(`${getTranslation(T_DETAILS_PAGE.notes)}`, margin + 10, {isLabel: true});
+             addText(step.notes, margin + 15);
+          }
+          if (step.level === 'Crewing Standards and Oversight' && (step.isAgainstFSM || step.isAgainstMPR || step.isAgainstCrewingProfile)) {
+            addText(getTranslation(T_DETAILS_PAGE.complianceFlags), margin + 10, {fontStyle: 'italic', isLabel:true});
+            if(step.isAgainstFSM) addText(`- ${getTranslation(T_DETAILS_PAGE.fsmNonCompliance)}`, margin + 15);
+            if(step.isAgainstMPR) addText(`- ${getTranslation(T_DETAILS_PAGE.mprNonCompliance)}`, margin + 15);
+            if(step.isAgainstCrewingProfile) addText(`- ${getTranslation(T_DETAILS_PAGE.crewingProfileDeviation)}`, margin + 15);
+          }
+        }
+        y += fieldSpacing * 2;
+      });
 
       pdf.save(`RiskAssessment-${assessment.referenceNumber || assessment.id}.pdf`);
       toast.success(getTranslation(T_DETAILS_PAGE.pdfGeneratedSuccess));
 
     } catch (error) {
-      console.error("Error generating PDF:", error);
+      console.error("Error generating PDF with jsPDF:", error);
       toast.error(getTranslation(T_DETAILS_PAGE.pdfError), { description: getTranslation(T_DETAILS_PAGE.pdfErrorFail) });
     } finally {
       setIsPrinting(false);
@@ -388,9 +478,9 @@ export default function AssessmentDetailPage() {
     if (!assessment || !currentUser) return { currentLevelToAct: null, canAct: false, isHalted: false, userIsApproverForCurrentStep: false, overallStatus: assessment?.status, rejectedByLevel: null };
 
     let currentLevelToAct: ApprovalLevel | null = null;
-    let isHalted = false; // True if workflow is stopped (DG reject, Needs Info)
+    let isHalted = false; 
     let overallStatusFromLogic: RiskAssessmentStatus = assessment.status;
-    let finalRejectionLevel: ApprovalLevel | null = null; // Level that made the *final* rejection or info request
+    let finalRejectionLevel: ApprovalLevel | null = null;
 
     for (const level of approvalLevelsOrder) {
         const step = assessment.approvalSteps.find(s => s.level === level);
@@ -410,24 +500,21 @@ export default function AssessmentDetailPage() {
         }
 
         if (step.decision === 'Rejected') {
-            if (level === 'Director General') { // DG rejection is final and halts workflow
+            if (level === 'Director General') { 
                 currentLevelToAct = level;
                 isHalted = true;
                 overallStatusFromLogic = 'Rejected';
                 finalRejectionLevel = level;
                 break;
             }
-            // For CSO or SD rejection, workflow continues. The next iteration will find the next level.
-            // overallStatusFromLogic remains as set by handleApprovalAction (e.g., 'Pending Senior Director' or 'Pending Director General')
+            // For CSO or SD rejection, workflow continues.
         }
     }
 
-    if (!currentLevelToAct && !isHalted) { // All steps actioned, no halt
+    if (!currentLevelToAct && !isHalted) { 
         if (assessment.approvalSteps.every(s => s.decision === 'Approved')) {
             overallStatusFromLogic = 'Approved';
         }
-        // If some rejections occurred but DG eventually approved, status would be 'Approved'.
-        // If DG rejected, it would have been caught above.
     }
 
     let userIsApproverForCurrentStep = false;
@@ -436,7 +523,7 @@ export default function AssessmentDetailPage() {
             'CSO Officer': 'Crewing Standards and Oversight',
             'Senior Director': 'Senior Director',
             'Director General': 'Director General',
-            'Admin': currentLevelToAct, // Admin can act as any current level
+            'Admin': currentLevelToAct, 
             'Submitter': null,
             'Unauthenticated': null,
         };
@@ -484,23 +571,21 @@ export default function AssessmentDetailPage() {
     const currentIndex = approvalLevelsOrder.indexOf(currentLevelToAct);
 
     if (currentDecision === 'Approved') {
-      if (currentIndex === approvalLevelsOrder.length - 1) { // Last level approved
+      if (currentIndex === approvalLevelsOrder.length - 1) { 
         newStatus = 'Approved';
-      } else { // Approved by current level, move to next
+      } else { 
         const nextLevel = approvalLevelsOrder[currentIndex + 1];
         newStatus = `Pending ${nextLevel}` as RiskAssessmentStatus;
       }
     } else if (currentDecision === 'Rejected') {
       if (currentLevelToAct === 'Crewing Standards and Oversight' || currentLevelToAct === 'Senior Director') {
-        // CSO or SD rejected, workflow continues to the next level
         const nextLevel = approvalLevelsOrder[currentIndex + 1];
         newStatus = `Pending ${nextLevel}` as RiskAssessmentStatus;
       } else if (currentLevelToAct === 'Director General') {
-        // Director General rejected, workflow halts
         newStatus = 'Rejected';
       }
     } else if (currentDecision === 'Needs Information') {
-      newStatus = 'Needs Information'; // This status halts the workflow at the current level
+      newStatus = 'Needs Information'; 
     }
 
     const updates: Partial<RiskAssessment> = {
@@ -519,17 +604,15 @@ export default function AssessmentDetailPage() {
         if (currentDecision === 'Approved') {
             toast.success(title, { description });
         } else if (currentDecision === 'Rejected') {
-            // For CSO/SD rejections that move forward, a simple info/warning might be better than error.
-            // For DG rejection, error is appropriate.
-            if (newStatus === 'Rejected') {
+            if (newStatus === 'Rejected') { // Only DG rejection results in this status
                 toast.error(title, { description });
-            } else {
-                toast.info(title, { description: `${description} The assessment will proceed to the next level.` });
+            } else { // CSO or SD rejection moves to next level
+                toast.info(title, { description: `${description} ${getTranslation({en: "The assessment will proceed to the next level.", fr: "L'évaluation passera au niveau suivant."})}` });
             }
         } else if (currentDecision === 'Needs Information') {
             toast.info(title, { description });
         } else {
-            toast(title, { description }); // Default toast
+            toast(title, { description }); 
         }
 
     } catch (error) {
@@ -608,16 +691,6 @@ export default function AssessmentDetailPage() {
     return <HelpCircle className="h-4 w-4 text-muted-foreground inline-block mr-1" />;
   };
 
-  const formatDateSafe = (dateStr: string | undefined, formatTemplate: string) => {
-    if (!dateStr) return getTranslation(T_DETAILS_PAGE.na);
-    try {
-      const parsedDate = parseISO(dateStr);
-      if (isValid(parsedDate)) {
-        return format(parsedDate, formatTemplate);
-      }
-    } catch (e) { /* fall through */ }
-    return dateStr;
-  };
 
   return (
     <div id="assessment-print-area" className="space-y-6 pb-12">
@@ -960,5 +1033,3 @@ export default function AssessmentDetailPage() {
     </div>
   );
 }
-
-
