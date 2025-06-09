@@ -25,18 +25,6 @@ import { rtdb } from '@/lib/firebase';
 import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database'; 
 import { cn } from '@/lib/utils';
 
-// Renamed component for clarity, now represents CCG Strike
-const CcgStrikeIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
-    // Path for an angled strike (parallelogram)
-    // Adjust coordinates as needed for desired angle and thickness
-    // P1 (Top-Left): (0, 6), P2 (Top-Right): (30, 9), P3 (Bottom-Right): (40, 14), P4 (Bottom-Left): (10, 11)
-    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="20" viewBox="0 0 9600 4800">
-	<title>Flag of Canada</title>
-	<path fill="#f00" d="m0 0h2400l99 99h4602l99-99h2400v4800h-2400l-99-99h-4602l-99 99H0z"/>
-	<path fill="#fff" d="m2400 0h4800v4800h-4800zm2490 4430-45-863a95 95 0 0 1 111-98l859 151-116-320a65 65 0 0 1 20-73l941-762-212-99a65 65 0 0 1-34-79l186-572-542 115a65 65 0 0 1-73-38l-105-247-423 454a65 65 0 0 1-111-57l204-1052-327 189a65 65 0 0 1-91-27l-332-652-332 652a65 65 0 0 1-91 27l-327-189 204 1052a65 65 0 0 1-111 57l-423-454-105 247a65 65 0 0 1-73 38l-542-115 186 572a65 65 0 0 1-34 79l-212 99 941 762a65 65 0 0 1 20 73l-116 320 859-151a95 95 0 0 1 111 98l-45 863z"/>
-</svg>
-);
-
 interface OnlineUser {
   uid: string;
   name?: string;
@@ -112,7 +100,6 @@ export default function Header() {
   };
 
   const T = {
-    govCanada: { en: "Government of Canada", fr: "Gouvernement du Canada" },
     riskNav: { en: "RiskNav", fr: "NavRisques" },
     dashboard: { en: "Dashboard", fr: "Tableau de bord" },
     statistics: { en: "Statistics", fr: "Statistiques" },
@@ -136,15 +123,8 @@ export default function Header() {
   return (
     <header className={cn("sticky top-0 z-50 w-full border-b bg-card shadow-sm", "print-hide")}>
       <div className="container mx-auto px-4 md:px-6">
-        <div className="flex h-12 items-center justify-between border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-10"> {/* Container for the CCG Strike icon */}
-              <CcgStrikeIcon className="h-full w-full" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">
-              {getTranslation(T.govCanada)} / <span className="font-normal">{currentLanguage === 'en' ? T.govCanada.fr : T.govCanada.en}</span>
-            </span>
-          </div>
+        <div className="flex h-12 items-center justify-end border-b border-border">
+          {/* Removed Government of Canada logo and text div */}
           <div className="flex items-center gap-3">
             {onlineUsersCount !== null && (
               <Popover onOpenChange={(open) => { if (open) fetchOnlineUsers(); else setOnlineUserList([]);}}>
@@ -291,6 +271,4 @@ export default function Header() {
     </header>
   );
 }
-    
-
     
