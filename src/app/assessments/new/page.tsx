@@ -73,7 +73,7 @@ export default function NewAssessmentPage() {
     try {
       const now = new Date();
       const currentYear = now.getFullYear();
-      const referenceNumber = `CCG-RA-${currentYear}-${String(Date.now()).slice(-5)}`;
+      const referenceNumber = `RA-${currentYear}-${String(Date.now()).slice(-5)}`;
       
       const processedAttachments: AttachmentType[] = [];
       if (data.attachments && data.attachments.length > 0) {
