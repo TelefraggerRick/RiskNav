@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { VesselDepartment, VesselRegion } from "@/lib/types";
 import { ALL_VESSEL_REGIONS } from "@/lib/types"; // Import the global constant
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ccgVesselList } from '@/lib/ccgVessels';
+import { ccgVesselList } from '@/lib/vessels'; // Updated import path
 import { cn } from "@/lib/utils";
 
 
