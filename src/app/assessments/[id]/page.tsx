@@ -139,7 +139,8 @@ const T_DETAILS_PAGE = {
   assessmentActionToastTitle: { en: "Assessment {decision}", fr: "Évaluation {decision}" },
   assessmentActionToastDesc: { en: "The assessment has been {decision} with your notes.", fr: "L'évaluation a été {decision} avec vos notes." },
   failedToUpdateAssessmentToast: { en: "Failed to update assessment.", fr: "Échec de la mise à jour de l'évaluation." },
-  na: { en: "N/A", fr: "S.O." }
+  na: { en: "N/A", fr: "S.O." },
+  statusLabel: { en: "Status", fr: "Statut"}, // Added this line
 };
 
 const handleDownloadAttachment = (attachment: Attachment) => {
@@ -273,7 +274,7 @@ export default function AssessmentDetailPage() {
 
       // Title
       addText(assessment.vesselName, margin, { fontSize: 18, fontStyle: 'bold' });
-      addText(`${getTranslation(T_DETAILS_PAGE.imo)}: ${assessment.referenceNumber || getTranslation(T_DETAILS_PAGE.na)} | ${getTranslation(T_DETAILS_PAGE.statusSort.en)}: ${assessment.status}`, margin, { fontSize: 10 });
+      addText(`${getTranslation(T_DETAILS_PAGE.imo)}: ${assessment.referenceNumber || getTranslation(T_DETAILS_PAGE.na)} | ${getTranslation(T_DETAILS_PAGE.statusLabel)}: ${assessment.status}`, margin, { fontSize: 10 });
       y += sectionSpacing;
 
       // Vessel & Assessment Overview
@@ -508,14 +509,30 @@ export default function AssessmentDetailPage() {
                 break;
             }
             // For CSO or SD rejection, workflow continues.
+            // If CSO/SD rejects, we need to find the next level
+            const currentIndex = approvalLevelsOrder.indexOf(level);
+            if (currentIndex < approvalLevelsOrder.length -1) {
+                currentLevelToAct = approvalLevelsOrder[currentIndex + 1];
+                isHalted = false; // Not halted, DG can still act
+                // Don't break, let loop continue to find DG if they haven't acted
+            } else { // This was DG, should have been caught above
+                 currentLevelToAct = level;
+                 isHalted = true;
+                 overallStatusFromLogic = 'Rejected';
+                 finalRejectionLevel = level;
+                 break;
+            }
+        }
+    }
+    
+    // After loop, if currentLevelToAct is still not set, it means all approved or loop finished.
+    if (!currentLevelToAct && !isHalted) { 
+        const allApproved = assessment.approvalSteps.filter(s => approvalLevelsOrder.includes(s.level)).every(s => s.decision === 'Approved');
+        if (allApproved && assessment.approvalSteps.length >= approvalLevelsOrder.length) {
+             overallStatusFromLogic = 'Approved';
         }
     }
 
-    if (!currentLevelToAct && !isHalted) { 
-        if (assessment.approvalSteps.every(s => s.decision === 'Approved')) {
-            overallStatusFromLogic = 'Approved';
-        }
-    }
 
     let userIsApproverForCurrentStep = false;
     if (currentUser.role && currentLevelToAct && !isHalted) {
@@ -579,10 +596,15 @@ export default function AssessmentDetailPage() {
       }
     } else if (currentDecision === 'Rejected') {
       if (currentLevelToAct === 'Crewing Standards and Oversight' || currentLevelToAct === 'Senior Director') {
-        const nextLevel = approvalLevelsOrder[currentIndex + 1];
-        newStatus = `Pending ${nextLevel}` as RiskAssessmentStatus;
+        // If CSO or SD rejects, it now goes to the next level
+        const nextLevelIndex = currentIndex + 1;
+        if (nextLevelIndex < approvalLevelsOrder.length) {
+          newStatus = `Pending ${approvalLevelsOrder[nextLevelIndex]}` as RiskAssessmentStatus;
+        } else { // Should not happen if DG is the last level
+          newStatus = 'Rejected'; // Fallback, but DG rejection is handled below
+        }
       } else if (currentLevelToAct === 'Director General') {
-        newStatus = 'Rejected';
+        newStatus = 'Rejected'; // DG rejection is final
       }
     } else if (currentDecision === 'Needs Information') {
       newStatus = 'Needs Information'; 
@@ -604,7 +626,7 @@ export default function AssessmentDetailPage() {
         if (currentDecision === 'Approved') {
             toast.success(title, { description });
         } else if (currentDecision === 'Rejected') {
-            if (newStatus === 'Rejected') { // Only DG rejection results in this status
+            if (newStatus === 'Rejected') { // Only DG rejection results in this status now
                 toast.error(title, { description });
             } else { // CSO or SD rejection moves to next level
                 toast.info(title, { description: `${description} ${getTranslation({en: "The assessment will proceed to the next level.", fr: "L'évaluation passera au niveau suivant."})}` });
@@ -998,7 +1020,7 @@ export default function AssessmentDetailPage() {
                   <AlertDescription className="text-green-600">{getTranslation(T_DETAILS_PAGE.assessmentFullyApprovedDesc)}</AlertDescription>
                 </Alert>
             )}
-            {(assessment.status === 'Rejected' && isHalted && rejectedByLevel) && (
+            {(assessment.status === 'Rejected' && isHalted && rejectedByLevel === 'Director General') && (
                  <Alert variant="destructive" className="mt-6 card-print-styles">
                   <XCircle className="h-5 w-5" />
                   <AlertTitle className="font-semibold">{getTranslation(T_DETAILS_PAGE.assessmentRejected).replace('{level}', rejectedByLevel)}</AlertTitle>
